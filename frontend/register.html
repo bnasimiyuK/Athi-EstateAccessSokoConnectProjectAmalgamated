@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Become a provider — Athi Soko Connect</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="residents.html" data-nav="resident.html">Sign Up</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head">
+    <h1>List your service to the whole estate</h1>
+    <p>One profile, always visible. Only <strong>registered residents</strong> can become vendors. An estate admin reviews new listings before they go live.</p>
+  </div>
+
+  <!-- STEP 1: Verify resident by phone -->
+  <form class="form-card" id="resident-check-form" style="max-width:640px;">
+    <h2>Step 1 — Verify you're a resident</h2>
+    <p style="margin-top:6px;">Enter the phone number you used when signing up.</p>
+    <div class="form-grid" style="margin-top:16px;">
+      <div class="field field--full">
+        <label for="r-phone">Phone number</label>
+        <input type="tel" id="r-phone" placeholder="07XX XXX XXX" required />
+      </div>
+    </div>
+    <div style="margin-top:16px; display:flex; gap:12px; align-items:center;">
+      <button type="submit" class="btn btn--primary">Verify residency</button>
+      <a href="resident.html" style="font-size:0.85rem;">Not a resident yet? Sign up →</a>
+    </div>
+    <div id="check-message" style="margin-top:14px; display:none;"></div>
+  </form>
+
+  <!-- STEP 2: Vendor application (hidden until verified) -->
+  <form class="form-card" id="register-form" style="display:none; margin-top:32px; max-width:800px;">
+    <h2>Step 2 — Your vendor listing</h2>
+
+    <!-- Resident info (read-only) -->
+    <div class="notice" id="resident-info" style="margin-top:14px;"></div>
+
+    <div class="form-grid" style="margin-top:16px;">
+      <div class="field field--full">
+        <label for="r-name">Business / display name</label>
+        <input type="text" id="r-name" required placeholder="e.g. Grace's Cleaning Services" />
+      </div>
+
+      <div class="field">
+        <label for="r-category">Category</label>
+        <select id="r-category" required></select>
+      </div>
+      <div class="field">
+        <label for="r-hours">Working hours</label>
+        <input type="text" id="r-hours" placeholder="e.g. Mon–Sat, 8am–5pm" required />
+      </div>
+
+      <div class="field">
+        <label for="r-price">Starting price (KSh)</label>
+        <input type="number" id="r-price" min="0" required />
+      </div>
+      <div class="field">
+        <label for="r-price-unit">Price unit</label>
+        <select id="r-price-unit">
+          <option>per visit</option>
+          <option>per hour</option>
+          <option>per day</option>
+          <option>per session</option>
+          <option>per trip</option>
+        </select>
+      </div>
+
+      <div class="field field--full">
+        <label for="r-bio">Short description</label>
+        <textarea id="r-bio" rows="3" required placeholder="What you do and your experience in the estate"></textarea>
+      </div>
+
+      <div class="field field--full">
+        <label for="r-services">Services offered (comma-separated)</label>
+        <input type="text" id="r-services" placeholder="e.g. Leak repair, Drain unblocking" required />
+      </div>
+
+      <fieldset class="field--full">
+        <legend>Before you submit</legend>
+        <label class="check-row"><input type="checkbox" id="r-accurate" required /> The details above are accurate to the best of my knowledge.</label>
+        <label class="check-row"><input type="checkbox" id="r-terms" required /> I understand payment is arranged directly with residents — the platform does not process payments.</label>
+      </fieldset>
+    </div>
+
+    <div style="margin-top:20px; display:flex; gap:12px; align-items:center;">
+      <button type="submit" class="btn btn--accent">Submit for verification</button>
+      <span style="font-size:0.85rem; color:var(--ink-70);">Usually reviewed within 2 business days.</span>
+    </div>
+  </form>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">Verification confirms submitted information only, not the quality of future work.</div>
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/register.js"></script>
+</body>
+</html>

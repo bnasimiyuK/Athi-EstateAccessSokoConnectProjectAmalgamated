@@ -1,0 +1,173 @@
+{
+  "categories": [
+    {
+      "id": "plumbing",
+      "label": "Plumbing"
+    },
+    {
+      "id": "electrical",
+      "label": "Electrical"
+    },
+    {
+      "id": "cleaning",
+      "label": "Cleaning"
+    },
+    {
+      "id": "domestic",
+      "label": "Domestic help"
+    },
+    {
+      "id": "errands",
+      "label": "Errands & delivery"
+    },
+    {
+      "id": "gardening",
+      "label": "Gardening"
+    }
+  ],
+  "providers": [
+    {
+      "id": "p1",
+      "name": "Musyoka Mwangi",
+      "category": "plumbing",
+      "zone": "Block A",
+      "priceFrom": 500,
+      "priceUnit": "per visit",
+      "hours": "Mon–Sat, 7am–6pm",
+      "phone": "0712 345 001",
+      "verified": true,
+      "rating": 4.8,
+      "reviews": 12,
+      "bio": "Licensed plumber handling leaks, blocked drains, and cylinder installs across the estate for the past six years.",
+      "services": [
+        "Leak repair",
+        "Blocked drains",
+        "Cylinder installation",
+        "Pipe replacement"
+      ]
+    },
+    {
+      "id": "p2",
+      "name": "Grace Wanjiru",
+      "category": "cleaning",
+      "zone": "Block C",
+      "priceFrom": 1500,
+      "priceUnit": "per session",
+      "hours": "Mon–Fri, 8am–4pm",
+      "phone": "0712 345 002",
+      "verified": true,
+      "rating": 4.9,
+      "reviews": 21,
+      "bio": "Deep-cleaning and move-in/move-out cleaning specialist. Brings own supplies on request.",
+      "services": [
+        "Deep cleaning",
+        "Move-in/out cleaning",
+        "Laundry & ironing"
+      ]
+    },
+    {
+      "id": "p3",
+      "name": "Otieno Electricals",
+      "category": "electrical",
+      "zone": "Block B",
+      "priceFrom": 700,
+      "priceUnit": "per visit",
+      "hours": "Daily, 7am–7pm",
+      "phone": "0712 345 003",
+      "verified": true,
+      "rating": 4.6,
+      "reviews": 9,
+      "bio": "Certified electrician for wiring faults, socket installs, and backup-power setup.",
+      "services": [
+        "Wiring repair",
+        "Socket & switch install",
+        "Inverter setup"
+      ]
+    },
+    {
+      "id": "p4",
+      "name": "Wanjiku Home Help",
+      "category": "domestic",
+      "zone": "Block A",
+      "priceFrom": 1000,
+      "priceUnit": "per day",
+      "hours": "Mon–Sat, 6am–5pm",
+      "phone": "0712 345 004",
+      "verified": true,
+      "rating": 0,
+      "reviews": 0,
+      "bio": "Experienced house help available for daily or live-out arrangements. New to the platform, verification pending.",
+      "services": [
+        "Housekeeping",
+        "Childcare support",
+        "Cooking"
+      ]
+    },
+    {
+      "id": "p5",
+      "name": "Kioko Errands",
+      "category": "errands",
+      "zone": "Gate 2",
+      "priceFrom": 200,
+      "priceUnit": "per trip",
+      "hours": "Daily, 6am–9pm",
+      "phone": "0712 345 005",
+      "verified": true,
+      "rating": 4.7,
+      "reviews": 16,
+      "bio": "Runs shopping, bill payments, and parcel pickups within Athi Highway Estate and the nearby town centre.",
+      "services": [
+        "Grocery pickup",
+        "Bill payment",
+        "Parcel collection"
+      ]
+    },
+    {
+      "id": "p6",
+      "name": "Green Thumb Gardens",
+      "category": "gardening",
+      "zone": "Block D",
+      "priceFrom": 600,
+      "priceUnit": "per visit",
+      "hours": "Tue–Sun, 7am–5pm",
+      "phone": "0712 345 006",
+      "verified": true,
+      "rating": 4.5,
+      "reviews": 7,
+      "bio": "Lawn care, hedge trimming, and small landscaping jobs for estate compounds and balconies.",
+      "services": [
+        "Lawn mowing",
+        "Hedge trimming",
+        "Planting"
+      ]
+    }
+  ],
+  "reviews": [
+    {
+      "id": "r1",
+      "providerId": "p1",
+      "author": "R. Kamau",
+      "rating": 5,
+      "text": "Fixed a stubborn leak same afternoon. Fair price.",
+      "date": "2026-08-14"
+    },
+    {
+      "id": "r2",
+      "providerId": "p2",
+      "author": "S. Njoroge",
+      "rating": 5,
+      "text": "House was spotless. Will book again.",
+      "date": "2026-09-02"
+    },
+    {
+      "id": "r3",
+      "providerId": "p5",
+      "author": "A. Mutua",
+      "rating": 4,
+      "text": "Reliable, just a little late once.",
+      "date": "2026-09-10"
+    }
+  ],
+  "bookings": [],
+  "reports": []
+}

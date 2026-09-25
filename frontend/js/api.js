@@ -1,0 +1,123 @@
+/* ============================================================
+   api.js — thin fetch wrapper around the backend REST API.
+   Every page talks to `Api`, never to fetch() or localStorage
+   directly, so the backend can change without touching pages.
+   ============================================================ */
+
+const API_BASE = "http://localhost:4050/api";
+
+/* ------------------------------------------------------------
+   Core request helper
+   ------------------------------------------------------------ */
+async function request(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body.error) message = body.error;
+    } catch (e) {
+      /* no JSON body */
+    }
+    throw new Error(message);
+  }
+
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+/* ------------------------------------------------------------
+   Helper: strip empty params and build a query string
+   ------------------------------------------------------------ */
+function qsOf(params = {}) {
+  const clean = Object.fromEntries(
+    Object.entries(params).filter(
+      ([, v]) => v !== "" && v !== undefined && v !== null
+    )
+  );
+  const qs = new URLSearchParams(clean).toString();
+  return qs ? "?" + qs : "";
+}
+
+/* ------------------------------------------------------------
+   Api — every backend endpoint exposed as a method
+   ------------------------------------------------------------ */
+const Api = {
+  /* ---------- Auth ---------- */
+  registerResident: (data) =>
+    request(`${API_BASE}/auth/register-resident`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  login: (credentials) =>
+    request(`${API_BASE}/auth/login`, {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    }),
+
+  me: () => request(`${API_BASE}/auth/me`),
+
+  changePassword: (payload) =>
+    request(`${API_BASE}/auth/change-password`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  /* ---------- Categories ---------- */
+  getCategories: () => request(`${API_BASE}/categories`),
+
+  /* ---------- Providers ---------- */
+  getProviders: (params = {}) =>
+    request(`${API_BASE}/providers${qsOf(params)}`),
+  getProvider: (id) =>
+    request(`${API_BASE}/providers/${id}`),
+  registerProvider: (data) =>
+    request(`${API_BASE}/providers`, { method: "POST", body: JSON.stringify(data) }),
+  updateProvider: (id, patch) =>
+    request(`${API_BASE}/providers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  removeProvider: (id) =>
+    request(`${API_BASE}/providers/${id}`, { method: "DELETE" }),
+
+  /* ---------- Reviews ---------- */
+  getReviews: (providerId) =>
+    request(`${API_BASE}/reviews/provider/${providerId}`),
+  addReview: (review) =>
+    request(`${API_BASE}/reviews`, { method: "POST", body: JSON.stringify(review) }),
+
+  /* ---------- Bookings ---------- */
+  getBookings: () => request(`${API_BASE}/bookings`),
+  addBooking: (booking) =>
+    request(`${API_BASE}/bookings`, { method: "POST", body: JSON.stringify(booking) }),
+  updateBooking: (id, patch) =>
+    request(`${API_BASE}/bookings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  /* ---------- Reports ---------- */
+  getReports: () => request(`${API_BASE}/reports`),
+  addReport: (report) =>
+    request(`${API_BASE}/reports`, { method: "POST", body: JSON.stringify(report) }),
+  updateReport: (id, patch) =>
+    request(`${API_BASE}/reports/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  /* ---------- Courts ---------- */
+  getCourts: (params = {}) =>
+    request(`${API_BASE}/courts${qsOf(params)}`),
+  addCourt: (data) =>
+    request(`${API_BASE}/courts`, { method: "POST", body: JSON.stringify(data) }),
+
+  /* ---------- Residents ---------- */
+  getResidents: (params = {}) =>
+    request(`${API_BASE}/residents${qsOf(params)}`),
+  getResident: (id) =>
+    request(`${API_BASE}/residents/${id}`),
+  addResident: (data) =>
+    request(`${API_BASE}/residents`, { method: "POST", body: JSON.stringify(data) }),
+  updateResident: (id, patch) =>
+    request(`${API_BASE}/residents/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  removeResident: (id) =>
+    request(`${API_BASE}/residents/${id}`, { method: "DELETE" }),
+};

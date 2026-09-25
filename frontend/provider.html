@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Provider profile — Athi Soko Connect</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="residents.html" data-nav="residents.html">Sign Up</a>
+
+      <!-- Admin dropdown -->
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">pending Approval</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container" id="provider-root">
+  <!-- filled by provider.js; shows an empty state if id is missing/invalid -->
+</main>
+
+<div class="modal-backdrop" id="report-modal">
+  <div class="modal">
+    <h3>Report this provider</h3>
+    <p>Tell the estate admin what happened. This is logged for review, not resolved automatically.</p>
+    <form id="report-form">
+      <div class="field" style="margin-bottom:12px;">
+        <label for="report-reason">What went wrong</label>
+        <select id="report-reason">
+          <option>Did not show up</option>
+          <option>Poor quality work</option>
+          <option>Overcharged / price dispute</option>
+          <option>Unsafe or suspicious behaviour</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label for="report-details">Details</label>
+        <textarea id="report-details" rows="4" required placeholder="What happened, and when?"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn--ghost" id="report-cancel">Cancel</button>
+        <button type="submit" class="btn btn--danger">Submit report</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">Verification confirms submitted details only — it is not a guarantee of work quality.</div>
+</footer>
+
+
+<script src="js/main.js"></script>
+<script src="js/provider.js"></script>
+</body>
+</html>

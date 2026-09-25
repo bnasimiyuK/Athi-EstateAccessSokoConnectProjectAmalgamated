@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My bookings — Athi Soko Connect</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="residents.html" data-nav="residents.html">Sign Up</a>
+
+      <!-- Admin dropdown -->
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">pending Approval</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head">
+    <h1>My bookings</h1>
+    <p>Track every request from sent to done. This demo simulates provider responses — use the buttons below to move a booking along.</p>
+  </div>
+
+  <div id="booking-list" class="section" style="padding-top:0;"></div>
+</main>
+
+<div class="modal-backdrop" id="review-modal">
+  <div class="modal">
+    <h3>Rate this booking</h3>
+    <p id="review-target"></p>
+    <form id="review-form">
+      <div class="field" style="margin-bottom:12px;">
+        <label for="review-rating">Rating</label>
+        <select id="review-rating">
+          <option value="5">★★★★★ Excellent</option>
+          <option value="4">★★★★☆ Good</option>
+          <option value="3">★★★☆☆ Okay</option>
+          <option value="2">★★☆☆☆ Poor</option>
+          <option value="1">★☆☆☆☆ Very poor</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label for="review-text">Comment</label>
+        <textarea id="review-text" rows="3" required placeholder="What was the experience like?"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn--ghost" id="review-cancel">Cancel</button>
+        <button type="submit" class="btn btn--accent">Submit review</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">Bookings and statuses shown here are stored on this device only, for demo purposes.</div>
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin dashboard — Athi Soko Connect</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="residents.html" data-nav="residents.html">Sign Up</a>
+
+      <!-- Admin dropdown -->
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">pending Approval</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head">
+    <h1>Estate admin dashboard</h1>
+    <p>Approve new provider listings and review resident reports. Verification confirms submitted details only, not the quality of future work.</p>
+  </div>
+
+  <div class="tab-row">
+    <button class="tab-btn is-active" data-tab="verify">Verification queue <span id="count-verify"></span></button>
+    <button class="tab-btn" data-tab="reports">Reports <span id="count-reports"></span></button>
+    <button class="tab-btn" data-tab="providers">All providers</button>
+  </div>
+
+  <div class="tab-panel is-active" id="tab-verify"></div>
+  <div class="tab-panel" id="tab-reports"></div>
+  <div class="tab-panel" id="tab-providers"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">Reports are logged for estate management review — this dashboard is not a dispute-resolution system.</div>
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

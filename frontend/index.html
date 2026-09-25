@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Athi Soko Connect — Find trusted home & errand help</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="residents.html" data-nav="residents.html">Sign Up</a>
+
+      <!-- Admin dropdown -->
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">pending Approval</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <div class="hero-eyebrow">Athi Highway Estate, resident-only</div>
+      <h1>One noticeboard for every plumber, cleaner and errand-runner in the estate.</h1>
+      <p>Stop scrolling the WhatsApp group for the day's two posts. Search, compare and book verified providers any time — then track the job from request to done.</p>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><b id="stat-providers">–</b><span>Active providers listed</span></div>
+      <div class="hero-stat"><b id="stat-verified">–</b><span>Verified by estate admin</span></div>
+      <div class="hero-stat"><b>2×/day</b><span>Old WhatsApp post limit — now unlimited</span></div>
+    </div>
+  </div>
+
+  <div class="container">
+    <form class="search-panel" id="search-form">
+      <div class="field">
+        <label for="q">Search</label>
+        <input type="text" id="q" placeholder="e.g. Grace, blocked drain, cleaning…" />
+      </div>
+      <div class="field">
+        <label for="category">Category</label>
+        <select id="category">
+          <option value="">All categories</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="zone">Location</label>
+        <select id="zone">
+          <option value="">All zones</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn--accent">Search</button>
+    </form>
+
+    <div class="chip-row" id="chip-row"></div>
+  </div>
+</section>
+
+<main class="container section">
+  <div class="section-head">
+    <div>
+      <h2 id="results-heading">All providers</h2>
+      <p id="results-count"></p>
+    </div>
+  </div>
+  <div class="provider-grid" id="provider-grid"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; width:100%;">
+    <span>Athi Soko Connect — a service of Athi Highway Estate management.</span>
+    <span>Prices are set by providers. Payment is arranged directly between residents and providers.</span>
+  </div>
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/home.js"></script>
+</body>
+</html>
