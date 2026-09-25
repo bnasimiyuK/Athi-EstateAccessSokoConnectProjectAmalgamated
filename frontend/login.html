@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log In · Athi Soko Connect</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="residents.html" data-nav="residents.html">Sign Up</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container" style="padding: 60px 24px; display:flex; justify-content:center;">
+  <div class="register-container" style="max-width:480px;">
+    <div class="register-header">
+      <span class="role-badge"><i class="fas fa-sign-in-alt"></i> LOG IN</span>
+      <h1>
+        <i class="fas fa-user-circle"></i>
+        Welcome back
+      </h1>
+      <p>Choose your role and sign in to continue.</p>
+    </div>
+
+    <!-- Role tabs -->
+    <div class="tab-row" id="roleTabs" style="margin-bottom:20px;">
+      <button class="tab-btn" data-role="admin">Admin</button>
+      <button class="tab-btn is-active" data-role="resident">Resident</button>
+      <button class="tab-btn" data-role="vendor">Vendor</button>
+    </div>
+
+    <form id="loginForm" novalidate>
+      <div class="input-group">
+        <label for="identifier" id="identifierLabel">
+          <i class="fas fa-phone-alt"></i> Phone number
+        </label>
+        <input type="text"
+               id="identifier"
+               placeholder="07XX XXX XXX"
+               autocomplete="username"
+               required />
+      </div>
+
+      <div class="input-group">
+        <label for="password">
+          <i class="fas fa-lock"></i> Password
+        </label>
+        <input type="password"
+               id="password"
+               placeholder="Enter your password"
+               autocomplete="current-password"
+               required />
+      </div>
+
+      <div class="actions" style="margin-top:24px;">
+        <button type="submit" class="btn-primary" id="loginBtn" style="width:100%;">
+          <i class="fas fa-sign-in-alt"></i> Log in
+        </button>
+      </div>
+    </form>
+
+    <div id="loginMessage" class="backend-message hidden" style="margin-top:16px;">
+      <i class="fas fa-info-circle"></i>
+      <span id="loginMessageText"></span>
+    </div>
+
+    <div class="login-link" style="margin-top:20px;">
+      Not registered? <a href="residents.html">Sign up as resident →</a>
+    </div>
+  </div>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/login.js"></script>
+</body>
+</html>

@@ -67,6 +67,20 @@
           <input type="tel" id="phone" name="phone" placeholder="07XX XXX XXX" autocomplete="tel" required>
         </div>
 
+        <!-- Password -->
+<div class="input-group">
+  <label for="password"><i class="fas fa-lock"></i> Password</label>
+  <input type="password" id="password" name="password" placeholder="Create a password" autocomplete="new-password" required>
+  <div class="password-hint">
+    Min 8 characters · at least 1 uppercase, 1 lowercase, 1 number
+  </div>
+</div>
+
+<!-- Confirm password -->
+<div class="input-group">
+  <label for="confirmPassword"><i class="fas fa-check-circle"></i> Confirm password</label>
+  <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Re-enter password" autocomplete="new-password" required>
+</div>
         <!-- Phase -->
         <div class="input-group">
           <label for="phase"><i class="fas fa-layer-group"></i> Phase</label>
@@ -142,7 +156,7 @@
   </div>
   
 </main>
-
+<script src="js/auth.js"></script>
 <script src="js/api.js"></script>
 <script src="js/main.js"></script>
 <script src="js/residents.js"></script>

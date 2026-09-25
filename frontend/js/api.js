@@ -1,28 +1,32 @@
 /* ============================================================
    api.js — thin fetch wrapper around the backend REST API.
-   Every page talks to `Api`, never to fetch() or localStorage
-   directly, so the backend can change without touching pages.
+   Now attaches the JWT (from auth.js) to every request.
    ============================================================ */
 
 const API_BASE = "http://localhost:4050/api";
 
 /* ------------------------------------------------------------
-   Core request helper
+   Core request helper — attaches Bearer token if present
    ------------------------------------------------------------ */
 async function request(url, options = {}) {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+
+  const token = typeof getToken === "function" ? getToken() : null;
+  if (token) {
+    headers["Authorization"] = "Bearer " + token;
+  }
+
+  const res = await fetch(url, { ...options, headers });
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {
       const body = await res.json();
       if (body.error) message = body.error;
-    } catch (e) {
-      /* no JSON body */
-    }
+    } catch { /* no JSON body */ }
     throw new Error(message);
   }
 
@@ -48,16 +52,16 @@ function qsOf(params = {}) {
    ------------------------------------------------------------ */
 const Api = {
   /* ---------- Auth ---------- */
-  registerResident: (data) =>
-    request(`${API_BASE}/auth/register-resident`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-
   login: (credentials) =>
     request(`${API_BASE}/auth/login`, {
       method: "POST",
       body: JSON.stringify(credentials),
+    }),
+
+  registerResident: (data) =>
+    request(`${API_BASE}/auth/register-resident`, {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 
   me: () => request(`${API_BASE}/auth/me`),

@@ -1,5 +1,6 @@
 /* ============================================================
    main.js — shared helpers loaded on every page
+   + dynamic nav (login state)
    ============================================================ */
 
 let CATEGORY_CACHE = [];
@@ -43,9 +44,7 @@ function statusBadge(status) {
 function formatDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-KE", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
+    day: "numeric", month: "short", year: "numeric",
   });
 }
 
@@ -53,75 +52,93 @@ function qs(param) {
   return new URLSearchParams(window.location.search).get(param);
 }
 
-/* ---------------- NAV FIX ---------------- */
+/* ---------------- NAV: highlight active link ---------------- */
 function markActiveNav() {
   const path = window.location.pathname.split("/").pop() || "index.html";
 
-  // 1. Clear all active states
   document.querySelectorAll("[data-nav]").forEach((link) => {
     link.classList.remove("is-active");
-  });
-  document.querySelectorAll(".nav-dropdown > a").forEach((link) => {
-    link.classList.remove("is-active");
-  });
-
-  // 2. Highlight the matching top-level link
-  document.querySelectorAll("[data-nav]").forEach((link) => {
     if (link.getAttribute("data-nav") === path) {
       link.classList.add("is-active");
     }
   });
 
-  // 3. Highlight Admin dropdown if we are on its subpages
-  if (path === "admin.html" || path === "residents.html") {
+  // Highlight Admin dropdown when inside its subpages
+  if (path === "admin.html" || path === "pending.html") {
     const adminTrigger = document.querySelector(".nav-dropdown > a");
     if (adminTrigger) adminTrigger.classList.add("is-active");
   }
 }
 
-/* ---------------- DROPDOWN FIX ---------------- */
+/* ---------------- NAV: login/logout slot ---------------- */
+function renderAuthNav() {
+  const nav = document.querySelector("nav.main-nav");
+  if (!nav) return;
+
+  const existing = nav.querySelector(".auth-slot");
+  if (existing) existing.remove();
+
+  const slot = document.createElement("span");
+  slot.className = "auth-slot";
+  slot.style.display = "inline-flex";
+  slot.style.alignItems = "center";
+  slot.style.gap = "14px";
+
+  if (typeof isLoggedIn === "function" && isLoggedIn()) {
+    const user = getUser();
+    slot.innerHTML = `
+      <span style="font-size:0.9rem; color:var(--ink-70);">
+        Hi, ${user?.name || "there"}
+      </span>
+      <a href="#" id="logoutLink" style="font-size:0.9rem;">Logout</a>
+    `;
+    nav.appendChild(slot);
+
+    document.getElementById("logoutLink").addEventListener("click", (e) => {
+      e.preventDefault();
+      logout();
+    });
+  } else {
+    slot.innerHTML = `<a href="login.html" data-nav="login.html">Log in</a>`;
+    nav.appendChild(slot);
+  }
+}
+
+/* ---------------- DROPDOWN ---------------- */
 function setupDropdown() {
-  const dropdown = document.querySelector(".nav-dropdown");
-  if (!dropdown) return;
-
-  const trigger = dropdown.querySelector("a");
-  const menu = dropdown.querySelector(".dropdown-menu");
-
-  trigger.addEventListener("click", (e) => {
-    e.preventDefault();
-    menu.classList.toggle("show");
-  });
-
-  // Close when clicking outside
   document.addEventListener("click", (e) => {
-    if (!dropdown.contains(e.target)) {
-      menu.classList.remove("show");
+    const trigger = e.target.closest(".nav-dropdown > a");
+    if (trigger) {
+      e.preventDefault();
+      e.stopPropagation();
+      const menu = trigger.nextElementSibling;
+      if (menu && menu.classList.contains("dropdown-menu")) {
+        menu.classList.toggle("show");
+      }
+      return;
     }
+    document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));
   });
 }
 
 /* ---------------- TOAST ---------------- */
 function toast(message) {
   let el = document.getElementById("asc-toast");
-
   if (!el) {
     el = document.createElement("div");
     el.id = "asc-toast";
     el.className = "toast";
     document.body.appendChild(el);
   }
-
   el.textContent = message;
   el.classList.add("toast--visible");
-
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => {
-    el.classList.remove("toast--visible");
-  }, 3200);
+  toast._t = setTimeout(() => el.classList.remove("toast--visible"), 3200);
 }
 
 /* ---------------- INIT ---------------- */
 document.addEventListener("DOMContentLoaded", () => {
   markActiveNav();
+  renderAuthNav();
   setupDropdown();
 });

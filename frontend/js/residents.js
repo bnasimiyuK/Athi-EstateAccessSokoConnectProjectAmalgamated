@@ -126,8 +126,10 @@ async function handleSubmit(e) {
   const lastName  = document.getElementById("lastName").value.trim();
   const fullName  = `${firstName} ${lastName}`.trim();
 
-  const password        = document.getElementById("password").value;
-  const confirmPassword = document.getElementById("confirmPassword").value;
+  const pwEl            = document.getElementById("password");
+  const cpwEl           = document.getElementById("confirmPassword");
+  const password        = pwEl  ? pwEl.value  : "";
+  const confirmPassword = cpwEl ? cpwEl.value : "";
 
   // Basic validation
   if (!fullName)             { showMessage("Please enter your full name.", true); btn.disabled = false; return; }
