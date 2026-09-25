@@ -71,7 +71,10 @@ const Api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-
+    
+ /* ---------- Admin ---------- */
+  getAdminStats: () => request(`${API_BASE}/admin/stats`),
+  
   /* ---------- Categories ---------- */
   getCategories: () => request(`${API_BASE}/categories`),
 
@@ -124,4 +127,5 @@ const Api = {
     request(`${API_BASE}/residents/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   removeResident: (id) =>
     request(`${API_BASE}/residents/${id}`, { method: "DELETE" }),
+  
 };

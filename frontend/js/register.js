@@ -110,7 +110,10 @@ async function handleSubmitVendor(e) {
   e.preventDefault();
 
   if (!verifiedResident) {
-    toast("Please verify your residency first.");
+    alert(
+      "❌ You haven't verified your residency yet.\n\n" +
+      "Please scroll up, enter your phone number, and click 'Verify residency' first."
+    );
     return;
   }
 

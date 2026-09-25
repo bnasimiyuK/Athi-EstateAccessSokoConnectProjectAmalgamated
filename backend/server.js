@@ -18,6 +18,7 @@ const reportsRouter    = require("./routes/reports");
 const residentsRouter  = require("./routes/residents");
 const courtsRouter     = require("./routes/courts");
 const authRouter       = require("./routes/auth");
+const adminRouter = require("./routes/admin");
 
 const app = express();
 const PORT = process.env.PORT || 4050;
@@ -38,6 +39,7 @@ app.use("/api/bookings",   bookingsRouter);
 app.use("/api/reports",    reportsRouter);
 app.use("/api/residents",  residentsRouter);
 app.use("/api/courts",     courtsRouter);
+app.use("/api/admin", adminRouter);
 
 /* ---------- Static frontend ---------- */
 app.use(express.static(FRONTEND_DIR));
