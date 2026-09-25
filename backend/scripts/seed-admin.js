@@ -8,8 +8,8 @@ require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const { getPool } = require("../db");
 
-const ADMIN_EMAIL    = "admin@athisoko.local";
-const ADMIN_NAME     = "Estate Admin";
+const ADMIN_EMAIL    = "beverly.kongani@gmail.com";
+const ADMIN_NAME     = "Beverly Kong'ani";
 const ADMIN_PASSWORD = "Admin@2025";
 
 (async () => {
@@ -35,7 +35,7 @@ const ADMIN_PASSWORD = "Admin@2025";
       .input("hash",  hash)
       .query(`
         INSERT INTO Admins (email, full_name, password_hash, must_change_password)
-        VALUES (@email, @name, @hash, 0)
+        VALUES (@email, @name, @hash, 1)
       `);
 
     console.log("✅ Admin created:");

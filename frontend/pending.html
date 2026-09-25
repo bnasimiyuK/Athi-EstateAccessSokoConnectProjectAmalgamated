@@ -1,3 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pending Approvals · Athi Soko Connect</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
 <header class="site-header">
   <div class="container">
     <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
@@ -7,21 +18,102 @@
       <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
       <a href="residents.html" data-nav="residents.html">Sign Up</a>
 
-      <!-- Admin dropdown -->
       <div class="nav-dropdown">
         <a href="#">Admin ▾</a>
         <div class="dropdown-menu">
           <a href="admin.html">Dashboard</a>
-          <a href="pending.html">pending Approval</a>
+          <a href="pending.html">Pending approvals</a>
         </div>
       </div>
     </nav>
   </div>
 </header>
-<body>
 
-  <script src="js/auth.js"></script>
+<main class="container section">
+  <div class="page-head">
+    <h1>Pending approvals</h1>
+    <p>Review and approve new residents and vendor applications. Approving a resident sends them a welcome email.</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-row" id="pendingTabs">
+    <button class="tab-btn is-active" data-tab="residents">
+      Residents <span id="count-residents">…</span>
+    </button>
+    <button class="tab-btn" data-tab="vendors">
+      Vendors <span id="count-vendors">…</span>
+    </button>
+  </div>
+
+  <!-- Residents panel -->
+  <div class="tab-panel is-active" id="tab-residents">
+    <div id="residents-list" class="pending-list">
+      <div class="empty-state">Loading pending residents…</div>
+    </div>
+  </div>
+
+  <!-- Vendors panel -->
+  <div class="tab-panel" id="tab-vendors">
+    <div id="vendors-list" class="pending-list">
+      <div class="empty-state">Loading pending vendors…</div>
+    </div>
+  </div>
+</main>
+
+<style>
+  .pending-list { display: flex; flex-direction: column; gap: 14px; }
+
+  .pending-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-m);
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+    transition: box-shadow 0.15s ease;
+  }
+  .pending-card:hover {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+
+  .pending-card .name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+  }
+  .pending-card .meta {
+    font-size: 0.88rem;
+    color: var(--ink-70);
+    margin-bottom: 2px;
+  }
+  .pending-card .meta i {
+    color: var(--ink-40);
+    width: 16px;
+    display: inline-block;
+  }
+  .pending-card .when {
+    font-size: 0.8rem;
+    color: var(--ink-40);
+    margin-top: 6px;
+  }
+
+  .pending-card .actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  @media (max-width: 640px) {
+    .pending-card { grid-template-columns: 1fr; }
+    .pending-card .actions { justify-content: flex-start; }
+  }
+</style>
+
+<script src="js/auth.js"></script>
 <script src="js/api.js"></script>
 <script src="js/main.js"></script>
-<script src="js/residents.js"></script>
+<script src="js/pending.js"></script>
 </body>
+</html>

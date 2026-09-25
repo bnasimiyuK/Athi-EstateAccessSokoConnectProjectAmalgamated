@@ -84,11 +84,27 @@ function renderAuthNav() {
   slot.style.alignItems = "center";
   slot.style.gap = "14px";
 
-  if (typeof isLoggedIn === "function" && isLoggedIn()) {
+ if (typeof isLoggedIn === "function" && isLoggedIn()) {
     const user = getUser();
+
+    const roleLabel = user?.role
+      ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+      : "User";
+
+    const roleColor = {
+      admin:    "#b0472e",   // clay
+      resident: "#2f6f5e",   // teal
+      vendor:   "#c8862a",   // ochre
+    }[user?.role] || "#4a5670";
+
     slot.innerHTML = `
-      <span style="font-size:0.9rem; color:var(--ink-70);">
+      <span style="font-size:0.9rem; color:var(--ink-70); display:inline-flex; align-items:center; gap:6px;">
         Hi, ${user?.name || "there"}
+        <span style="background:${roleColor}; color:#fff; font-size:0.65rem;
+                     padding:2px 8px; border-radius:999px; font-weight:600;
+                     letter-spacing:0.4px; text-transform:uppercase;">
+          ${roleLabel}
+        </span>
       </span>
       <a href="#" id="logoutLink" style="font-size:0.9rem;">Logout</a>
     `;

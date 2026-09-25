@@ -194,10 +194,74 @@ function testEmail() {
   `);
   return { subject, text, html };
 }
+/* ------------------------------------------------------------
+   Template: resident approved (welcome email)
+   ------------------------------------------------------------ */
+function residentApprovedEmail({ fullName, phone }) {
+  const loginUrl = `${APP_URL}/login.html`;
+  const subject  = "Your Athi Soko Connect account is approved 🎉";
+
+  const text = [
+    `Hi ${fullName},`,
+    ``,
+    `Great news — your resident account has been approved.`,
+    ``,
+    `You can now log in and start booking vendors:`,
+    `  Login URL: ${loginUrl}`,
+    `  Phone:     ${phone}`,
+    `  Password:  (the one you chose at signup)`,
+    ``,
+    `— Athi Soko Connect`,
+  ].join("\n");
+
+  const html = htmlWrapper(subject, `
+    <h2 style="margin:0 0 12px; font-family: Georgia, serif; font-size:22px;">
+      Your account is approved 🎉
+    </h2>
+    <p style="margin:0 0 16px; font-size:15px; line-height:1.5;">
+      Hi <strong>${fullName}</strong>,
+    </p>
+    <p style="margin:0 0 16px; font-size:15px; line-height:1.5;">
+      The estate admin has reviewed and approved your resident account.
+      You can now log in and start booking vendors.
+    </p>
+
+    <div style="text-align:center; margin:28px 0;">
+      <a href="${loginUrl}"
+         style="background:#1e6b5e; color:#fff; text-decoration:none;
+                padding:12px 28px; border-radius:30px; font-weight:600;
+                display:inline-block;">
+        Log in to your account →
+      </a>
+    </div>
+
+    <p style="margin:0 0 8px; font-size:14px; color:#4a5670;">
+      Login details:
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0"
+           style="margin:0 0 20px; border:1px solid #dcd8cd; border-radius:8px; width:100%;">
+      <tr>
+        <td style="padding:10px 14px; background:#fbfaf7; font-size:13px; color:#4a5670; width:40%;">Login URL</td>
+        <td style="padding:10px 14px; font-size:14px;"><a href="${loginUrl}" style="color:#c8862a;">${loginUrl}</a></td>
+      </tr>
+      <tr>
+        <td style="padding:10px 14px; background:#fbfaf7; font-size:13px; color:#4a5670; border-top:1px solid #dcd8cd;">Phone</td>
+        <td style="padding:10px 14px; font-size:14px; border-top:1px solid #dcd8cd;"><strong>${phone}</strong></td>
+      </tr>
+    </table>
+
+    <p style="margin:0; font-size:13px; color:#4a5670;">
+      Welcome aboard!
+    </p>
+  `);
+
+  return { subject, text, html };
+}
 
 module.exports = {
   sendMail,
   residentWelcomeEmail,
+  residentApprovedEmail,
   testEmail,
   htmlWrapper,
 };

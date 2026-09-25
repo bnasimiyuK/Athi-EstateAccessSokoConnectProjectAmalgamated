@@ -59,11 +59,11 @@ async function handleLogin(e) {
     // Save token + user
     saveSession(result.token, result.user);
 
-    // If forced password change is required, redirect there first
-    if (result.mustChangePassword) {
-      window.location.href = "change-password.html";
-      return;
-    }
+  // If forced password change is required, redirect there first
+if (result.mustChangePassword) {
+  window.location.href = "change-password.html?first=1";
+  return;
+}
 
     // Otherwise redirect by role
     redirectByRole(result.user.role);

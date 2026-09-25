@@ -1,11 +1,15 @@
 /* ============================================================
    routes/residents.js — SQL Server version (court_id based)
    Residents reference a court; the court's phase is derived.
+   Approval (verified: false → true) triggers a welcome email.
    ============================================================ */
+
+require("dotenv").config();
 
 const express = require("express");
 const router = express.Router();
 const { getPool } = require("../db");
+const { sendMail, residentApprovedEmail } = require("../utils/mailer");
 
 /* ------------------------------------------------------------
    Helper: DB row → JSON (joins court info)
@@ -158,6 +162,7 @@ router.post("/", async (req, res, next) => {
 /* ------------------------------------------------------------
    PATCH /api/residents/:id
    Body: { fullName, phone, email, courtId, verified }
+   When verified flips to true, sends a welcome email.
    ------------------------------------------------------------ */
 router.patch("/:id", async (req, res, next) => {
   try {
@@ -172,7 +177,8 @@ router.patch("/:id", async (req, res, next) => {
       verified: "verified",
     };
 
-    const request = (await getPool()).request().input("id", id);
+    const pool = await getPool();
+    const request = pool.request().input("id", id);
     const sets = [];
 
     for (const [key, col] of Object.entries(map)) {
@@ -189,6 +195,16 @@ router.patch("/:id", async (req, res, next) => {
       return res.status(400).json({ error: "No updatable fields provided" });
     }
 
+    // Fetch the resident BEFORE update so we can compare old verified state
+    const before = await pool.request()
+      .input("id", id)
+      .query("SELECT * FROM Residents WHERE id = @id");
+    if (!before.recordset.length) {
+      return res.status(404).json({ error: "Resident not found" });
+    }
+    const wasVerified = !!before.recordset[0].verified;
+
+    // Perform the update
     const updated = await request.query(`
       UPDATE Residents SET ${sets.join(", ")}
       OUTPUT INSERTED.*
@@ -199,8 +215,39 @@ router.patch("/:id", async (req, res, next) => {
       return res.status(404).json({ error: "Resident not found" });
     }
 
+    const updatedRow = updated.recordset[0];
+    const isNowVerified = !!updatedRow.verified;
+
+    /* ------------------------------------------------------------
+       If verified just flipped from false → true, send welcome email
+       ------------------------------------------------------------ */
+    if (!wasVerified && isNowVerified) {
+      try {
+        if (updatedRow.email) {
+          const tpl = residentApprovedEmail({
+            fullName: updatedRow.full_name,
+            phone:    updatedRow.phone,
+          });
+
+          await sendMail({
+            to:      updatedRow.email,
+            subject: tpl.subject,
+            text:    tpl.text,
+            html:    tpl.html,
+          });
+
+          console.log(`[residents] ✅ Approval email sent to ${updatedRow.email}`);
+        } else {
+          console.log(`[residents] ⚠️  No email on file for resident ${updatedRow.id} — email skipped.`);
+        }
+      } catch (mailErr) {
+        // Do not fail the approval if the email fails
+        console.error("[residents] ❌ Approval email failed:", mailErr.message);
+      }
+    }
+
     // Re-fetch with court info
-    const full = await (await getPool()).request()
+    const full = await pool.request()
       .input("id", id)
       .query(`
         SELECT r.*, c.name AS court_name, c.phase
