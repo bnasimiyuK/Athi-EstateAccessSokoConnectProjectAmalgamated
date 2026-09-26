@@ -48,7 +48,6 @@ router.get("/", requireAuth, async (req, res, next) => {
         ORDER BY b.created_at DESC
       `;
     } else if (role === "vendor") {
-      /* JWT.id is Providers.id for vendor logins */
       sqlText = `
         SELECT b.*, p.name AS provider_name
         FROM Bookings b
@@ -84,8 +83,6 @@ router.get("/", requireAuth, async (req, res, next) => {
 
 /* ------------------------------------------------------------
    POST /api/bookings
-   Body: { providerId, service, date, notes,
-           residentName, residentPhone }
    ------------------------------------------------------------ */
 router.post("/", async (req, res, next) => {
   try {
@@ -139,13 +136,17 @@ router.post("/", async (req, res, next) => {
 
 /* ------------------------------------------------------------
    PATCH /api/bookings/:id  { status } or { reviewed }
-   Ownership check: admin, the booking's vendor, or the resident
-   who created it.
    ------------------------------------------------------------ */
 router.patch("/:id", requireAuth, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid booking id" });
+
+    // ENFORCE PHASE 1 WORKFLOW
+    const VALID_STATUSES = ['requested', 'confirmed', 'in_progress', 'completed', 'cancelled'];
+    if (req.body.status && !VALID_STATUSES.includes(req.body.status)) {
+      return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` });
+    }
 
     const pool = await getPool();
 

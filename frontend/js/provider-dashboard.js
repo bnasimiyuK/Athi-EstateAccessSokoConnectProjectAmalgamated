@@ -1,5 +1,6 @@
 /* ============================================================
    provider-dashboard.js — vendor view of incoming bookings
+   Status progression: requested -> confirmed -> in_progress -> completed
    ============================================================ */
 
 /* ---------------- helpers ---------------- */
@@ -23,13 +24,14 @@ function formatDate(d) {
 
 function statusBadge(status) {
   const map = {
-    requested: "badge--requested",
-    confirmed: "badge--confirmed",
-    completed: "badge--completed",
-    cancelled: "badge--declined",
+    requested:   "badge--requested",
+    confirmed:   "badge--confirmed",
+    in_progress: "badge--info", // Assuming you have a badge--info CSS class, or add inline styles
+    completed:   "badge--completed",
+    cancelled:   "badge--declined",
   };
   const cls = map[status] || "badge--requested";
-  return `<span class="badge ${cls}">${escapeHtml(status)}</span>`;
+  return `<span class="badge ${cls}">${escapeHtml(status.replace('_', ' '))}</span>`;
 }
 
 function getUser() {
@@ -42,10 +44,16 @@ function bookingCard(b, variant) {
   const actions = [];
 
   if (variant === "new") {
-    actions.push(`<button class="btn btn--accent btn--small" data-confirm="${b.id}">Confirm</button>`);
+    // Status: requested -> can move to confirmed
+    actions.push(`<button class="btn btn--accent btn--small" data-confirm="${b.id}">Accept Order</button>`);
     actions.push(`<button class="btn btn--danger btn--small" data-decline="${b.id}">Decline</button>`);
+  } else if (variant === "confirmed") {
+    // Status: confirmed -> can move to in_progress
+    actions.push(`<button class="btn btn--accent btn--small" data-start="${b.id}">Start Work</button>`);
+    actions.push(`<button class="btn btn--ghost btn--small" data-decline="${b.id}">Cancel</button>`);
   } else if (variant === "in-progress") {
-    actions.push(`<button class="btn btn--accent btn--small" data-complete="${b.id}">Mark completed</button>`);
+    // Status: in_progress -> can move to completed
+    actions.push(`<button class="btn btn--accent btn--small" data-complete="${b.id}">Mark Completed</button>`);
     actions.push(`<button class="btn btn--ghost btn--small" data-decline="${b.id}">Cancel</button>`);
   }
 
@@ -99,10 +107,12 @@ async function loadBookings() {
     return;
   }
 
-  const requested = bookings.filter((b) => b.status === "requested");
-  const confirmed = bookings.filter((b) => b.status === "confirmed");
-  const completed = bookings.filter((b) => b.status === "completed");
-  const cancelled = bookings.filter((b) => b.status === "cancelled");
+  // Group bookings by the Phase 1 lifecycle
+  const requested   = bookings.filter((b) => b.status === "requested");
+  const confirmed   = bookings.filter((b) => b.status === "confirmed");
+  const inProgress  = bookings.filter((b) => b.status === "in_progress");
+  const completed   = bookings.filter((b) => b.status === "completed");
+  const cancelled   = bookings.filter((b) => b.status === "cancelled");
 
   if (!bookings.length) {
     el.innerHTML = `<div class="empty-state">
@@ -112,8 +122,9 @@ async function loadBookings() {
   }
 
   el.innerHTML = `
-    ${renderSection("New requests", requested, "new")}
-    ${renderSection("In progress", confirmed, "in-progress")}
+    ${renderSection("New Requests", requested, "new")}
+    ${renderSection("Confirmed (Ready to Start)", confirmed, "confirmed")}
+    ${renderSection("In Progress", inProgress, "in-progress")}
     ${renderSection("Completed", completed, "done")}
     ${renderSection("Cancelled", cancelled, "done")}
   `;
@@ -129,16 +140,20 @@ function wireActions() {
     btn.addEventListener("click", () => updateStatus(btn.dataset.confirm, "confirmed"))
   );
 
+  el.querySelectorAll("[data-start]").forEach((btn) =>
+    btn.addEventListener("click", () => updateStatus(btn.dataset.start, "in_progress"))
+  );
+
+  el.querySelectorAll("[data-complete]").forEach((btn) =>
+    btn.addEventListener("click", () => updateStatus(btn.dataset.complete, "completed"))
+  );
+
   el.querySelectorAll("[data-decline]").forEach((btn) =>
     btn.addEventListener("click", () => {
       if (confirm("Decline or cancel this booking?")) {
         updateStatus(btn.dataset.decline, "cancelled");
       }
     })
-  );
-
-  el.querySelectorAll("[data-complete]").forEach((btn) =>
-    btn.addEventListener("click", () => updateStatus(btn.dataset.complete, "completed"))
   );
 }
 
@@ -154,14 +169,12 @@ async function updateStatus(id, status) {
 
 /* ---------------- init ---------------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  /* Self-contained role guard (no dependency on requireRole) */
   const user = getUser();
   if (!user || user.role !== "vendor") {
     window.location.href = "login.html?next=%2Fprovider-dashboard.html";
     return;
   }
 
-  /* Personalise the heading */
   if (user.name) {
     document.getElementById("page-title").textContent =
       `Incoming bookings — ${user.name}`;
