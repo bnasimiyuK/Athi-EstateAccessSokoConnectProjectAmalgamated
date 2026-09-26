@@ -11,18 +11,16 @@ const { getPool } = require("../db");
 
 /* ------------------------------------------------------------
    Helper: DB row → JSON the frontend expects
-   Note: `phase` and `courtName` are derived via
-         Providers → Residents → Courts.
    ------------------------------------------------------------ */
 function providerToJson(row) {
   return {
     id:            row.id,
     name:          row.name,
     category:      row.category_id,
-    categoryLabel: row.category_label,   // from JOIN
-    phase:         row.phase,            // from JOIN
-    courtId:       row.court_id,         // from JOIN
-    courtName:     row.court_name,       // from JOIN
+    categoryLabel: row.category_label,
+    phase:         row.phase,
+    courtId:       row.court_id,
+    courtName:     row.court_name,
     phone:         row.phone,
     hours:         row.hours,
     priceFrom:     Number(row.price_from),
@@ -57,14 +55,49 @@ const PROVIDER_SELECT = `
 
 /* ------------------------------------------------------------
    GET /api/providers
+   Supports query params: category, phase, courtId, maxPrice, search, verified
    ------------------------------------------------------------ */
 router.get("/", async (req, res, next) => {
   try {
+    const { category, phase, courtId, maxPrice, search, verified } = req.query;
     const pool = await getPool();
-    const result = await pool.request().query(`
+    const request = pool.request();
+
+    const conditions = [];
+
+    if (verified === "true") {
+      conditions.push("p.verified = 1");
+    }
+    if (category) {
+      conditions.push("p.category_id = @category");
+      request.input("category", parseInt(category, 10));
+    }
+    if (phase) {
+      conditions.push("c.phase = @phase");
+      request.input("phase", parseInt(phase, 10));
+    }
+    if (courtId) {
+      conditions.push("r.court_id = @courtId");
+      request.input("courtId", parseInt(courtId, 10));
+    }
+    if (maxPrice) {
+      conditions.push("p.price_from <= @maxPrice");
+      request.input("maxPrice", parseFloat(maxPrice));
+    }
+    if (search) {
+      conditions.push("(p.name LIKE @search OR p.services LIKE @search OR p.bio LIKE @search)");
+      request.input("search", `%${search}%`);
+    }
+
+    const whereClause = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+
+    const sql = `
       ${PROVIDER_SELECT}
+      ${whereClause}
       ORDER BY p.verified DESC, p.rating DESC, p.reviews DESC
-    `);
+    `;
+
+    const result = await request.query(sql);
     res.json(result.recordset.map(providerToJson));
   } catch (err) {
     console.error("[providers] list failed:", err);
@@ -96,7 +129,6 @@ router.get("/:id", async (req, res, next) => {
 
 /* ------------------------------------------------------------
    POST /api/providers — vendor application
-   Requires: residentId (must be a verified resident)
    ------------------------------------------------------------ */
 router.post("/", async (req, res, next) => {
   try {
@@ -105,8 +137,6 @@ router.post("/", async (req, res, next) => {
       name, category, hours,
       priceFrom, priceUnit, bio, services,
     } = req.body;
-
-    console.log("[providers POST] received:", JSON.stringify(req.body, null, 2));
 
     if (!residentId || !name || !category || !hours || !bio ||
         !Array.isArray(services) || !services.length) {

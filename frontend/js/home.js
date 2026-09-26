@@ -34,7 +34,6 @@ function servicesArray(p) {
 /* ---------------- state ---------------- */
 const _state = {
   categories: [],
-  providers:  [],
   courts:     [],
 };
 
@@ -118,9 +117,13 @@ async function populateFilters() {
     console.error("[home] courts failed:", err);
   }
 
-  /* Providers → hero stats */
-  _state.providers = await Api.getProviders();
-  renderStats(_state.providers);
+  /* Hero stats — fetch a full list once for the numbers */
+  try {
+    const all = await Api.getProviders();
+    renderStats(all);
+  } catch (err) {
+    console.error("[home] stats failed:", err);
+  }
 }
 
 function setCategoryChip(categoryId, chipEl) {
@@ -196,44 +199,25 @@ async function renderResults() {
   const grid = document.getElementById("provider-grid");
   grid.innerHTML = `<div class="empty-state">Loading providers…</div>`;
 
-  const q        = document.getElementById("q").value.trim().toLowerCase();
+  const q        = document.getElementById("q").value.trim();
   const phase    = document.getElementById("phase").value;
   const court    = document.getElementById("court").value;
   const category = document.getElementById("category").value;
+  const maxPrice = document.getElementById("maxPrice").value;
+
+  // Build the query object — qsOf() in api.js will drop empty values
+  const filters = {
+    verified: true, // Discover only shows verified providers
+    search:   q,
+    phase:    phase,
+    courtId:  court,
+    category: category,
+    maxPrice: maxPrice,
+  };
 
   let results = [];
   try {
-    const all = await Api.getProviders();
-
-    /* Discover shows verified providers only */
-    results = all.filter((p) => p.verified);
-
-    /* Phase filter */
-    if (phase) {
-      results = results.filter((p) => String(p.phase) === String(phase));
-    }
-
-    /* Court filter */
-    if (court) {
-      results = results.filter((p) => String(p.courtId) === String(court));
-    }
-
-    /* Category filter */
-    if (category) {
-      results = results.filter((p) => String(p.category) === String(category));
-    }
-
-    /* Text search */
-    if (q) {
-      results = results.filter((p) =>
-        (p.name || "").toLowerCase().includes(q) ||
-        (p.bio  || "").toLowerCase().includes(q) ||
-        servicesArray(p).join(" ").toLowerCase().includes(q)
-      );
-    }
-
-    /* Top rated first */
-    results.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
+    results = await Api.getProviders(filters);
   } catch (err) {
     console.error("[home] providers failed:", err);
     grid.innerHTML = `<div class="empty-state">Could not load providers.</div>`;
@@ -263,7 +247,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let searchTimer = null;
   document.getElementById("q").addEventListener("input", () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderResults, 200);   // 200ms debounce
+    searchTimer = setTimeout(renderResults, 200);
   });
 
   /* Phase change → rebuild court list, then filter */
@@ -274,6 +258,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("court").addEventListener("change", renderResults);
   document.getElementById("category").addEventListener("change", renderResults);
+  document.getElementById("maxPrice").addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderResults, 200);
+  });
 
   /* Pressing Enter in the search box also re-renders immediately */
   document.getElementById("search-form").addEventListener("submit", (e) => {

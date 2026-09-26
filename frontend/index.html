@@ -22,7 +22,7 @@
         <a href="#">Admin ▾</a>
         <div class="dropdown-menu">
           <a href="admin.html">Dashboard</a>
-          <a href="pending.html">pending Approval</a>
+          <a href="pending.html">Pending Approval</a>
         </div>
       </div>
     </nav>
@@ -46,33 +46,39 @@
   <div class="container">
     <form class="search-panel" id="search-form">
 
-  <div class="field">
-    <label for="q">Search</label>
-    <input type="text" id="q" placeholder="e.g. Grace, blocked drain, cleaning…" />
-  </div>
+      <div class="field">
+        <label for="q">Search</label>
+        <input type="text" id="q" placeholder="e.g. Grace, blocked drain, cleaning…" />
+      </div>
 
-  <div class="field">
-    <label for="phase">Phase</label>
-    <select id="phase">
-      <option value="">All phases</option>
-    </select>
-  </div>
+      <div class="field">
+        <label for="phase">Phase</label>
+        <select id="phase">
+          <option value="">All phases</option>
+        </select>
+      </div>
 
-  <div class="field">
-    <label for="court">Court</label>
-    <select id="court" disabled>
-      <option value="">All courts</option>
-    </select>
-  </div>
+      <div class="field">
+        <label for="court">Court</label>
+        <select id="court" disabled>
+          <option value="">All courts</option>
+        </select>
+      </div>
 
-  <div class="field">
-    <label for="category">Category</label>
-    <select id="category">
-      <option value="">All categories</option>
-    </select>
-  </div>
+      <div class="field">
+        <label for="category">Category</label>
+        <select id="category">
+          <option value="">All categories</option>
+        </select>
+      </div>
 
-</form>
+      <!-- ADDED: Max Price Filter -->
+      <div class="field">
+        <label for="maxPrice">Max Price (KSh)</label>
+        <input type="number" id="maxPrice" placeholder="e.g. 500" min="0" />
+      </div>
+
+    </form>
     <div class="chip-row" id="chip-row"></div>
   </div>
 </section>
