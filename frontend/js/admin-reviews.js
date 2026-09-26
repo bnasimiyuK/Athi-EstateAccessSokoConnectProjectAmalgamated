@@ -57,7 +57,7 @@ function reviewRow(r) {
   const stars = "★".repeat(r.rating) + "☆".repeat(5 - r.rating);
   
   // Format the date (reusing your existing timeAgo or formatDate if available)
-  const dateStr = typeof formatDate === "function" ? formatDate(r.createdAt) : new Date(r.createdAt).toLocaleDateString();
+  const dateStr = typeof formatDate === "function" ? formatDate(r.date) : new Date(r.date).toLocaleDateString();
 
   return `
     <tr>

@@ -99,4 +99,40 @@ router.post("/", async (req, res, next) => {
   }
 });
 
+/* ------------------------------------------------------------
+   Helper: DB row → JSON frontend expects
+   ------------------------------------------------------------ */
+function reviewToJson(row) {
+  return {
+    id:           row.id,
+    providerId:   row.provider_id,
+    providerName: row.provider_name || "Unknown Vendor", // ADDED: Map joined provider name
+    author:       row.author,
+    rating:       row.rating,
+    text:         row.text,
+    date:         row.created_at,
+  };
+}
+
+/* ------------------------------------------------------------
+   GET /api/reviews
+   Admin: Fetch ALL reviews across all providers
+   ------------------------------------------------------------ */
+router.get("/", async (req, res, next) => {
+  try {
+    const pool = await getPool();
+    
+    // We use a LEFT JOIN to fetch the provider's name alongside the review
+    const result = await pool.request().query(`
+      SELECT r.*, p.name AS provider_name
+      FROM Reviews r
+      LEFT JOIN Providers p ON r.provider_id = p.id
+      ORDER BY r.created_at DESC
+    `);
+
+    res.json(result.recordset.map(reviewToJson));
+  } catch (err) {
+    next(err);
+  }
+});
 module.exports = router;

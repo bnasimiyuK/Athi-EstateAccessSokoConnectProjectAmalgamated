@@ -1,25 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>All Reviews - Athi Soko Connect</title>
-  <link rel="stylesheet" href="style.css"> <!-- Link your CSS file -->
+  <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-  <!-- Copy your usual header/nav here -->
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="residents.html" data-nav="residents.html">Sign Up</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <!-- Header section -->
+  <div class="page-head">
+    <div class="page-head__text">
+      <h1>All Platform Reviews</h1>
+      <p>Monitor and moderate feedback left by residents for vendors.</p>
+    </div>
+  </div>
   
-  <main class="container">
-    <h1>All Platform Reviews</h1>
-    <p>Monitor and moderate feedback left by residents for vendors.</p>
-    
-    <div id="reviews-list" style="margin-top: 2rem;">
+  <!-- FIX: Wrapped the table in a stat-section to force full-width stacking -->
+  <section class="stat-section" style="width: 100%;">
+    <div id="reviews-list">
       <div class="empty-state">Loading reviews…</div>
     </div>
-  </main>
+  </section>
+</main>
 
-  <script src="api.js"></script>
-  <script src="auth.js"></script>
-  <script src="admin-reviews.js"></script> <!-- We will create this next -->
+<footer class="site-footer">
+  <div class="container" style="width:100%;">Reports are logged for estate management review — this dashboard is not a dispute-resolution system.</div>
+</footer>
+
+<!-- Scripts loaded in the same order as admin.html -->
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/admin-reviews.js"></script>
 </body>
 </html>
