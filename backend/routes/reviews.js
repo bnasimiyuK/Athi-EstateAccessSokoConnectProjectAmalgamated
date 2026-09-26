@@ -11,12 +11,14 @@ const { getPool } = require("../db");
    ------------------------------------------------------------ */
 function reviewToJson(row) {
   return {
-    id:         row.id,
-    providerId: row.provider_id,
-    author:     row.author,
-    rating:     row.rating,
-    text:       row.text,
-    date:       row.created_at,
+    id:           row.id,
+    providerId:   row.provider_id,
+    providerName: row.provider_name || "Unknown Vendor",
+    bookingId:    row.booking_id,
+    author:       row.author,
+    rating:       row.rating,
+    text:         row.text,
+    date:         row.created_at,
   };
 }
 
@@ -34,9 +36,11 @@ router.get("/provider/:providerId", async (req, res, next) => {
     const result = await pool.request()
       .input("providerId", providerId)
       .query(`
-        SELECT * FROM Reviews
-        WHERE provider_id = @providerId
-        ORDER BY created_at DESC
+        SELECT r.*, p.name AS provider_name
+        FROM Reviews r
+        LEFT JOIN Providers p ON r.provider_id = p.id
+        WHERE r.provider_id = @providerId
+        ORDER BY r.created_at DESC
       `);
 
     res.json(result.recordset.map(reviewToJson));
@@ -46,11 +50,32 @@ router.get("/provider/:providerId", async (req, res, next) => {
 });
 
 /* ------------------------------------------------------------
-   POST /api/reviews  { providerId, author, rating, text }
+   GET /api/reviews
+   Admin: Fetch ALL reviews across all providers
+   ------------------------------------------------------------ */
+router.get("/", async (req, res, next) => {
+  try {
+    const pool = await getPool();
+    
+    const result = await pool.request().query(`
+      SELECT r.*, p.name AS provider_name
+      FROM Reviews r
+      LEFT JOIN Providers p ON r.provider_id = p.id
+      ORDER BY r.created_at DESC
+    `);
+
+    res.json(result.recordset.map(reviewToJson));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ------------------------------------------------------------
+   POST /api/reviews  { providerId, bookingId, author, rating, text }
    ------------------------------------------------------------ */
 router.post("/", async (req, res, next) => {
   try {
-    const { providerId, author, rating, text } = req.body;
+    const { providerId, bookingId, author, rating, text } = req.body;
 
     if (!providerId || !author || !rating || !text) {
       return res.status(400).json({ error: "Missing required review fields." });
@@ -71,16 +96,17 @@ router.post("/", async (req, res, next) => {
       return res.status(404).json({ error: "Provider not found" });
     }
 
-    // Insert the review
+    // Insert the review with the booking link
     const inserted = await pool.request()
       .input("providerId", providerIdInt)
+      .input("bookingId",  bookingId ? parseInt(bookingId, 10) : null)
       .input("author",     author)
       .input("rating",     parseInt(rating, 10))
       .input("text",       text)
       .query(`
-        INSERT INTO Reviews (provider_id, author, rating, text)
+        INSERT INTO Reviews (provider_id, booking_id, author, rating, text)
         OUTPUT INSERTED.*
-        VALUES (@providerId, @author, @rating, @text)
+        VALUES (@providerId, @bookingId, @author, @rating, @text)
       `);
 
     // Recompute the provider's aggregate rating + review count
@@ -93,46 +119,20 @@ router.post("/", async (req, res, next) => {
         WHERE id = @id
       `);
 
-    res.status(201).json(reviewToJson(inserted.recordset[0]));
+    // Fetch the enriched row with the provider name for the response
+    const enriched = await pool.request()
+      .input("id", inserted.recordset[0].id)
+      .query(`
+        SELECT r.*, p.name AS provider_name
+        FROM Reviews r
+        LEFT JOIN Providers p ON r.provider_id = p.id
+        WHERE r.id = @id
+      `);
+
+    res.status(201).json(reviewToJson(enriched.recordset[0]));
   } catch (err) {
     next(err);
   }
 });
 
-/* ------------------------------------------------------------
-   Helper: DB row → JSON frontend expects
-   ------------------------------------------------------------ */
-function reviewToJson(row) {
-  return {
-    id:           row.id,
-    providerId:   row.provider_id,
-    providerName: row.provider_name || "Unknown Vendor", // ADDED: Map joined provider name
-    author:       row.author,
-    rating:       row.rating,
-    text:         row.text,
-    date:         row.created_at,
-  };
-}
-
-/* ------------------------------------------------------------
-   GET /api/reviews
-   Admin: Fetch ALL reviews across all providers
-   ------------------------------------------------------------ */
-router.get("/", async (req, res, next) => {
-  try {
-    const pool = await getPool();
-    
-    // We use a LEFT JOIN to fetch the provider's name alongside the review
-    const result = await pool.request().query(`
-      SELECT r.*, p.name AS provider_name
-      FROM Reviews r
-      LEFT JOIN Providers p ON r.provider_id = p.id
-      ORDER BY r.created_at DESC
-    `);
-
-    res.json(result.recordset.map(reviewToJson));
-  } catch (err) {
-    next(err);
-  }
-});
 module.exports = router;

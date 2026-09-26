@@ -12,26 +12,24 @@ const { requireAuth } = require("../middleware/auth");
    ------------------------------------------------------------ */
 function bookingToJson(row) {
   return {
-    id:             row.id,
-    providerId:     row.provider_id,
-    providerName:   row.provider_name,
-    service:        row.service,
-    date:           row.job_date,
-    notes:          row.notes || "",
-    residentName:   row.resident_name,
-    residentPhone:  row.resident_phone,
-    status:         row.status,
-    reviewed:       !!row.reviewed,
-    createdAt:      row.created_at,
+    id:                 row.id,
+    providerId:         row.provider_id,
+    providerName:       row.provider_name,
+    service:            row.service,
+    date:               row.job_date,
+    notes:              row.notes || "",
+    residentName:       row.resident_name,
+    residentPhone:      row.resident_phone,
+    status:             row.status,
+    reviewed:           !!row.reviewed,
+    createdAt:          row.created_at,
+    cancellationReason: row.cancellation_reason || null,
+    rating:             row.review_rating || null, // <--- THIS MUST BE HERE
   };
 }
 
 /* ------------------------------------------------------------
    GET /api/bookings
-   Role-scoped:
-     admin    → all bookings
-     vendor   → only bookings addressed to them
-     resident → only bookings they created
    ------------------------------------------------------------ */
 router.get("/", requireAuth, async (req, res, next) => {
   try {
@@ -40,21 +38,18 @@ router.get("/", requireAuth, async (req, res, next) => {
     const request = pool.request();
     let sqlText;
 
+    // We MUST join Reviews to get the star rating
+    const baseSelect = `
+      SELECT b.*, p.name AS provider_name, r.rating AS review_rating
+      FROM Bookings b
+      LEFT JOIN Providers p ON p.id = b.provider_id
+      LEFT JOIN Reviews r ON r.booking_id = b.id
+    `;
+
     if (role === "admin") {
-      sqlText = `
-        SELECT b.*, p.name AS provider_name
-        FROM Bookings b
-        LEFT JOIN Providers p ON p.id = b.provider_id
-        ORDER BY b.created_at DESC
-      `;
+      sqlText = `${baseSelect} ORDER BY b.created_at DESC`;
     } else if (role === "vendor") {
-      sqlText = `
-        SELECT b.*, p.name AS provider_name
-        FROM Bookings b
-        LEFT JOIN Providers p ON p.id = b.provider_id
-        WHERE b.provider_id = @providerId
-        ORDER BY b.created_at DESC
-      `;
+      sqlText = `${baseSelect} WHERE b.provider_id = @providerId ORDER BY b.created_at DESC`;
       request.input("providerId", id);
     } else {
       /* Resident — look up their phone from Residents */
@@ -64,13 +59,7 @@ router.get("/", requireAuth, async (req, res, next) => {
       const phone = me.recordset[0]?.phone;
       if (!phone) return res.json([]);
 
-      sqlText = `
-        SELECT b.*, p.name AS provider_name
-        FROM Bookings b
-        LEFT JOIN Providers p ON p.id = b.provider_id
-        WHERE b.resident_phone = @phone
-        ORDER BY b.created_at DESC
-      `;
+      sqlText = `${baseSelect} WHERE b.resident_phone = @phone ORDER BY b.created_at DESC`;
       request.input("phone", phone);
     }
 
@@ -122,7 +111,7 @@ router.post("/", async (req, res, next) => {
     const enriched = await pool.request()
       .input("id", inserted.recordset[0].id)
       .query(`
-        SELECT b.*, p.name AS provider_name
+        SELECT b.*, p.name AS provider_name, NULL AS review_rating
         FROM Bookings b
         LEFT JOIN Providers p ON p.id = b.provider_id
         WHERE b.id = @id
@@ -135,14 +124,13 @@ router.post("/", async (req, res, next) => {
 });
 
 /* ------------------------------------------------------------
-   PATCH /api/bookings/:id  { status } or { reviewed }
+   PATCH /api/bookings/:id  { status, reviewed, cancellationReason }
    ------------------------------------------------------------ */
 router.patch("/:id", requireAuth, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid booking id" });
 
-    // ENFORCE PHASE 1 WORKFLOW
     const VALID_STATUSES = ['requested', 'confirmed', 'in_progress', 'completed', 'cancelled'];
     if (req.body.status && !VALID_STATUSES.includes(req.body.status)) {
       return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` });
@@ -178,8 +166,9 @@ router.patch("/:id", requireAuth, async (req, res, next) => {
 
     /* 2. Build the UPDATE from allowed fields */
     const fields = {
-      status:   req.body.status,
-      reviewed: req.body.reviewed,
+      status:              req.body.status,
+      reviewed:            req.body.reviewed,
+      cancellation_reason: req.body.cancellationReason,
     };
 
     const request = pool.request().input("id", id);
@@ -206,9 +195,10 @@ router.patch("/:id", requireAuth, async (req, res, next) => {
     const enriched = await pool.request()
       .input("id", id)
       .query(`
-        SELECT b.*, p.name AS provider_name
+        SELECT b.*, p.name AS provider_name, r.rating AS review_rating
         FROM Bookings b
         LEFT JOIN Providers p ON p.id = b.provider_id
+        LEFT JOIN Reviews r ON r.booking_id = b.id
         WHERE b.id = @id
       `);
 

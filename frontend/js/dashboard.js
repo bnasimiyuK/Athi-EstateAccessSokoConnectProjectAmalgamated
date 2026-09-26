@@ -1,6 +1,5 @@
 /* ============================================================
    dashboard.js — resident's booking list + review flow
-   Status progression: requested -> confirmed -> in_progress -> completed.
    ============================================================ */
 
 let reviewTargetBooking = null;
@@ -51,9 +50,13 @@ async function renderBookings() {
       </table>
     </div>`;
 
-  // Attach event listeners for review buttons (Resident side only)
+  // Attach event listeners
   list.querySelectorAll("[data-review]").forEach((btn) =>
     btn.addEventListener("click", () => openReview(btn.dataset.review, bookings))
+  );
+  
+  list.querySelectorAll("[data-cancel]").forEach((btn) =>
+    btn.addEventListener("click", () => cancelBooking(btn.dataset.cancel))
   );
 }
 
@@ -64,11 +67,10 @@ function bookingRow(b) {
   const bookingId = b.id || b._id; 
   let action = "";
 
-  // Resident actions: Mostly waiting, then reviewing
   if (b.status === "requested") {
-    action = `<span class="meta" style="color:#f39c12;">Waiting for vendor…</span>`;
+    action = `<button class="btn btn--ghost btn--small" data-cancel="${bookingId}">Cancel Request</button>`;
   } else if (b.status === "confirmed") {
-    action = `<span class="meta" style="color:#3498db;">Vendor confirmed</span>`;
+    action = `<button class="btn btn--ghost btn--small" data-cancel="${bookingId}">Cancel</button>`;
   } else if (b.status === "in_progress") {
     action = `<span class="meta" style="color:#9b59b6;">Work in progress…</span>`;
   } else if (b.status === "completed" && !b.reviewed) {
@@ -79,13 +81,37 @@ function bookingRow(b) {
     action = `<span class="meta" style="color:#e74c3c;">Cancelled</span>`;
   }
 
+  // Show cancellation reason if cancelled
+  let reasonHtml = "";
+  if (b.status === "cancelled" && b.cancellationReason) {
+    reasonHtml = `<div class="meta" style="color:var(--clay); font-size:0.85em; margin-top:4px;">Reason: ${b.cancellationReason}</div>`;
+  }
+
   return `<tr>
     <td>${b.providerName}</td>
     <td>${b.service}</td>
     <td>${formatDate(b.date)}</td>
     <td>${getStatusBadge(b.status)}</td>
-    <td>${action}</td>
+    <td>${action} ${reasonHtml}</td>
   </tr>`;
+}
+
+/* ------------------------------------------------------------
+   Cancel a booking (Resident side)
+   ------------------------------------------------------------ */
+async function cancelBooking(id) {
+  const reason = prompt("Please provide a reason for cancelling this booking:");
+  if (reason !== null && reason.trim() !== "") {
+    try {
+      await Api.updateBooking(id, { status: "cancelled", cancellationReason: reason });
+      toast("Booking cancelled.");
+      renderBookings();
+    } catch (err) {
+      toast("Couldn't cancel the booking.");
+    }
+  } else if (reason !== null) {
+    alert("A reason is required to cancel a booking.");
+  }
 }
 
 /* ------------------------------------------------------------
@@ -114,9 +140,10 @@ async function handleReviewSubmit(e) {
   try {
     await Api.addReview({
       providerId: reviewTargetBooking.providerId,
-      author: "You",
-      rating: Number(document.getElementById("review-rating").value),
-      text: document.getElementById("review-text").value,
+      bookingId:  targetId, // <-- FIXED: Now sending the booking ID to link the review
+      author:     "You",
+      rating:     Number(document.getElementById("review-rating").value),
+      text:       document.getElementById("review-text").value,
     });
     await Api.updateBooking(targetId, { reviewed: true });
     

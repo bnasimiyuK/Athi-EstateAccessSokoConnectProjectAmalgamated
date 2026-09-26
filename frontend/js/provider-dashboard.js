@@ -1,6 +1,5 @@
 /* ============================================================
    provider-dashboard.js — vendor view of incoming bookings
-   Status progression: requested -> confirmed -> in_progress -> completed
    ============================================================ */
 
 /* ---------------- helpers ---------------- */
@@ -26,7 +25,7 @@ function statusBadge(status) {
   const map = {
     requested:   "badge--requested",
     confirmed:   "badge--confirmed",
-    in_progress: "badge--info", // Assuming you have a badge--info CSS class, or add inline styles
+    in_progress: "badge--info",
     completed:   "badge--completed",
     cancelled:   "badge--declined",
   };
@@ -44,17 +43,26 @@ function bookingCard(b, variant) {
   const actions = [];
 
   if (variant === "new") {
-    // Status: requested -> can move to confirmed
     actions.push(`<button class="btn btn--accent btn--small" data-confirm="${b.id}">Accept Order</button>`);
     actions.push(`<button class="btn btn--danger btn--small" data-decline="${b.id}">Decline</button>`);
   } else if (variant === "confirmed") {
-    // Status: confirmed -> can move to in_progress
     actions.push(`<button class="btn btn--accent btn--small" data-start="${b.id}">Start Work</button>`);
     actions.push(`<button class="btn btn--ghost btn--small" data-decline="${b.id}">Cancel</button>`);
   } else if (variant === "in-progress") {
-    // Status: in_progress -> can move to completed
     actions.push(`<button class="btn btn--accent btn--small" data-complete="${b.id}">Mark Completed</button>`);
     actions.push(`<button class="btn btn--ghost btn--small" data-decline="${b.id}">Cancel</button>`);
+  }
+
+  // ADDED: Display star rating
+  let starsHtml = "";
+  if (b.rating) {
+    starsHtml = `<li><span>Rating</span><span style="color:#d4af37;">${"★".repeat(b.rating)}${"☆".repeat(5 - b.rating)}</span></li>`;
+  }
+
+  // ADDED: Display cancellation reason
+  let reasonHtml = "";
+  if (b.status === "cancelled" && b.cancellationReason) {
+    reasonHtml = `<li><span>Reason</span><span style="color:var(--clay);">${escapeHtml(b.cancellationReason)}</span></li>`;
   }
 
   return `
@@ -75,6 +83,8 @@ function bookingCard(b, variant) {
         <li><span>Date</span><span>${formatDate(b.date)}</span></li>
         ${b.notes ? `<li><span>Notes</span><span>${escapeHtml(b.notes)}</span></li>` : ""}
         <li><span>Requested</span><span>${formatDate(b.createdAt)}</span></li>
+        ${starsHtml}
+        ${reasonHtml}
       </ul>
 
       <div class="row-actions">${actions.join("")}</div>
@@ -107,7 +117,6 @@ async function loadBookings() {
     return;
   }
 
-  // Group bookings by the Phase 1 lifecycle
   const requested   = bookings.filter((b) => b.status === "requested");
   const confirmed   = bookings.filter((b) => b.status === "confirmed");
   const inProgress  = bookings.filter((b) => b.status === "in_progress");
@@ -150,16 +159,23 @@ function wireActions() {
 
   el.querySelectorAll("[data-decline]").forEach((btn) =>
     btn.addEventListener("click", () => {
-      if (confirm("Decline or cancel this booking?")) {
-        updateStatus(btn.dataset.decline, "cancelled");
+      // ADDED: Prompt for cancellation reason
+      const reason = prompt("Please provide a reason for declining/cancelling this booking:");
+      if (reason !== null && reason.trim() !== "") {
+        updateStatus(btn.dataset.decline, "cancelled", reason);
+      } else if (reason !== null) {
+        alert("A reason is required to cancel/decline a booking.");
       }
     })
   );
 }
 
-async function updateStatus(id, status) {
+async function updateStatus(id, status, reason = null) {
   try {
-    await Api.updateBooking(id, { status });
+    const payload = { status };
+    if (reason) payload.cancellationReason = reason;
+    
+    await Api.updateBooking(id, payload);
     await loadBookings();
   } catch (err) {
     console.error("[provider-dashboard] update failed:", err);
