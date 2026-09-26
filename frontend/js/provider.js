@@ -1,5 +1,5 @@
 /* ============================================================
-   frontend/js/provider.js — Provider profile + booking + report
+   frontend/js/provider.js — Provider profile + booking + report + refer
    Reads ?id=N, renders profile, submits booking, opens modal.
    ============================================================ */
 
@@ -174,9 +174,37 @@ function leftColumnHtml(p, reviews) {
       ${reviewsHtml}
 
       <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--line);">
-        <button type="button" class="btn btn--ghost btn--small" id="open-report">
-          Report this provider
-        </button>
+        <h3 style="margin:0 0 12px;">Share with a neighbor</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn--accent btn--small" id="refer-provider">
+            🔗 Refer this provider
+          </button>
+          <button type="button" class="btn btn--ghost btn--small" id="open-report">
+            Report this provider
+          </button>
+        </div>
+
+        <!-- Refer inline panel (hidden by default) -->
+        <div id="refer-panel" style="
+          display:none; margin-top:12px; padding:14px;
+          border:1px solid var(--line); border-radius:8px;
+          background:var(--paper);
+        ">
+          <p style="margin:0 0 10px; font-size:0.9rem;">
+            Help your neighbors find <b>${escapeHtml(p.name)}</b>:
+          </p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn--primary btn--small" id="refer-copy">
+              📋 Copy link
+            </button>
+            <button type="button" class="btn btn--ghost btn--small" id="refer-whatsapp">
+              💬 Share on WhatsApp
+            </button>
+            <button type="button" class="btn btn--ghost btn--small" id="refer-close">
+              Cancel
+            </button>
+          </div>
+        </div>
       </div>
     </div>`;
 }
@@ -351,6 +379,60 @@ function wireReportModal(provider) {
   });
 }
 
+/* ---------------- wire refer panel ---------------- */
+function wireReferPanel(provider) {
+  const referBtn    = document.getElementById("refer-provider");
+  const panel       = document.getElementById("refer-panel");
+  const copyBtn     = document.getElementById("refer-copy");
+  const whatsappBtn = document.getElementById("refer-whatsapp");
+  const closeBtn    = document.getElementById("refer-close");
+
+  if (!referBtn || !panel || !copyBtn || !whatsappBtn || !closeBtn) return;
+
+  // Build the sharable URL and message
+  const providerUrl = `${window.location.origin}${window.location.pathname}?id=${provider.id}`;
+  const shareMessage =
+    `Check out ${provider.name} on Athi Soko Connect — ` +
+    `${provider.categoryLabel || "a service provider"} in Phase ${provider.phase || "?"}. ` +
+    `Book them here: ${providerUrl}`;
+
+  // Toggle the panel
+  referBtn.addEventListener("click", () => {
+    panel.style.display = panel.style.display === "none" ? "block" : "none";
+  });
+
+  // Copy link to clipboard
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(providerUrl);
+      toast("Link copied! Share it with your neighbors.");
+      panel.style.display = "none";
+    } catch (err) {
+      // Fallback for older browsers / http contexts
+      const tempInput = document.createElement("input");
+      tempInput.value = providerUrl;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      try { document.execCommand("copy"); toast("Link copied!"); }
+      catch { alert("Could not copy. Here is the link:\n\n" + providerUrl); }
+      document.body.removeChild(tempInput);
+      panel.style.display = "none";
+    }
+  });
+
+  // Share on WhatsApp
+  whatsappBtn.addEventListener("click", () => {
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
+    window.open(waUrl, "_blank");
+    panel.style.display = "none";
+  });
+
+  // Close panel
+  closeBtn.addEventListener("click", () => {
+    panel.style.display = "none";
+  });
+}
+
 /* ---------------- main ---------------- */
 async function initProviderPage() {
   const root = document.getElementById("provider-root");
@@ -383,6 +465,7 @@ async function initProviderPage() {
 
   wireBookingForm(provider);
   wireReportModal(provider);
+  wireReferPanel(provider);  // <-- NEW: Wires up the refer panel
 }
 
 document.addEventListener("DOMContentLoaded", initProviderPage);
