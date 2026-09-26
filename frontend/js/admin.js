@@ -194,9 +194,77 @@ async function renderAll() {
 /* ------------------------------------------------------------
    Init
    ------------------------------------------------------------ */
+/* ------------------------------------------------------------
+   Export buttons — Excel and PDF downloads
+   Endpoints: GET /api/admin/export.xlsx
+              GET /api/admin/export.pdf
+   ------------------------------------------------------------ */
+async function downloadAdminReport(kind /* "xlsx" | "pdf" */) {
+  const btnId = kind === "xlsx" ? "btn-excel" : "btn-pdf";
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ Preparing…";
+
+  try {
+    // Api.getToken() must exist in your api.js — it returns the JWT
+ // Use auth.js's getToken() — the source of truth for the JWT.
+const token = typeof getToken === "function" ? getToken() : null;
+if (!token) throw new Error("Not logged in — no token found.");
+
+    const res = await fetch(`http://localhost:4050/api/admin/export.${kind}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      alert("Please log in as admin.");
+      window.location.href = "login.html?next=%2Fadmin.html";
+      return;
+    }
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} ${msg}`);
+    }
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `athi-soko-report-${new Date().toISOString().slice(0, 10)}.${kind}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    toast(`Report downloaded (${kind.toUpperCase()}).`);
+  } catch (err) {
+    console.error(`[admin] ${kind} export failed:`, err);
+    alert(`Could not download ${kind.toUpperCase()}. See console for details.`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+function setupExportButtons() {
+  const btnExcel = document.getElementById("btn-excel");
+  const btnPdf   = document.getElementById("btn-pdf");
+
+  if (btnExcel) btnExcel.addEventListener("click", () => downloadAdminReport("xlsx"));
+  if (btnPdf)   btnPdf.addEventListener("click",   () => downloadAdminReport("pdf"));
+}
+
+/* ------------------------------------------------------------
+   Init
+   ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
   // Guard: must be admin
   if (typeof requireRole === "function" && !requireRole("admin")) return;
+
+  // Wire up the export buttons immediately, before any async work
+  setupExportButtons();
 
   await loadCategoryCache();
   setupTabs();

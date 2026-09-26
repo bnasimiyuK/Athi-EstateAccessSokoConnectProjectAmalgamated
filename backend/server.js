@@ -6,6 +6,8 @@
 
 require("dotenv").config();
 
+console.log("🔧 ALLOW_ORIGIN =", process.env.ALLOW_ORIGIN || "(not set)");
+
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -18,16 +20,37 @@ const reportsRouter    = require("./routes/reports");
 const residentsRouter  = require("./routes/residents");
 const courtsRouter     = require("./routes/courts");
 const authRouter       = require("./routes/auth");
-const adminRouter = require("./routes/admin");
+const adminRouter      = require("./routes/admin");
 
 const app = express();
 const PORT = process.env.PORT || 4050;
 const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
 
-app.use(cors({
-  origin: process.env.ALLOW_ORIGIN || true,
-  credentials: true,
-}));
+/* ------------------------------------------------------------
+   CORS — accept requests from one or more origins listed in
+   ALLOW_ORIGIN (comma-separated). Falls back to localhost:3000
+   for local development.
+   ------------------------------------------------------------ */
+const allowedOrigins = (process.env.ALLOW_ORIGIN || "http://localhost:3000")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+console.log("🔧 CORS allowed origins:", allowedOrigins);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow same-origin / curl / Postman (no Origin header)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      console.warn(`🚫 CORS blocked: ${origin}`);
+      return callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 /* ---------- API routes ---------- */
@@ -39,7 +62,7 @@ app.use("/api/bookings",   bookingsRouter);
 app.use("/api/reports",    reportsRouter);
 app.use("/api/residents",  residentsRouter);
 app.use("/api/courts",     courtsRouter);
-app.use("/api/admin", adminRouter);
+app.use("/api/admin",      adminRouter);
 
 /* ---------- Static frontend ---------- */
 app.use(express.static(FRONTEND_DIR));

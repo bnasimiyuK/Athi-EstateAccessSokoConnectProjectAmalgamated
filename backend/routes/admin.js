@@ -81,6 +81,10 @@ async function getDashboardData() {
    GET /api/admin/stats
    Existing dashboard-tile counts (kept as-is)
    ============================================================ */
+/* ============================================================
+   GET /api/admin/stats
+   Full operational dashboard payload.
+   ============================================================ */
 router.get("/stats",
   requireAuth,
   requireRole("admin"),
@@ -89,35 +93,180 @@ router.get("/stats",
       const pool = await getPool();
 
       const result = await pool.request().query(`
+        DECLARE @monthStart DATETIME2 = DATEADD(month, DATEDIFF(month, 0, SYSUTCDATETIME()), 0);
+        DECLARE @lastMonthStart DATETIME2 = DATEADD(month, -1, @monthStart);
+        DECLARE @d30 DATETIME2 = DATEADD(day, -30, SYSUTCDATETIME());
+
         SELECT
+          /* ---------- Users ---------- */
           (SELECT COUNT(*) FROM Residents WHERE verified = 0) AS pending_residents,
           (SELECT COUNT(*) FROM Residents WHERE verified = 1) AS approved_residents,
           (SELECT COUNT(*) FROM Providers WHERE verified = 0) AS pending_vendors,
           (SELECT COUNT(*) FROM Providers WHERE verified = 1) AS approved_vendors,
-          (SELECT COUNT(*) FROM Bookings)                     AS total_bookings,
-          (SELECT COUNT(*) FROM Bookings WHERE status = 'requested') AS open_bookings,
-          (SELECT COUNT(*) FROM Reports WHERE status = 'open')       AS open_reports,
-          (SELECT COUNT(*) FROM Courts)                       AS total_courts
+          (SELECT COUNT(*) FROM Residents WHERE created_at >= @monthStart) AS residents_joined_this_month,
+          (SELECT COUNT(*) FROM Providers WHERE created_at >= @monthStart) AS vendors_joined_this_month,
+
+          /* ---------- Bookings (all time) ---------- */
+          (SELECT COUNT(*) FROM Bookings)                             AS bookings_total,
+          (SELECT COUNT(*) FROM Bookings WHERE status = 'requested')  AS bookings_open,
+          (SELECT COUNT(*) FROM Bookings WHERE status = 'confirmed')  AS bookings_confirmed,
+          (SELECT COUNT(*) FROM Bookings WHERE status = 'completed')  AS bookings_completed,
+          (SELECT COUNT(*) FROM Bookings WHERE status = 'cancelled')  AS bookings_cancelled,
+
+          /* ---------- Bookings (this month) ---------- */
+          (SELECT COUNT(*) FROM Bookings WHERE created_at >= @monthStart) AS bookings_this_month,
+          (SELECT COUNT(*) FROM Bookings
+            WHERE created_at >= @monthStart AND status = 'completed')   AS completed_this_month,
+          (SELECT COUNT(*) FROM Bookings
+            WHERE created_at >= @monthStart AND status = 'cancelled')   AS cancelled_this_month,
+
+          /* ---------- Bookings (last month — for deltas) ---------- */
+          (SELECT COUNT(*) FROM Bookings
+            WHERE created_at >= @lastMonthStart AND created_at < @monthStart) AS bookings_last_month,
+          (SELECT COUNT(*) FROM Bookings
+            WHERE created_at >= @lastMonthStart AND created_at < @monthStart
+              AND status = 'completed')                                     AS completed_last_month,
+          (SELECT COUNT(*) FROM Bookings
+            WHERE created_at >= @lastMonthStart AND created_at < @monthStart
+              AND status = 'cancelled')                                     AS cancelled_last_month,
+
+          /* ---------- Bookings (rolling windows) ---------- */
+          (SELECT COUNT(*) FROM Bookings WHERE created_at >= @d30) AS bookings_last_30d,
+          (SELECT COUNT(*) FROM Bookings
+            WHERE created_at >= DATEADD(day, -7, SYSUTCDATETIME())) AS bookings_last_7d,
+
+          /* ---------- Quality ---------- */
+          (SELECT COUNT(*) FROM Reviews)                                     AS reviews_total,
+          (SELECT ISNULL(AVG(CAST(rating AS DECIMAL(3,2))), 0) FROM Reviews) AS avg_rating,
+          (SELECT COUNT(*) FROM Reviews WHERE rating = 5)                    AS reviews_5star,
+          (SELECT COUNT(*) FROM Reviews WHERE rating <= 2)                   AS reviews_low,
+
+          /* ---------- Provider health ---------- */
+          (SELECT COUNT(DISTINCT provider_id) FROM Bookings
+            WHERE created_at >= @d30)                                        AS vendors_active_30d,
+          (SELECT COUNT(*) FROM Providers p
+            WHERE p.verified = 1
+              AND NOT EXISTS (SELECT 1 FROM Bookings b WHERE b.provider_id = p.id))
+                                                                            AS vendors_with_no_bookings,
+          (SELECT COUNT(*) FROM Categories c
+            WHERE NOT EXISTS (SELECT 1 FROM Providers p
+                              WHERE p.category_id = c.id AND p.verified = 1))
+                                                                            AS categories_without_vendor,
+
+          /* ---------- Residents engagement ---------- */
+          (SELECT COUNT(DISTINCT resident_phone) FROM Bookings) AS booking_residents_distinct,
+          (SELECT COUNT(*) FROM (
+            SELECT resident_phone FROM Bookings
+            GROUP BY resident_phone HAVING COUNT(*) >= 2
+          ) x)                                                   AS residents_repeat,
+
+          /* ---------- Infrastructure ---------- */
+          (SELECT COUNT(*) FROM Courts) AS courts_total;
       `);
 
       const row = result.recordset[0];
 
+      /* ---------- Bucket: monthly trend (last 6 months) ---------- */
+      const trend = await pool.request().query(`
+        SELECT
+          FORMAT(DATEFROMPARTS(YEAR(created_at), MONTH(created_at), 1), 'yyyy-MM') AS month,
+          COUNT(*)                                                                  AS total,
+          SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END)                       AS completed,
+          SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END)                       AS cancelled
+        FROM Bookings
+        WHERE created_at >= DATEADD(month, -6, SYSUTCDATETIME())
+        GROUP BY YEAR(created_at), MONTH(created_at)
+        ORDER BY YEAR(created_at), MONTH(created_at)
+      `);
+
+      /* ---------- Top rated vendors ---------- */
+      const topVendors = await pool.request().query(`
+        SELECT TOP 5 id, name, rating, reviews
+        FROM Providers
+        WHERE verified = 1 AND reviews > 0
+        ORDER BY rating DESC, reviews DESC
+      `);
+
+      /* ---------- Categories with zero approved vendors ---------- */
+      const emptyCats = await pool.request().query(`
+        SELECT c.id, c.label
+        FROM Categories c
+        WHERE NOT EXISTS (
+          SELECT 1 FROM Providers p WHERE p.category_id = c.id AND p.verified = 1
+        )
+        ORDER BY c.label
+      `);
+
+      /* ---------- Providers with no bookings ---------- */
+      const deadVendors = await pool.request().query(`
+        SELECT p.id, p.name, p.phone
+        FROM Providers p
+        WHERE p.verified = 1
+          AND NOT EXISTS (SELECT 1 FROM Bookings b WHERE b.provider_id = p.id)
+        ORDER BY p.created_at DESC
+      `);
+
+      /* ---------- Bookings by weekday (when do residents book?) ---------- */
+      const byWeekday = await pool.request().query(`
+        SELECT DATENAME(weekday, created_at) AS day, COUNT(*) AS total
+        FROM Bookings
+        GROUP BY DATENAME(weekday, created_at)
+        ORDER BY MIN(DATEPART(weekday, created_at))
+      `);
+
       res.json({
-        pendingResidents:  row.pending_residents,
-        approvedResidents: row.approved_residents,
-        pendingVendors:    row.pending_vendors,
-        approvedVendors:   row.approved_vendors,
-        totalBookings:     row.total_bookings,
-        openBookings:      row.open_bookings,
-        openReports:       row.open_reports,
-        totalCourts:       row.total_courts,
+        headline: {
+          pendingResidents:  row.pending_residents,
+          approvedResidents: row.approved_residents,
+          pendingVendors:    row.pending_vendors,
+          approvedVendors:   row.approved_vendors,
+          residentsJoinedThisMonth: row.residents_joined_this_month,
+          vendorsJoinedThisMonth:   row.vendors_joined_this_month,
+        },
+        bookings: {
+          total:            row.bookings_total,
+          open:             row.bookings_open,
+          confirmed:        row.bookings_confirmed,
+          completed:        row.bookings_completed,
+          cancelled:        row.bookings_cancelled,
+          thisMonth:        row.bookings_this_month,
+          completedThisMonth: row.completed_this_month,
+          cancelledThisMonth: row.cancelled_this_month,
+          lastMonth:        row.bookings_last_month,
+          completedLastMonth: row.completed_last_month,
+          cancelledLastMonth: row.cancelled_last_month,
+          last30d:          row.bookings_last_30d,
+          last7d:           row.bookings_last_7d,
+        },
+        quality: {
+          reviewsTotal: row.reviews_total,
+          avgRating:    Number(row.avg_rating) || 0,
+          reviews5Star: row.reviews_5star,
+          reviewsLow:   row.reviews_low,
+        },
+        providers: {
+          active30d:              row.vendors_active_30d,
+          withNoBookings:         row.vendors_with_no_bookings,
+          categoriesWithoutVendor: row.categories_without_vendor,
+        },
+        residents: {
+          distinctBookers: row.booking_residents_distinct,
+          repeatBookers:   row.residents_repeat,
+        },
+        courts: {
+          total: row.courts_total,
+        },
+        trend:      trend.recordset,
+        topVendors: topVendors.recordset,
+        emptyCategories: emptyCats.recordset,
+        deadVendors: deadVendors.recordset,
+        byWeekday:  byWeekday.recordset,
       });
     } catch (err) {
       next(err);
     }
   }
 );
-
 /* ============================================================
    GET /api/admin/dashboard
    Full dashboard payload (headline + this-month + active +

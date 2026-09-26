@@ -72,8 +72,33 @@ const Api = {
       body: JSON.stringify(payload),
     }),
     
- /* ---------- Admin ---------- */
+   /* ---------- Admin ---------- */
   getAdminStats: () => request(`${API_BASE}/admin/stats`),
+
+  /* ---------- Admin: dashboard + exports ---------- */
+  getAdminDashboard: () => request(`${API_BASE}/admin/dashboard`),
+
+  /**
+   * Download the admin report as a binary file.
+   * @param {"xlsx"|"pdf"} kind
+   * @returns {Promise<Blob>}
+   */
+  downloadAdminReport: async (kind) => {
+    const token = typeof getToken === "function" ? getToken() : null;
+    if (!token) throw new Error("Not logged in.");
+
+    const res = await fetch(`${API_BASE}/admin/export.${kind}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Session expired. Please log in again.");
+    }
+    if (!res.ok) {
+      throw new Error(`Export failed (${res.status})`);
+    }
+    return res.blob();
+  },
   
   /* ---------- Categories ---------- */
   getCategories: () => request(`${API_BASE}/categories`),

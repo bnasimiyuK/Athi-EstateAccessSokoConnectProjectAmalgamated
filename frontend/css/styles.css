@@ -948,3 +948,206 @@ main.container {
     letter-spacing: 0.4px;
     font-weight: 600;
   }
+.page-head--with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+/* ============================================================
+   Admin page — override the register-page flex on <main>
+   ============================================================ */
+body:has(.page-head--with-actions) main.container,
+main.container:has(.page-head--with-actions) {
+  display: block;
+  justify-content: initial;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+/* ============================================================
+   Admin dashboard styles
+   ============================================================ */
+
+/* ---------- Page head with actions ---------- */
+.page-head--with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.page-head__text { flex: 1 1 360px; }
+
+.admin-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-top: 8px;
+}
+
+.btn-export {
+  padding: 10px 18px;
+  border: 1.5px solid var(--ink, #16233f);
+  background: var(--paper, #fff);
+  color: var(--ink, #16233f);
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-export:hover:not(:disabled) {
+  background: var(--teal, #2f6f5e);
+  border-color: var(--teal, #2f6f5e);
+  color: #fff;
+}
+.btn-export:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+/* ---------- Stat sections ---------- */
+.stat-section { margin-bottom: 36px; }
+
+.stat-section__title {
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink, #16233f);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line, #dcd8cd);
+}
+
+/* ---------- Stat tiles ---------- */
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.stat-tile {
+  position: relative;
+  display: block;
+  background: var(--paper, #fff);
+  border: 1px solid var(--line, #dcd8cd);
+  border-radius: 8px;
+  padding: 18px 20px;
+  text-decoration: none;
+  color: inherit;
+  border-left-width: 4px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.stat-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+}
+.stat-tile--warn   { border-left-color: var(--ochre, #c8862a); }
+.stat-tile--ok     { border-left-color: var(--teal,  #2f6f5e); }
+.stat-tile--info   { border-left-color: var(--ink-40, #8791a3); }
+.stat-tile--danger { border-left-color: var(--clay,  #b0472e); }
+
+.stat-tile__value {
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--ink, #16233f);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.stat-tile__label {
+  font-size: 0.78rem;
+  color: var(--ink-70, #4a5670);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+}
+
+.stat-tile__delta {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--ink-40, #8791a3);
+}
+.stat-tile__delta.is-good { color: var(--teal, #2f6f5e); font-weight: 600; }
+.stat-tile__delta.is-bad  { color: var(--clay, #b0472e); font-weight: 600; }
+
+/* ---------- Alerts ---------- */
+.alert-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.alert-card {
+  border: 1px solid var(--line, #dcd8cd);
+  border-radius: 8px;
+  padding: 16px 18px;
+  background: var(--paper, #fff);
+}
+
+.alert-card__head {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-70, #4a5670);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 10px;
+}
+
+.alert-card__body { font-size: 0.9rem; }
+
+.alert-empty {
+  color: var(--ink-40, #8791a3);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.alert-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.alert-list li {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line, #dcd8cd);
+  font-size: 0.88rem;
+}
+.alert-list li:last-child { border-bottom: none; }
+
+/* ---------- Weekday bar chart ---------- */
+.weekday-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.weekday-list li {
+  display: grid;
+  grid-template-columns: 90px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 0.85rem;
+}
+.weekday-label { color: var(--ink-70, #4a5670); }
+
+.weekday-bar {
+  display: block;
+  height: 8px;
+  background: var(--paper-dim, #f0eee7);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.weekday-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--teal, #2f6f5e);
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+.weekday-count {
+  text-align: right;
+  font-weight: 600;
+  color: var(--ink, #16233f);
+}

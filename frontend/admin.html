@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin dashboard — Athi Soko Connect</title>
 <link rel="stylesheet" href="css/styles.css" />
+
 </head>
 <body>
 
@@ -29,38 +30,197 @@
 </header>
 
 <main class="container">
-  <div class="page-head">
-    <h1>Estate admin dashboard</h1>
-    <p>Approve new provider listings and review resident reports. Verification confirms submitted details only, not the quality of future work.</p>
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>Estate admin dashboard</h1>
+      <p>Approve new provider listings and review resident reports. Verification confirms submitted details only, not the quality of future work.</p>
+    </div>
+
+    <div class="admin-actions">
+      <button id="btn-excel" class="btn btn-export" type="button">📥 Excel</button>
+      <button id="btn-pdf"   class="btn btn-export" type="button">📄 PDF</button>
+    </div>
   </div>
 
   <!-- ============================================================
-       SUMMARY STAT TILES
+       USERS — approvals + signups
        ============================================================ -->
-  <div class="stat-tiles" id="stat-tiles">
-    <a href="pending.html" class="stat-tile stat-tile--warn">
-      <div class="stat-tile__value" id="tile-pending-residents">—</div>
-      <div class="stat-tile__label">Pending residents</div>
-    </a>
-
-    <a href="pending.html" class="stat-tile stat-tile--warn">
-      <div class="stat-tile__value" id="tile-pending-vendors">—</div>
-      <div class="stat-tile__label">Pending vendors</div>
-    </a>
-
-    <a href="residents.html" class="stat-tile stat-tile--ok">
-      <div class="stat-tile__value" id="tile-approved-residents">—</div>
-      <div class="stat-tile__label">Approved residents</div>
-    </a>
-
-    <a href="#tab-providers" class="stat-tile stat-tile--ok" onclick="switchTab('providers')">
-      <div class="stat-tile__value" id="tile-approved-vendors">—</div>
-      <div class="stat-tile__label">Approved vendors</div>
-    </a>
-  </div>
+  <section class="stat-section">
+    <h3 class="stat-section__title">Users</h3>
+    <div class="stat-tiles">
+      <a href="pending.html" class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="tile-pending-residents">—</div>
+        <div class="stat-tile__label">Pending residents</div>
+      </a>
+      <a href="pending.html" class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="tile-pending-vendors">—</div>
+        <div class="stat-tile__label">Pending vendors</div>
+      </a>
+      <a href="residents.html" class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-approved-residents">—</div>
+        <div class="stat-tile__label">Approved residents</div>
+      </a>
+      <a href="#tab-providers" class="stat-tile stat-tile--ok" onclick="switchTab('providers')">
+        <div class="stat-tile__value" id="tile-approved-vendors">—</div>
+        <div class="stat-tile__label">Approved vendors</div>
+      </a>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-residents-joined">—</div>
+        <div class="stat-tile__label">New residents (month)</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-vendors-joined">—</div>
+        <div class="stat-tile__label">New vendors (month)</div>
+      </div>
+    </div>
+  </section>
 
   <!-- ============================================================
-       TABS
+       BOOKINGS
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">Bookings</h3>
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="tile-bookings-open">—</div>
+        <div class="stat-tile__label">Open (requested)</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-bookings-confirmed">—</div>
+        <div class="stat-tile__label">Confirmed</div>
+      </div>
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-bookings-completed">—</div>
+        <div class="stat-tile__label">Completed</div>
+      </div>
+      <div class="stat-tile stat-tile--danger">
+        <div class="stat-tile__value" id="tile-bookings-cancelled">—</div>
+        <div class="stat-tile__label">Cancelled</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-bookings-total">—</div>
+        <div class="stat-tile__label">Total (all time)</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-bookings-month">—</div>
+        <div class="stat-tile__label">This month</div>
+        <div class="stat-tile__delta" id="delta-bookings-month"></div>
+      </div>
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-completed-month">—</div>
+        <div class="stat-tile__label">Completed (month)</div>
+        <div class="stat-tile__delta" id="delta-completed-month"></div>
+      </div>
+      <div class="stat-tile stat-tile--danger">
+        <div class="stat-tile__value" id="tile-cancelled-month">—</div>
+        <div class="stat-tile__label">Cancelled (month)</div>
+        <div class="stat-tile__delta" id="delta-cancelled-month"></div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-bookings-7d">—</div>
+        <div class="stat-tile__label">Last 7 days</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-bookings-30d">—</div>
+        <div class="stat-tile__label">Last 30 days</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       QUALITY
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">Quality</h3>
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-reviews-total">—</div>
+        <div class="stat-tile__label">Reviews</div>
+      </div>
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-avg-rating">—</div>
+        <div class="stat-tile__label">Avg estate rating</div>
+      </div>
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-reviews-5star">—</div>
+        <div class="stat-tile__label">5-star reviews</div>
+      </div>
+      <div class="stat-tile stat-tile--danger">
+        <div class="stat-tile__value" id="tile-reviews-low">—</div>
+        <div class="stat-tile__label">Low reviews (1–2★)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PROVIDER HEALTH
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">Provider health</h3>
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-vendors-active">—</div>
+        <div class="stat-tile__label">Active (30 days)</div>
+      </div>
+      <div class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="tile-vendors-dead">—</div>
+        <div class="stat-tile__label">No bookings yet</div>
+      </div>
+      <div class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="tile-cats-empty">—</div>
+        <div class="stat-tile__label">Categories w/o vendor</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-courts-total">—</div>
+        <div class="stat-tile__label">Courts covered</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       RESIDENT ENGAGEMENT
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">Resident engagement</h3>
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-distinct-bookers">—</div>
+        <div class="stat-tile__label">Residents who booked</div>
+      </div>
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-repeat-bookers">—</div>
+        <div class="stat-tile__label">Repeat bookers (2+)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       ALERTS — things that need attention
+       ============================================================ -->
+  <section class="stat-section" id="alerts-section">
+    <h3 class="stat-section__title">Needs attention</h3>
+    <div class="alert-grid">
+      <div class="alert-card" id="alert-empty-categories">
+        <div class="alert-card__head">Categories with no vendors</div>
+        <div class="alert-card__body" id="alert-empty-categories-body">—</div>
+      </div>
+      <div class="alert-card" id="alert-dead-vendors">
+        <div class="alert-card__head">Vendors with no bookings</div>
+        <div class="alert-card__body" id="alert-dead-vendors-body">—</div>
+      </div>
+      <div class="alert-card" id="alert-top-vendors">
+        <div class="alert-card__head">Top rated vendors</div>
+        <div class="alert-card__body" id="alert-top-vendors-body">—</div>
+      </div>
+      <div class="alert-card" id="alert-weekday">
+        <div class="alert-card__head">Bookings by weekday</div>
+        <div class="alert-card__body" id="alert-weekday-body">—</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       EXISTING TABS
        ============================================================ -->
   <div class="tab-row">
     <button class="tab-btn is-active" data-tab="verify">
@@ -77,10 +237,6 @@
   <div class="tab-panel is-active" id="tab-verify"></div>
   <div class="tab-panel" id="tab-reports"></div>
   <div class="tab-panel" id="tab-providers"></div>
-  <div class="admin-actions">
-  <button id="btn-excel" class="btn btn-export">📥 Excel</button>
-  <button id="btn-pdf"   class="btn btn-export">📄 PDF</button>
-</div>
 </main>
 
 <footer class="site-footer">
