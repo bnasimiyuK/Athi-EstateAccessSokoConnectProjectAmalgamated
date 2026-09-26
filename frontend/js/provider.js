@@ -1,296 +1,388 @@
 /* ============================================================
-   routes/providers.js — SQL Server version (resident-linked)
-   Vendors are residents with a provider profile.
-   POST requires a verified resident_id.
+   frontend/js/provider.js — Provider profile + booking + report
+   Reads ?id=N, renders profile, submits booking, opens modal.
    ============================================================ */
 
-const express = require("express");
-const router = express.Router();
-const { getPool } = require("../db");
-
-/* ------------------------------------------------------------
-   Helper: DB row → JSON the frontend expects
-   Note: `zone` is now derived from the resident's court.
-   ------------------------------------------------------------ */
-function providerToJson(row) {
-  return {
-    id:         row.id,
-    name:       row.name,
-    category:   row.category_id,
-    zone:       row.court_name,      // from JOIN with Courts (via Residents)
-    phase:      row.phase,           // from JOIN
-    courtId:    row.court_id,        // from JOIN
-    phone:      row.phone,
-    hours:      row.hours,
-    priceFrom:  Number(row.price_from),
-    priceUnit:  row.price_unit,
-    bio:        row.bio,
-    services:   row.services
-                  ? row.services.split(",").map((s) => s.trim()).filter(Boolean)
-                  : [],
-    rating:     row.rating ? Number(row.rating) : 0,
-    reviews:    row.reviews || 0,
-    verified:   !!row.verified,
-    residentId: row.resident_id,
-    createdAt:  row.created_at,
-  };
+/* ---------------- helpers ---------------- */
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-/* ------------------------------------------------------------
-   SQL fragment: standard provider + resident + court join
-   ------------------------------------------------------------ */
-const PROVIDER_SELECT = `
-  SELECT
-    p.*,
-    r.court_id   AS court_id,
-    c.name       AS court_name,
-    c.phase      AS phase
-  FROM Providers p
-  LEFT JOIN Residents r ON r.id = p.resident_id
-  LEFT JOIN Courts    c ON c.id = r.court_id
-`;
+function initialsOf(name) {
+  return String(name || "?")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
-/* ------------------------------------------------------------
-   GET /api/providers?q=&category=&zone=&phase=&verified=
-   ------------------------------------------------------------ */
-router.get("/", async (req, res, next) => {
+function servicesArray(services) {
+  if (Array.isArray(services)) return services;
+  if (!services) return [];
+  return String(services)
+    .split(/,\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function stars(rating) {
+  const r = Math.round(Number(rating) || 0);
+  const clamped = Math.max(0, Math.min(5, r));
+  return "⭐".repeat(clamped);
+}
+
+function formatDate(d) {
+  if (!d) return "—";
   try {
-    const { q, category, zone, phase, verified } = req.query;
-    const pool = await getPool();
-    const request = pool.request();
-    const where = [];
+    return new Date(d).toLocaleDateString("en-KE", {
+      day: "numeric", month: "short", year: "numeric",
+    });
+  } catch { return "—"; }
+}
 
-    if (q && q.trim()) {
-      where.push("(p.name LIKE @q OR p.bio LIKE @q OR p.services LIKE @q)");
-      request.input("q", `%${q.trim()}%`);
-    }
-    if (category) {
-      where.push("p.category_id = @category");
-      request.input("category", parseInt(category, 10));
-    }
-    if (zone) {
-      where.push("c.name = @zone");
-      request.input("zone", zone);
-    }
-    if (phase) {
-      where.push("c.phase = @phase");
-      request.input("phase", parseInt(phase, 10));
-    }
-    if (verified === "true" || verified === "false") {
-      where.push("p.verified = @verified");
-      request.input("verified", verified === "true" ? 1 : 0);
-    }
+function todayPlusDays(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
 
-    const sqlText = `
-      ${PROVIDER_SELECT}
-      ${where.length ? "WHERE " + where.join(" AND ") : ""}
-      ORDER BY p.verified DESC, p.rating DESC, p.name ASC
-    `;
+function getProviderId() {
+  const params = new URLSearchParams(window.location.search);
+  const id = parseInt(params.get("id"), 10);
+  return isNaN(id) ? null : id;
+}
 
-    const result = await request.query(sqlText);
-    res.json(result.recordset.map(providerToJson));
-  } catch (err) {
-    next(err);
+function getCurrentUser() {
+  try {
+    const raw = localStorage.getItem("asc_user");
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function isLoggedIn() {
+  return typeof getToken === "function" && !!getToken();
+}
+
+/* ---------------- render states ---------------- */
+function renderLoading() {
+  document.getElementById("provider-root").innerHTML =
+    `<div class="empty-state" style="margin-top:40px;">Loading provider…</div>`;
+}
+
+function renderError(msg) {
+  document.getElementById("provider-root").innerHTML = `
+    <div class="empty-state" style="margin-top:40px;">
+      <h3>${escapeHtml(msg)}</h3>
+      <p><a href="index.html">← Back to Discover</a></p>
+    </div>`;
+}
+
+/* ---------------- header ---------------- */
+function headerHtml(p) {
+  const initials = initialsOf(p.name);
+  const locParts = [];
+  if (p.courtName) locParts.push(escapeHtml(p.courtName));
+  if (p.phase != null) locParts.push(`Phase ${p.phase}`);
+  const loc = locParts.join(" · ");
+
+  const rating  = Number(p.rating || 0);
+  const reviews = Number(p.reviews || 0);
+  const price   = Number(p.priceFrom || 0);
+  const cat     = p.categoryLabel || "—";
+
+  return `
+    <div class="provider-header">
+      <div class="avatar avatar--lg">${escapeHtml(initials)}</div>
+      <div>
+        <h1 style="margin:0 0 4px;">${escapeHtml(p.name)}</h1>
+        <div class="meta" style="color:var(--ink-70);">
+          ${escapeHtml(cat)}${loc ? " · " + loc : ""}
+        </div>
+        <div class="rating" style="margin-top:6px;color:var(--ochre-dark);">
+          ${stars(rating)} ${rating.toFixed(1)}
+          ${reviews ? `<span style="color:var(--ink-40);">(${reviews} review${reviews === 1 ? "" : "s"})</span>` : ""}
+          <span style="color:var(--ink-40);">·</span>
+          <span style="color:var(--ink-70);">
+            From KSh ${price.toLocaleString()} ${escapeHtml(p.priceUnit || "")}
+          </span>
+        </div>
+      </div>
+      <div>
+        ${p.verified
+          ? `<span class="badge badge--verified">Verified</span>`
+          : `<span class="badge badge--pending">Pending</span>`}
+      </div>
+    </div>`;
+}
+
+/* ---------------- left column ---------------- */
+function leftColumnHtml(p, reviews) {
+  const services = servicesArray(p.services);
+  const showPhone = isLoggedIn();
+
+  const reviewsHtml = reviews.length
+    ? reviews.map((r) => `
+        <div class="review">
+          <div class="review-head">
+            <b>${escapeHtml(r.author || "Anonymous")}</b>
+            <span>${formatDate(r.date)}</span>
+          </div>
+          <div class="rating" style="color:var(--ochre-dark);margin-bottom:4px;">
+            ${stars(r.rating)} ${Number(r.rating).toFixed(1)}
+          </div>
+          ${r.text ? `<p style="margin:6px 0 0;">${escapeHtml(r.text)}</p>` : ""}
+        </div>`).join("")
+    : `<div class="empty-state" style="padding:20px;">No reviews yet.</div>`;
+
+  return `
+    <div>
+      ${p.bio ? `<h2>About</h2><p>${escapeHtml(p.bio)}</p>` : ""}
+
+      ${services.length ? `
+        <h2 style="margin-top:28px;">Services</h2>
+        <ul class="service-list">
+          ${services.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}
+        </ul>` : ""}
+
+      <h2 style="margin-top:28px;">Details</h2>
+      <ul class="info-list">
+        <li><span>Hours</span><span>${escapeHtml(p.hours || "—")}</span></li>
+        <li>
+          <span>Starting price</span>
+          <span>KSh ${Number(p.priceFrom || 0).toLocaleString()} ${escapeHtml(p.priceUnit || "")}</span>
+        </li>
+        <li><span>Court</span><span>${escapeHtml(p.courtName || "—")}</span></li>
+        <li><span>Phase</span><span>${p.phase != null ? "Phase " + p.phase : "—"}</span></li>
+        <li>
+          <span>Phone</span>
+          <span>
+            ${showPhone
+              ? `<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`
+              : `<span style="color:var(--ink-40);">Log in to view</span>`}
+          </span>
+        </li>
+      </ul>
+
+      <h2 style="margin-top:28px;">Reviews (${reviews.length})</h2>
+      ${reviewsHtml}
+
+      <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--line);">
+        <button type="button" class="btn btn--ghost btn--small" id="open-report">
+          Report this provider
+        </button>
+      </div>
+    </div>`;
+}
+
+/* ---------------- right column (booking form) ---------------- */
+function bookingFormHtml(p) {
+  if (!isLoggedIn()) {
+    const next = encodeURIComponent("provider.html?id=" + p.id);
+    return `
+      <div class="booking-box" id="booking-box">
+        <h3 style="margin-top:0;">Request a booking</h3>
+        <p style="font-size:0.9rem;">
+          Please log in as a resident to send a booking request.
+        </p>
+        <a class="btn btn--primary" href="login.html?next=${next}">Log in to book</a>
+      </div>`;
   }
-});
 
-/* ------------------------------------------------------------
-   GET /api/providers/:id
-   ------------------------------------------------------------ */
-router.get("/:id", async (req, res, next) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: "Invalid provider id" });
+  const user = getCurrentUser() || {};
+  const name  = user.name  || "";
+  const phone = user.phone || "";
 
-    const pool = await getPool();
-    const result = await pool.request()
-      .input("id", id)
-      .query(`${PROVIDER_SELECT} WHERE p.id = @id`);
+  return `
+    <div class="booking-box" id="booking-box">
+      <h3 style="margin-top:0;">Request a booking</h3>
+      <p style="font-size:0.9rem;">
+        Send a request to ${escapeHtml(p.name)}. They'll confirm shortly.
+      </p>
 
-    if (!result.recordset.length) {
-      return res.status(404).json({ error: "Provider not found" });
+      <form id="booking-form">
+        <div class="field">
+          <label for="bf-name">Your name</label>
+          <input id="bf-name" type="text" required value="${escapeHtml(name)}" />
+        </div>
+
+        <div class="field">
+          <label for="bf-phone">Your phone</label>
+          <input id="bf-phone" type="tel" required
+                 value="${escapeHtml(phone)}" placeholder="+2547…" />
+        </div>
+
+        <div class="field">
+          <label for="bf-date">Date</label>
+          <input id="bf-date" type="date" required value="${todayPlusDays(1)}" />
+        </div>
+
+        <div class="field">
+          <label for="bf-service">What do you need?</label>
+          <input id="bf-service" type="text" required
+                 placeholder="e.g. 2 bags of laundry, pickup" />
+        </div>
+
+        <div class="field">
+          <label for="bf-notes">
+            Notes <span style="color:var(--ink-40);font-weight:400;">(optional)</span>
+          </label>
+          <textarea id="bf-notes" rows="3" placeholder="Any details the provider should know"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn--accent" style="width:100%;">
+          Request booking
+        </button>
+
+        <p id="booking-msg"
+           style="font-size:0.85rem;margin:8px 0 0;display:none;"></p>
+      </form>
+    </div>`;
+}
+
+/* ---------------- booking success ---------------- */
+function renderBookingSuccess(p) {
+  const box = document.getElementById("booking-box");
+  if (!box) return;
+
+  box.innerHTML = `
+    <h3 style="margin-top:0;">Request sent ✓</h3>
+    <p style="font-size:0.92rem;">
+      Your request has been sent to <b>${escapeHtml(p.name)}</b>.
+      They'll confirm shortly. Track it from your bookings page.
+    </p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a class="btn btn--primary" href="dashboard.html">View my bookings</a>
+      <button type="button" class="btn btn--ghost" id="book-again">Book another</button>
+    </div>`;
+
+  document.getElementById("book-again").addEventListener("click", () => {
+    box.outerHTML = bookingFormHtml(p);
+    wireBookingForm(p);
+  });
+}
+
+/* ---------------- wire booking form ---------------- */
+function wireBookingForm(p) {
+  const form = document.getElementById("booking-form");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const msg = document.getElementById("booking-msg");
+    const btn = form.querySelector("button[type=submit]");
+
+    const name    = document.getElementById("bf-name").value.trim();
+    const phone   = document.getElementById("bf-phone").value.trim();
+    const date    = document.getElementById("bf-date").value;
+    const service = document.getElementById("bf-service").value.trim();
+    const notes   = document.getElementById("bf-notes").value.trim();
+
+    if (!name || !phone || !date || !service) {
+      msg.textContent = "Please fill in your name, phone, date, and what you need.";
+      msg.style.color = "var(--clay)";
+      msg.style.display = "block";
+      return;
     }
-    res.json(providerToJson(result.recordset[0]));
-  } catch (err) {
-    next(err);
-  }
-});
 
-/* ------------------------------------------------------------
-   POST /api/providers — vendor application
-   Requires: residentId (must be a verified resident)
-   ------------------------------------------------------------ */
-router.post("/", async (req, res, next) => {
-  try {
-    const {
-      residentId,
-      name, category, hours,
-      priceFrom, priceUnit, bio, services,
-    } = req.body;
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    msg.style.display = "none";
 
-    // Validate presence
-    if (!residentId || !name || !category || !hours || !bio ||
-        !Array.isArray(services) || !services.length) {
-      return res.status(400).json({
-        error: "Missing required vendor fields (residentId, name, category, hours, bio, services).",
+    try {
+      await Api.addBooking({
+        providerId:    p.id,
+        service,
+        date,
+        notes,
+        residentName:  name,
+        residentPhone: phone,
       });
+      renderBookingSuccess(p);
+    } catch (err) {
+      console.error("[provider] booking failed:", err);
+      msg.textContent = err.message || "Could not send booking. Please try again.";
+      msg.style.color = "var(--clay)";
+      msg.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Request booking";
     }
+  });
+}
 
-    const residentIdInt = parseInt(residentId, 10);
-    if (isNaN(residentIdInt)) {
-      return res.status(400).json({ error: "Invalid residentId." });
+/* ---------------- wire report modal ---------------- */
+function wireReportModal(provider) {
+  const openBtn = document.getElementById("open-report");
+  const modal   = document.getElementById("report-modal");
+  const cancel  = document.getElementById("report-cancel");
+  const form    = document.getElementById("report-form");
+
+  if (!openBtn || !modal || !cancel || !form) return;
+
+  openBtn.addEventListener("click", () => modal.classList.add("is-open"));
+  cancel.addEventListener("click",   () => modal.classList.remove("is-open"));
+  modal.addEventListener("click",    (e) => {
+    if (e.target === modal) modal.classList.remove("is-open");
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const reason  = document.getElementById("report-reason").value;
+    const details = document.getElementById("report-details").value.trim();
+    if (!details) return;
+
+    try {
+      await Api.addReport({ providerId: provider.id, reason, details });
+      modal.classList.remove("is-open");
+      form.reset();
+      alert("Report submitted. The estate admin will review it.");
+    } catch (err) {
+      console.error("[provider] report failed:", err);
+      alert(err.message || "Could not submit report.");
     }
+  });
+}
 
-    const pool = await getPool();
+/* ---------------- main ---------------- */
+async function initProviderPage() {
+  const root = document.getElementById("provider-root");
+  if (!root) return;
 
-    // 1. Verify the resident exists and is verified
-    const residentCheck = await pool.request()
-      .input("residentId", residentIdInt)
-      .query(`
-        SELECT r.*, c.name AS court_name, c.phase
-        FROM Residents r
-        JOIN Courts c ON c.id = r.court_id
-        WHERE r.id = @residentId
-      `);
+  const id = getProviderId();
+  if (!id) return renderError("No provider specified.");
 
-    if (!residentCheck.recordset.length) {
-      return res.status(404).json({ error: "Resident not found." });
-    }
+  renderLoading();
 
-    const resident = residentCheck.recordset[0];
-    if (!resident.verified) {
-      return res.status(403).json({
-        error: "Your resident account must be verified before you can apply as a vendor.",
-      });
-    }
-
-    // 2. Check if this resident already has a provider profile
-    const already = await pool.request()
-      .input("residentId", residentIdInt)
-      .query("SELECT id FROM Providers WHERE resident_id = @residentId");
-    if (already.recordset.length) {
-      return res.status(409).json({
-        error: "This resident already has a vendor profile.",
-      });
-    }
-
-    // 3. Insert the provider
-    const inserted = await pool.request()
-      .input("residentId", residentIdInt)
-      .input("name",       name)
-      .input("category_id", parseInt(category, 10))
-      .input("phone",      resident.phone)
-      .input("hours",      hours)
-      .input("price_from", Number(priceFrom) || 0)
-      .input("price_unit", priceUnit || "per visit")
-      .input("bio",        bio)
-      .input("services",   services.join(", "))
-      .query(`
-        INSERT INTO Providers
-          (resident_id, name, category_id, phone, hours, price_from, price_unit, bio, services, verified)
-        OUTPUT INSERTED.*
-        VALUES
-          (@residentId, @name, @category_id, @phone, @hours, @price_from, @price_unit, @bio, @services, 0)
-      `);
-
-    // 4. Re-fetch with joins for the full response shape
-    const full = await pool.request()
-      .input("id", inserted.recordset[0].id)
-      .query(`${PROVIDER_SELECT} WHERE p.id = @id`);
-
-    res.status(201).json(providerToJson(full.recordset[0]));
-  } catch (err) {
-    next(err);
-  }
-});
-
-/* ------------------------------------------------------------
-   PATCH /api/providers/:id
-   Admin verifies; provider edits own profile.
-   ------------------------------------------------------------ */
-router.patch("/:id", async (req, res, next) => {
+  let provider, reviews;
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: "Invalid provider id" });
-
-    const map = {
-      name:       "name",
-      category:   "category_id",
-      phone:      "phone",
-      hours:      "hours",
-      priceFrom:  "price_from",
-      priceUnit:  "price_unit",
-      bio:        "bio",
-      verified:   "verified",
-    };
-
-    const request = (await getPool()).request().input("id", id);
-    const sets = [];
-
-    for (const [bodyKey, col] of Object.entries(map)) {
-      if (req.body[bodyKey] !== undefined) {
-        let val = req.body[bodyKey];
-        if (col === "category_id") val = parseInt(val, 10);
-        if (col === "verified")    val = val ? 1 : 0;
-        request.input(col, val);
-        sets.push(`${col} = @${col}`);
-      }
-    }
-
-    // services may arrive as array or string
-    if (Array.isArray(req.body.services)) {
-      request.input("services", req.body.services.join(", "));
-      sets.push("services = @services");
-    } else if (typeof req.body.services === "string") {
-      request.input("services", req.body.services);
-      sets.push("services = @services");
-    }
-
-    if (!sets.length) {
-      return res.status(400).json({ error: "No updatable fields provided" });
-    }
-
-    const updated = await request.query(`
-      UPDATE Providers SET ${sets.join(", ")}
-      OUTPUT INSERTED.*
-      WHERE id = @id
-    `);
-
-    if (!updated.recordset.length) {
-      return res.status(404).json({ error: "Provider not found" });
-    }
-
-    // Re-fetch with joins
-    const full = await (await getPool()).request()
-      .input("id", id)
-      .query(`${PROVIDER_SELECT} WHERE p.id = @id`);
-
-    res.json(providerToJson(full.recordset[0]));
+    [provider, reviews] = await Promise.all([
+      Api.getProvider(id),
+      Api.getReviews(id).catch(() => []),
+    ]);
   } catch (err) {
-    next(err);
+    console.error("[provider] load failed:", err);
+    return renderError("Could not load this provider.");
   }
-});
 
-/* ------------------------------------------------------------
-   DELETE /api/providers/:id
-   ------------------------------------------------------------ */
-router.delete("/:id", async (req, res, next) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: "Invalid provider id" });
+  if (!provider) return renderError("Provider not found.");
 
-    const pool = await getPool();
-    const result = await pool.request()
-      .input("id", id)
-      .query("DELETE FROM Providers WHERE id = @id");
+  root.innerHTML = `
+    ${headerHtml(provider)}
+    <div class="detail-grid">
+      ${leftColumnHtml(provider, reviews || [])}
+      ${bookingFormHtml(provider)}
+    </div>`;
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ error: "Provider not found" });
-    }
-    res.status(204).end();
-  } catch (err) {
-    next(err);
-  }
-});
+  wireBookingForm(provider);
+  wireReportModal(provider);
+}
 
-module.exports = router;
+document.addEventListener("DOMContentLoaded", initProviderPage);

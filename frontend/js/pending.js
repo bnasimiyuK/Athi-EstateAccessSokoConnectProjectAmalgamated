@@ -31,6 +31,18 @@ function timeAgo(iso) {
 }
 
 /* ------------------------------------------------------------
+   Helper to update the count text (e.g., "Vendors (2)")
+   ------------------------------------------------------------ */
+function updateCount(kind, delta) {
+  const id = kind === "residents" ? "count-residents" : "count-vendors";
+  const el = document.getElementById(id);
+  if (el) {
+    const current = parseInt(el.textContent.replace(/[^0-9]/g, '')) || 0;
+    el.textContent = `(${Math.max(0, current + delta)})`;
+  }
+}
+
+/* ------------------------------------------------------------
    Render a single pending card
    ------------------------------------------------------------ */
 function pendingCard(item, kind) {
@@ -46,6 +58,7 @@ function pendingCard(item, kind) {
 
   const label = isResident ? item.fullName : item.name;
 
+  // FIXED: Wrapped ${item.id} in quotes so string IDs don't break JavaScript
   return `
     <div class="pending-card" data-id="${item.id}">
       <div>
@@ -54,10 +67,10 @@ function pendingCard(item, kind) {
         <div class="when"><i class="fas fa-clock"></i> Registered ${timeAgo(item.createdAt)}</div>
       </div>
       <div class="actions">
-        <button class="btn btn--accent btn--small" onclick="approve(${item.id}, '${kind}')">
+        <button class="btn btn--accent btn--small" onclick="approve('${item.id}', '${kind}')">
           <i class="fas fa-check"></i> Approve
         </button>
-        <button class="btn btn--danger btn--small" onclick="reject(${item.id}, '${kind}', '${label.replace(/'/g, "\\'")}')">
+        <button class="btn btn--danger btn--small" onclick="reject('${item.id}', '${kind}', '${label.replace(/'/g, "\\'")}')">
           <i class="fas fa-times"></i> Reject
         </button>
       </div>
@@ -130,9 +143,16 @@ async function approve(id, kind) {
       toast("✅ Vendor approved.");
     }
 
-    // Refresh whichever tab we're on
-    if (kind === "residents") await loadResidents();
-    else                      await loadVendors();
+    // OPTIMIZED: Remove the card from the DOM instantly instead of reloading the whole list
+    const card = document.querySelector(`.pending-card[data-id="${id}"]`);
+    if (card) {
+      card.remove();
+      updateCount(kind, -1);
+    } else {
+      // Fallback in case the card isn't found in the DOM
+      if (kind === "residents") await loadResidents();
+      else await loadVendors();
+    }
   } catch (err) {
     console.error("[pending] approve failed:", err);
     toast(err.message || "Approval failed.");
@@ -151,11 +171,19 @@ async function reject(id, kind, label) {
     if (kind === "residents") {
       await Api.removeResident(id);
       toast("Resident application rejected.");
-      await loadResidents();
     } else {
       await Api.removeProvider(id);
       toast("Vendor application rejected.");
-      await loadVendors();
+    }
+
+    // OPTIMIZED: Remove the card from the DOM instantly
+    const card = document.querySelector(`.pending-card[data-id="${id}"]`);
+    if (card) {
+      card.remove();
+      updateCount(kind, -1);
+    } else {
+      if (kind === "residents") await loadResidents();
+      else await loadVendors();
     }
   } catch (err) {
     console.error("[pending] reject failed:", err);
@@ -186,18 +214,15 @@ function setupTabs() {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
-  // Guard: must be admin
   if (!requireRole("admin")) return;
 
   setupTabs();
 
-  // Ensure categories cache is loaded (used by pendingCard for vendors)
   try {
     await loadCategoryCache();
   } catch (e) {
     console.warn("[pending] category cache failed:", e);
   }
 
-  // Load both lists up front
   await Promise.all([loadResidents(), loadVendors()]);
 });

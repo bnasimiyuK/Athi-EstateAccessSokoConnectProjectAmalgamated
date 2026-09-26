@@ -1,136 +1,242 @@
 /* ============================================================
-   home.js — search, filter, and render the provider directory
+   home.js — Discover page: Phase → Court cascade + filters
    ============================================================ */
 
+/* ---------------- helpers ---------------- */
+function initialsOf(name) {
+  return String(name || "?")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function servicesArray(p) {
+  if (Array.isArray(p.services)) return p.services;
+  if (!p.services) return [];
+  return String(p.services)
+    .split(/,\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/* ---------------- state ---------------- */
+const _state = {
+  categories: [],
+  providers:  [],
+  courts:     [],
+};
+
+/* ---------------- Phase → Court cascade ---------------- */
+function buildPhaseOptions(courts) {
+  const phases = [...new Set(courts.map((c) => Number(c.phase)))]
+    .filter((v) => !isNaN(v))
+    .sort((a, b) => a - b);
+
+  const $phase = document.getElementById("phase");
+  $phase.innerHTML = `<option value="">All phases</option>`;
+  phases.forEach((p) => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = `Phase ${p}`;
+    $phase.appendChild(opt);
+  });
+}
+
+function filterCourtsByPhase(phase) {
+  const $court = document.getElementById("court");
+  const list = phase
+    ? _state.courts.filter((c) => Number(c.phase) === Number(phase))
+    : _state.courts;
+
+  if (!list.length) {
+    $court.innerHTML = `<option value="">No courts</option>`;
+    $court.disabled = true;
+    return;
+  }
+
+  $court.innerHTML = `<option value="">All courts</option>` +
+    list.map((c) =>
+      `<option value="${c.id}">${escapeHtml(c.name)}</option>`
+    ).join("");
+  $court.disabled = false;
+}
+
+/* ---------------- populate ---------------- */
 async function populateFilters() {
-  const categories = await loadCategoryCache();
+  /* Categories */
+  _state.categories = typeof loadCategoryCache === "function"
+    ? await loadCategoryCache()
+    : await Api.getCategories();
 
-  const categorySelect = document.getElementById("category");
-  categorySelect.innerHTML = `<option value="">All categories</option>`;
-
-  categories.forEach((c) => {
+  const $cat = document.getElementById("category");
+  $cat.innerHTML = `<option value="">All categories</option>`;
+  _state.categories.forEach((c) => {
     const opt = document.createElement("option");
     opt.value = c.id;
     opt.textContent = c.label;
-    categorySelect.appendChild(opt);
+    $cat.appendChild(opt);
   });
 
-  const allProviders = await Api.getProviders();
-
-  const zoneSelect = document.getElementById("zone");
-  zoneSelect.innerHTML = `<option value="">All zones</option>`;
-
-  const zones = [...new Set(allProviders.map((p) => p.zone))].sort();
-
-  zones.forEach((z) => {
-    const opt = document.createElement("option");
-    opt.value = z;
-    opt.textContent = z;
-    zoneSelect.appendChild(opt);
-  });
-
-  /* -------- CATEGORY CHIPS -------- */
-  const chipRow = document.getElementById("chip-row");
-  chipRow.innerHTML = "";
+  /* Category chips */
+  const $chips = document.getElementById("chip-row");
+  $chips.innerHTML = "";
 
   const allChip = document.createElement("button");
   allChip.type = "button";
   allChip.className = "chip is-active";
   allChip.textContent = "All";
   allChip.onclick = () => setCategoryChip("", allChip);
+  $chips.appendChild(allChip);
 
-  chipRow.appendChild(allChip);
-
-  categories.forEach((c) => {
+  _state.categories.forEach((c) => {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip";
     chip.textContent = c.label;
-
     chip.onclick = () => setCategoryChip(c.id, chip);
-
-    chipRow.appendChild(chip);
+    $chips.appendChild(chip);
   });
 
-  renderStats(allProviders);
+  /* Courts → phase options + initial court list */
+  try {
+    _state.courts = await Api.getCourts();
+    buildPhaseOptions(_state.courts);
+    filterCourtsByPhase("");
+  } catch (err) {
+    console.error("[home] courts failed:", err);
+  }
+
+  /* Providers → hero stats */
+  _state.providers = await Api.getProviders();
+  renderStats(_state.providers);
 }
 
 function setCategoryChip(categoryId, chipEl) {
   document.getElementById("category").value = categoryId;
-
-  document.querySelectorAll(".chip").forEach((c) =>
-    c.classList.remove("is-active")
-  );
-
+  document.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
   chipEl.classList.add("is-active");
-
   renderResults();
 }
 
+/* ---------------- hero stats ---------------- */
 function renderStats(providers) {
-  document.getElementById("stat-providers").textContent =
-    providers.length;
-
-  document.getElementById("stat-verified").textContent =
+  document.getElementById("stat-providers").textContent = providers.length;
+  document.getElementById("stat-verified").textContent  =
     providers.filter((p) => p.verified).length;
 }
 
+/* ---------------- provider card ---------------- */
 function providerCard(p) {
-  const initials = p.name
-    .split(" ")
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join("");
+  const initials = initialsOf(p.name);
+
+  const cat = p.categoryLabel
+    || (typeof categoryLabel === "function" ? categoryLabel(p.category) : "—");
+
+  const badge = typeof verifiedBadge === "function"
+    ? verifiedBadge(p.verified)
+    : (p.verified ? `<span class="badge badge--verified">Verified</span>` : "");
+
+  const rating      = Number(p.rating || 0).toFixed(1);
+  const reviewCount = Number(p.reviews || 0);
+  const services    = servicesArray(p).slice(0, 3);
+  const price       = Number(p.priceFrom || 0);
+
+  /* Location line: "Court · Phase N" */
+  const locParts = [];
+  if (p.courtName)      locParts.push(escapeHtml(p.courtName));
+  if (p.phase != null)  locParts.push(`Phase ${p.phase}`);
+  const loc = locParts.join(" · ");
 
   return `
-    <a class="card" href="provider.html?id=${p.id}">
+    <a class="card" href="provider.html?id=${encodeURIComponent(p.id)}">
       <div class="card-top">
         <div style="display:flex; gap:12px; align-items:center;">
-          <div class="avatar">${initials}</div>
+          <div class="avatar">${escapeHtml(initials)}</div>
           <div>
-            <h3>${p.name}</h3>
-            <div class="meta">${categoryLabel(p.category)} · ${p.zone}</div>
+            <h3>${escapeHtml(p.name)}</h3>
+            <div class="meta">${escapeHtml(cat)}${loc ? " · " + loc : ""}</div>
           </div>
         </div>
-        ${verifiedBadge(p.verified)}
+        ${badge}
       </div>
 
       <div class="rating">
-        ${starString(p.rating)} ${p.reviews ? `(${p.reviews})` : ""}
+        ⭐ ${rating} ${reviewCount ? `(${reviewCount})` : ""}
       </div>
 
       <div class="tags">
-        ${p.services
-          .slice(0, 3)
-          .map((s) => `<span class="tag">${s}</span>`)
-          .join("")}
+        ${services.map((s) => `<span class="tag">${escapeHtml(s)}</span>`).join("")}
       </div>
 
       <div class="card-footer">
         <span class="price">
-          From KSh ${p.priceFrom} <small>${p.priceUnit}</small>
+          From KSh ${price.toLocaleString()}
+          <small>${escapeHtml(p.priceUnit || "")}</small>
         </span>
-        <span class="meta">${p.hours}</span>
+        <span class="meta">${escapeHtml(p.hours || "")}</span>
       </div>
     </a>
   `;
 }
 
+/* ---------------- results ---------------- */
 async function renderResults() {
   const grid = document.getElementById("provider-grid");
-
   grid.innerHTML = `<div class="empty-state">Loading providers…</div>`;
 
-  const q = document.getElementById("q").value.trim();
+  const q        = document.getElementById("q").value.trim().toLowerCase();
+  const phase    = document.getElementById("phase").value;
+  const court    = document.getElementById("court").value;
   const category = document.getElementById("category").value;
-  const zone = document.getElementById("zone").value;
 
   let results = [];
-
   try {
-    results = await Api.getProviders({ q, category, zone });
+    const all = await Api.getProviders();
+
+    /* Discover shows verified providers only */
+    results = all.filter((p) => p.verified);
+
+    /* Phase filter */
+    if (phase) {
+      results = results.filter((p) => String(p.phase) === String(phase));
+    }
+
+    /* Court filter */
+    if (court) {
+      results = results.filter((p) => String(p.courtId) === String(court));
+    }
+
+    /* Category filter */
+    if (category) {
+      results = results.filter((p) => String(p.category) === String(category));
+    }
+
+    /* Text search */
+    if (q) {
+      results = results.filter((p) =>
+        (p.name || "").toLowerCase().includes(q) ||
+        (p.bio  || "").toLowerCase().includes(q) ||
+        servicesArray(p).join(" ").toLowerCase().includes(q)
+      );
+    }
+
+    /* Top rated first */
+    results.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
   } catch (err) {
-    grid.innerHTML = `<div class="empty-state">Server error. Check backend.</div>`;
+    console.error("[home] providers failed:", err);
+    grid.innerHTML = `<div class="empty-state">Could not load providers.</div>`;
     return;
   }
 
@@ -139,26 +245,39 @@ async function renderResults() {
 
   grid.innerHTML = results.length
     ? results.map(providerCard).join("")
-    : `<div class="empty-state">No providers found.</div>`;
+    : `<div class="empty-state">No providers match your search.</div>`;
 }
 
-/* ---------------- INIT ---------------- */
+/* ---------------- init ---------------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  await populateFilters();
-  await renderResults();
+  if (typeof requireAuth === "function" && !requireAuth()) return;
 
-  document
-    .getElementById("search-form")
-    .addEventListener("submit", (e) => {
-      e.preventDefault();
-      renderResults();
-    });
+  try {
+    await populateFilters();
+    await renderResults();
+  } catch (err) {
+    console.error("[home] init failed:", err);
+  }
 
-  document
-    .getElementById("category")
-    .addEventListener("change", renderResults);
+  /* Live search — debounce so we don't re-render on every keystroke */
+  let searchTimer = null;
+  document.getElementById("q").addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderResults, 200);   // 200ms debounce
+  });
 
-  document
-    .getElementById("zone")
-    .addEventListener("change", renderResults);
+  /* Phase change → rebuild court list, then filter */
+  document.getElementById("phase").addEventListener("change", (e) => {
+    filterCourtsByPhase(e.target.value);
+    renderResults();
+  });
+
+  document.getElementById("court").addEventListener("change", renderResults);
+  document.getElementById("category").addEventListener("change", renderResults);
+
+  /* Pressing Enter in the search box also re-renders immediately */
+  document.getElementById("search-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    renderResults();
+  });
 });

@@ -2,6 +2,7 @@
    routes/providers.js — SQL Server version (resident-linked)
    Vendors are residents with a provider profile.
    POST requires a verified resident_id.
+   Location model: Phase → Court (no "zone").
    ============================================================ */
 
 const express = require("express");
@@ -10,86 +11,63 @@ const { getPool } = require("../db");
 
 /* ------------------------------------------------------------
    Helper: DB row → JSON the frontend expects
-   Note: `zone` is now derived from the resident's court.
+   Note: `phase` and `courtName` are derived via
+         Providers → Residents → Courts.
    ------------------------------------------------------------ */
 function providerToJson(row) {
   return {
-    id:         row.id,
-    name:       row.name,
-    category:   row.category_id,
-    zone:       row.court_name,      // from JOIN
-    phase:      row.phase,           // from JOIN
-    courtId:    row.court_id,        // from JOIN
-    phone:      row.phone,
-    hours:      row.hours,
-    priceFrom:  Number(row.price_from),
-    priceUnit:  row.price_unit,
-    bio:        row.bio,
-    services:   row.services
-                  ? row.services.split(",").map((s) => s.trim()).filter(Boolean)
-                  : [],
-    rating:     row.rating ? Number(row.rating) : 0,
-    reviews:    row.reviews || 0,
-    verified:   !!row.verified,
-    residentId: row.resident_id,
-    createdAt:  row.created_at,
+    id:            row.id,
+    name:          row.name,
+    category:      row.category_id,
+    categoryLabel: row.category_label,   // from JOIN
+    phase:         row.phase,            // from JOIN
+    courtId:       row.court_id,         // from JOIN
+    courtName:     row.court_name,       // from JOIN
+    phone:         row.phone,
+    hours:         row.hours,
+    priceFrom:     Number(row.price_from),
+    priceUnit:     row.price_unit,
+    bio:           row.bio,
+    services:      row.services
+                     ? row.services.split(",").map((s) => s.trim()).filter(Boolean)
+                     : [],
+    rating:        row.rating ? Number(row.rating) : 0,
+    reviews:       row.reviews || 0,
+    verified:      !!row.verified,
+    residentId:    row.resident_id,
+    createdAt:     row.created_at,
   };
 }
 
 /* ------------------------------------------------------------
-   Standard SQL fragment with joins to Residents + Courts
+   Standard SELECT with all joins
    ------------------------------------------------------------ */
 const PROVIDER_SELECT = `
   SELECT
     p.*,
+    cat.label    AS category_label,
     r.court_id   AS court_id,
     c.name       AS court_name,
     c.phase      AS phase
   FROM Providers p
-  LEFT JOIN Residents r ON r.id = p.resident_id
-  LEFT JOIN Courts    c ON c.id = r.court_id
+  LEFT JOIN Categories cat ON cat.id = p.category_id
+  LEFT JOIN Residents  r   ON r.id  = p.resident_id
+  LEFT JOIN Courts     c   ON c.id  = r.court_id
 `;
 
 /* ------------------------------------------------------------
-   GET /api/providers?q=&category=&zone=&phase=&verified=
+   GET /api/providers
    ------------------------------------------------------------ */
 router.get("/", async (req, res, next) => {
   try {
-    const { q, category, zone, phase, verified } = req.query;
     const pool = await getPool();
-    const request = pool.request();
-    const where = [];
-
-    if (q && q.trim()) {
-      where.push("(p.name LIKE @q OR p.bio LIKE @q OR p.services LIKE @q)");
-      request.input("q", `%${q.trim()}%`);
-    }
-    if (category) {
-      where.push("p.category_id = @category");
-      request.input("category", parseInt(category, 10));
-    }
-    if (zone) {
-      where.push("c.name = @zone");
-      request.input("zone", zone);
-    }
-    if (phase) {
-      where.push("c.phase = @phase");
-      request.input("phase", parseInt(phase, 10));
-    }
-    if (verified === "true" || verified === "false") {
-      where.push("p.verified = @verified");
-      request.input("verified", verified === "true" ? 1 : 0);
-    }
-
-    const sqlText = `
+    const result = await pool.request().query(`
       ${PROVIDER_SELECT}
-      ${where.length ? "WHERE " + where.join(" AND ") : ""}
-      ORDER BY p.verified DESC, p.rating DESC, p.name ASC
-    `;
-
-    const result = await request.query(sqlText);
+      ORDER BY p.verified DESC, p.rating DESC, p.reviews DESC
+    `);
     res.json(result.recordset.map(providerToJson));
   } catch (err) {
+    console.error("[providers] list failed:", err);
     next(err);
   }
 });
@@ -144,7 +122,7 @@ router.post("/", async (req, res, next) => {
 
     const pool = await getPool();
 
-    // 1. Verify resident exists and is verified
+    /* 1. Resident must exist and be verified */
     const residentCheck = await pool.request()
       .input("residentId", residentIdInt)
       .query(`
@@ -165,7 +143,7 @@ router.post("/", async (req, res, next) => {
       });
     }
 
-    // 2. Check resident doesn't already have a vendor profile
+    /* 2. One provider profile per resident */
     const already = await pool.request()
       .input("residentId", residentIdInt)
       .query("SELECT id FROM Providers WHERE resident_id = @residentId");
@@ -175,26 +153,26 @@ router.post("/", async (req, res, next) => {
       });
     }
 
-    // 3. Insert with resident_id; zone is not stored (derived from court on read)
+    /* 3. Insert */
     const inserted = await pool.request()
-      .input("residentId", residentIdInt)
-      .input("name",       name)
+      .input("residentId",  residentIdInt)
+      .input("name",        name)
       .input("category_id", parseInt(category, 10))
-      .input("phone",      resident.phone)
-      .input("hours",      hours)
-      .input("price_from", Number(priceFrom) || 0)
-      .input("price_unit", priceUnit || "per visit")
-      .input("bio",        bio)
-      .input("services",   services.join(", "))
+      .input("phone",       resident.phone)
+      .input("hours",       hours)
+      .input("price_from",  Number(priceFrom) || 0)
+      .input("price_unit",  priceUnit || "per visit")
+      .input("bio",         bio)
+      .input("services",    services.join(", "))
       .query(`
-  INSERT INTO Providers
-    (resident_id, name, category_id, phone, hours, price_from, price_unit, bio, services, verified)
-  OUTPUT INSERTED.*
-  VALUES
-    (@residentId, @name, @category_id, @phone, @hours, @price_from, @price_unit, @bio, @services, 0)
-`);
+        INSERT INTO Providers
+          (resident_id, name, category_id, phone, hours, price_from, price_unit, bio, services, verified)
+        OUTPUT INSERTED.*
+        VALUES
+          (@residentId, @name, @category_id, @phone, @hours, @price_from, @price_unit, @bio, @services, 0)
+      `);
 
-    // 4. Re-fetch with joins for the response shape
+    /* 4. Re-fetch with joins */
     const full = await pool.request()
       .input("id", inserted.recordset[0].id)
       .query(`${PROVIDER_SELECT} WHERE p.id = @id`);

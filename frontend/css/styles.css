@@ -159,7 +159,7 @@ nav.main-nav a.is-active { color: var(--ink); border-bottom-color: var(--ochre);
   border-radius: var(--radius-m);
   padding: 20px;
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr auto;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
   gap: 12px;
   margin-top: 32px;
 }
@@ -182,7 +182,7 @@ nav.main-nav a.is-active { color: var(--ink); border-bottom-color: var(--ochre);
   outline: 2px solid var(--ochre);
   outline-offset: 1px;
 }
-.search-panel .btn { align-self: end; }
+
 
 /* ---------- Category chips ---------- */
 .chip-row {
@@ -404,6 +404,7 @@ tr:last-child td { border-bottom: none; }
   .hero-grid, .detail-grid { grid-template-columns: 1fr; }
   .hero-stats { flex-direction: row; border-left: none; border-top: 1px solid var(--line); padding-left: 0; padding-top: 18px; gap: 28px; }
   .search-panel { grid-template-columns: 1fr 1fr; }
+  
   .form-grid { grid-template-columns: 1fr; }
   nav.main-nav { display: none; }
   .booking-box { position: static; }

@@ -110,16 +110,27 @@ const Api = {
     request(`${API_BASE}/providers/${id}`),
   registerProvider: (data) =>
     request(`${API_BASE}/providers`, { method: "POST", body: JSON.stringify(data) }),
+  
+  // This correctly sends a PATCH request to your backend
   updateProvider: (id, patch) =>
     request(`${API_BASE}/providers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    
   removeProvider: (id) =>
     request(`${API_BASE}/providers/${id}`, { method: "DELETE" }),
 
   /* ---------- Reviews ---------- */
   getReviews: (providerId) =>
     request(`${API_BASE}/reviews/provider/${providerId}`),
+    
+  // ADDED: Fetch all reviews for the admin dashboard
+  getAllReviews: () => request(`${API_BASE}/reviews`), 
+  
   addReview: (review) =>
     request(`${API_BASE}/reviews`, { method: "POST", body: JSON.stringify(review) }),
+    
+  // ADDED: Allow admins to delete inappropriate reviews
+  deleteReview: (id) => 
+    request(`${API_BASE}/reviews/${id}`, { method: "DELETE" }),
 
   /* ---------- Bookings ---------- */
   getBookings: () => request(`${API_BASE}/bookings`),

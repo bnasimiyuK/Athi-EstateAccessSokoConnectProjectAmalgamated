@@ -5,37 +5,77 @@
 const express = require("express");
 const router = express.Router();
 const { getPool } = require("../db");
+const { requireAuth } = require("../middleware/auth");
 
 /* ------------------------------------------------------------
    Helper: DB row → JSON frontend expects
-   NOTE: providerName is joined from Providers, not stored.
    ------------------------------------------------------------ */
 function bookingToJson(row) {
   return {
-    id:           row.id,
-    providerId:   row.provider_id,
-    providerName: row.provider_name,     // from JOIN
-    service:      row.service,
-    date:         row.job_date,
-    notes:        row.notes || "",
-    status:       row.status,
-    reviewed:     !!row.reviewed,
-    createdAt:    row.created_at,
+    id:             row.id,
+    providerId:     row.provider_id,
+    providerName:   row.provider_name,
+    service:        row.service,
+    date:           row.job_date,
+    notes:          row.notes || "",
+    residentName:   row.resident_name,
+    residentPhone:  row.resident_phone,
+    status:         row.status,
+    reviewed:       !!row.reviewed,
+    createdAt:      row.created_at,
   };
 }
 
 /* ------------------------------------------------------------
    GET /api/bookings
+   Role-scoped:
+     admin    → all bookings
+     vendor   → only bookings addressed to them
+     resident → only bookings they created
    ------------------------------------------------------------ */
-router.get("/", async (req, res, next) => {
+router.get("/", requireAuth, async (req, res, next) => {
   try {
     const pool = await getPool();
-    const result = await pool.request().query(`
-      SELECT b.*, p.name AS provider_name
-      FROM Bookings b
-      LEFT JOIN Providers p ON p.id = b.provider_id
-      ORDER BY b.created_at DESC
-    `);
+    const { role, id } = req.user;
+    const request = pool.request();
+    let sqlText;
+
+    if (role === "admin") {
+      sqlText = `
+        SELECT b.*, p.name AS provider_name
+        FROM Bookings b
+        LEFT JOIN Providers p ON p.id = b.provider_id
+        ORDER BY b.created_at DESC
+      `;
+    } else if (role === "vendor") {
+      /* JWT.id is Providers.id for vendor logins */
+      sqlText = `
+        SELECT b.*, p.name AS provider_name
+        FROM Bookings b
+        LEFT JOIN Providers p ON p.id = b.provider_id
+        WHERE b.provider_id = @providerId
+        ORDER BY b.created_at DESC
+      `;
+      request.input("providerId", id);
+    } else {
+      /* Resident — look up their phone from Residents */
+      const me = await pool.request()
+        .input("id", id)
+        .query("SELECT phone FROM Residents WHERE id = @id");
+      const phone = me.recordset[0]?.phone;
+      if (!phone) return res.json([]);
+
+      sqlText = `
+        SELECT b.*, p.name AS provider_name
+        FROM Bookings b
+        LEFT JOIN Providers p ON p.id = b.provider_id
+        WHERE b.resident_phone = @phone
+        ORDER BY b.created_at DESC
+      `;
+      request.input("phone", phone);
+    }
+
+    const result = await request.query(sqlText);
     res.json(result.recordset.map(bookingToJson));
   } catch (err) {
     next(err);
@@ -44,11 +84,15 @@ router.get("/", async (req, res, next) => {
 
 /* ------------------------------------------------------------
    POST /api/bookings
-   Body: { providerId, providerName, service, date, notes }
+   Body: { providerId, service, date, notes,
+           residentName, residentPhone }
    ------------------------------------------------------------ */
 router.post("/", async (req, res, next) => {
   try {
-    const { providerId, service, date, notes = "" } = req.body;
+    const {
+      providerId, service, date, notes = "",
+      residentName = null, residentPhone = null,
+    } = req.body;
 
     if (!providerId || !service || !date) {
       return res.status(400).json({ error: "Missing required booking fields." });
@@ -61,19 +105,23 @@ router.post("/", async (req, res, next) => {
 
     const pool = await getPool();
 
-    // Insert (provider_name comes from JOIN on read)
     const inserted = await pool.request()
-      .input("providerId", providerIdInt)
-      .input("service",    service)
-      .input("job_date",   date)
-      .input("notes",      notes)
+      .input("providerId",    providerIdInt)
+      .input("service",       service)
+      .input("job_date",      date)
+      .input("notes",         notes)
+      .input("residentName",  residentName)
+      .input("residentPhone", residentPhone)
       .query(`
-        INSERT INTO Bookings (provider_id, service, job_date, notes)
+        INSERT INTO Bookings
+          (provider_id, service, job_date, notes,
+           resident_name, resident_phone, status, reviewed)
         OUTPUT INSERTED.*
-        VALUES (@providerId, @service, @job_date, @notes)
+        VALUES
+          (@providerId, @service, @job_date, @notes,
+           @residentName, @residentPhone, 'requested', 0)
       `);
 
-    // Fetch with provider_name so response shape matches GET
     const enriched = await pool.request()
       .input("id", inserted.recordset[0].id)
       .query(`
@@ -91,18 +139,49 @@ router.post("/", async (req, res, next) => {
 
 /* ------------------------------------------------------------
    PATCH /api/bookings/:id  { status } or { reviewed }
+   Ownership check: admin, the booking's vendor, or the resident
+   who created it.
    ------------------------------------------------------------ */
-router.patch("/:id", async (req, res, next) => {
+router.patch("/:id", requireAuth, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid booking id" });
 
+    const pool = await getPool();
+
+    /* 1. Load the booking to check ownership */
+    const row = await pool.request()
+      .input("id", id)
+      .query("SELECT provider_id, resident_phone FROM Bookings WHERE id = @id");
+    if (!row.recordset.length) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+    const booking = row.recordset[0];
+    const { role, id: uid } = req.user;
+
+    const isAdmin        = role === "admin";
+    const isOwnerVendor  = role === "vendor" && booking.provider_id === uid;
+
+    let isOwnerResident = false;
+    if (role === "resident") {
+      const me = await pool.request()
+        .input("id", uid)
+        .query("SELECT phone FROM Residents WHERE id = @id");
+      const myPhone = me.recordset[0]?.phone;
+      isOwnerResident = myPhone && booking.resident_phone === myPhone;
+    }
+
+    if (!isAdmin && !isOwnerVendor && !isOwnerResident) {
+      return res.status(403).json({ error: "You cannot modify this booking." });
+    }
+
+    /* 2. Build the UPDATE from allowed fields */
     const fields = {
       status:   req.body.status,
       reviewed: req.body.reviewed,
     };
 
-    const request = (await getPool()).request().input("id", id);
+    const request = pool.request().input("id", id);
     const sets = [];
 
     for (const [col, val] of Object.entries(fields)) {
@@ -116,18 +195,14 @@ router.patch("/:id", async (req, res, next) => {
       return res.status(400).json({ error: "No updatable fields provided" });
     }
 
-    const updated = await request.query(`
+    /* 3. Run the update */
+    await request.query(`
       UPDATE Bookings SET ${sets.join(", ")}
-      OUTPUT INSERTED.*
       WHERE id = @id
     `);
 
-    if (!updated.recordset.length) {
-      return res.status(404).json({ error: "Booking not found" });
-    }
-
-    // Fetch with provider_name for response consistency
-    const enriched = await (await getPool()).request()
+    /* 4. Return the enriched row */
+    const enriched = await pool.request()
       .input("id", id)
       .query(`
         SELECT b.*, p.name AS provider_name

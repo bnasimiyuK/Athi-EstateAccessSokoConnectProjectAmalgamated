@@ -1,12 +1,13 @@
 /* ============================================================
    dashboard.js — resident's booking list + review flow
    Status progression: requested -> confirmed -> completed.
-   In production, "confirmed" would be set by the provider; here
-   the resident can simulate it so the flow is demonstrable.
    ============================================================ */
 
 let reviewTargetBooking = null;
 
+/* ------------------------------------------------------------
+   Booking list
+   ------------------------------------------------------------ */
 async function renderBookings() {
   const list = document.getElementById("booking-list");
   let bookings = [];
@@ -17,7 +18,9 @@ async function renderBookings() {
     return;
   }
 
-  bookings = bookings.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  bookings = bookings.slice().sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
 
   if (!bookings.length) {
     list.innerHTML = `<div class="empty-state">
@@ -49,14 +52,20 @@ async function renderBookings() {
   );
 }
 
+/* ------------------------------------------------------------
+   One row of the bookings table
+   ------------------------------------------------------------ */
 function bookingRow(b) {
+  // Handle both MongoDB _id and standard id
+  const bookingId = b.id || b._id; 
+
   let action = "";
   if (b.status === "requested") {
-    action = `<button class="btn btn--ghost btn--small" data-confirm="${b.id}">Simulate confirm</button>`;
+    action = `<button class="btn btn--ghost btn--small" data-confirm="${bookingId}">Simulate confirm</button>`;
   } else if (b.status === "confirmed") {
-    action = `<button class="btn btn--ghost btn--small" data-complete="${b.id}">Mark completed</button>`;
+    action = `<button class="btn btn--ghost btn--small" data-complete="${bookingId}">Mark completed</button>`;
   } else if (b.status === "completed" && !b.reviewed) {
-    action = `<button class="btn btn--accent btn--small" data-review="${b.id}">Leave a review</button>`;
+    action = `<button class="btn btn--accent btn--small" data-review="${bookingId}">Leave a review</button>`;
   } else if (b.reviewed) {
     action = `<span class="meta">Reviewed</span>`;
   }
@@ -70,6 +79,9 @@ function bookingRow(b) {
   </tr>`;
 }
 
+/* ------------------------------------------------------------
+   Status updates
+   ------------------------------------------------------------ */
 async function updateStatus(id, status) {
   try {
     await Api.updateBooking(id, { status });
@@ -80,8 +92,22 @@ async function updateStatus(id, status) {
   }
 }
 
+/* ------------------------------------------------------------
+   Review modal
+   ------------------------------------------------------------ */
 function openReview(bookingId, bookings) {
-  reviewTargetBooking = bookings.find((b) => b.id === bookingId);
+  // FIX: Convert both to strings to safely compare "2" (from HTML) with 2 (from DB)
+  reviewTargetBooking = bookings.find((b) =>
+    String(b.id) === String(bookingId) || String(b._id) === String(bookingId)
+  );
+
+  if (!reviewTargetBooking) {
+    console.error("Could not find booking with ID:", bookingId);
+    console.log("Available bookings:", bookings); // Debugging helper
+    toast("Error: Could not find booking details.");
+    return;
+  }
+
   document.getElementById("review-target").textContent =
     `${reviewTargetBooking.providerName} — ${reviewTargetBooking.service}`;
   document.getElementById("review-modal").classList.add("is-open");
@@ -89,6 +115,11 @@ function openReview(bookingId, bookings) {
 
 async function handleReviewSubmit(e) {
   e.preventDefault();
+  if (!reviewTargetBooking) return;
+
+  // Get the correct ID format for the API
+  const targetId = reviewTargetBooking.id || reviewTargetBooking._id;
+
   try {
     await Api.addReview({
       providerId: reviewTargetBooking.providerId,
@@ -96,7 +127,8 @@ async function handleReviewSubmit(e) {
       rating: Number(document.getElementById("review-rating").value),
       text: document.getElementById("review-text").value,
     });
-    await Api.updateBooking(reviewTargetBooking.id, { reviewed: true });
+    await Api.updateBooking(targetId, { reviewed: true });
+    
     document.getElementById("review-modal").classList.remove("is-open");
     document.getElementById("review-form").reset();
     toast("Thanks — your review helps other residents.");
@@ -106,10 +138,27 @@ async function handleReviewSubmit(e) {
   }
 }
 
+/* ------------------------------------------------------------
+   Init (with role guard)
+   ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", () => {
+  const user = JSON.parse(localStorage.getItem("asc_user") || "null");
+  if (user?.role === "vendor") {
+    window.location.href = "provider-dashboard.html";
+    return;
+  }
+  if (!user || user.role !== "resident") {
+    window.location.href = "login.html?next=%2Fdashboard.html";
+    return;
+  }
+
   renderBookings();
-  document.getElementById("review-form").addEventListener("submit", handleReviewSubmit);
-  document.getElementById("review-cancel").addEventListener("click", () => {
-    document.getElementById("review-modal").classList.remove("is-open");
-  });
+
+  document.getElementById("review-form")
+    .addEventListener("submit", handleReviewSubmit);
+
+  document.getElementById("review-cancel")
+    .addEventListener("click", () => {
+      document.getElementById("review-modal").classList.remove("is-open");
+    });
 });

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My incoming bookings — Athi Soko Connect</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
+    <nav class="main-nav">
+      <a href="index.html">Discover</a>
+      <a href="register.html">Become a provider</a>
+      <a href="provider-dashboard.html" class="is-active">My incoming bookings</a>
+      <a href="residents.html">Sign Up</a>
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1 id="page-title">My incoming bookings</h1>
+      <p>Requests residents have sent you. Confirm to accept, decline to pass, then mark completed when the job is done.</p>
+    </div>
+  </div>
+
+  <div id="provider-bookings" class="section" style="padding-top:0;"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    Bookings are visible only to you and the resident who sent them.
+  </div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/provider-dashboard.js"></script>
+</body>
+</html>

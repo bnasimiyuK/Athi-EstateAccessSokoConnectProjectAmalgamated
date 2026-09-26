@@ -10,8 +10,8 @@ let currentRole = "resident";
 function applyRole(role) {
   currentRole = role;
 
-  const label   = document.getElementById("identifierLabel");
-  const input   = document.getElementById("identifier");
+  const label = document.getElementById("identifierLabel");
+  const input = document.getElementById("identifier");
 
   if (role === "admin") {
     label.innerHTML = `<i class="fas fa-envelope"></i> Email address`;
@@ -25,10 +25,25 @@ function applyRole(role) {
     input.value = "";
   }
 
-  // Toggle active tab styling
   document.querySelectorAll("#roleTabs .tab-btn").forEach((btn) => {
     btn.classList.toggle("is-active", btn.dataset.role === role);
   });
+}
+
+/* ------------------------------------------------------------
+   Redirect after login, based on role (or `?next=` param)
+   ------------------------------------------------------------ */
+function redirectAfterLogin(user) {
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get("next");
+  if (next) { window.location.href = next; return; }
+
+  switch (user?.role) {
+    case "admin":  window.location.href = "admin.html"; break;
+    case "vendor": window.location.href = "provider-dashboard.html"; break;
+    case "resident":
+    default:       window.location.href = "dashboard.html"; break;
+  }
 }
 
 /* ------------------------------------------------------------
@@ -56,17 +71,17 @@ async function handleLogin(e) {
       password,
     });
 
-    // Save token + user
+    /* Save token + user */
     saveSession(result.token, result.user);
 
-  // If forced password change is required, redirect there first
-if (result.mustChangePassword) {
-  window.location.href = "change-password.html?first=1";
-  return;
-}
+    /* Forced password change takes priority */
+    if (result.mustChangePassword) {
+      window.location.href = "change-password.html?first=1";
+      return;
+    }
 
-    // Otherwise redirect by role
-    redirectByRole(result.user.role);
+    /* Otherwise redirect by role */
+    redirectAfterLogin(result.user);
 
   } catch (err) {
     console.error("[login] failed:", err);
@@ -90,21 +105,21 @@ function showMessage(text, isError) {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", () => {
-  // If already logged in, redirect
+  /* If already logged in, redirect */
   if (isLoggedIn()) {
     const user = getUser();
-    if (user && user.role) redirectByRole(user.role);
+    if (user && user.role) redirectAfterLogin(user);
     return;
   }
 
-  // Tab handlers
+  /* Tab handlers */
   document.querySelectorAll("#roleTabs .tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyRole(btn.dataset.role));
   });
 
-  // Default role
+  /* Default role */
   applyRole("resident");
 
-  // Form submit
+  /* Form submit */
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
 });

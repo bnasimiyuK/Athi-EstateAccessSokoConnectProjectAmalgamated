@@ -24,6 +24,8 @@
         <div class="dropdown-menu">
           <a href="admin.html">Dashboard</a>
           <a href="pending.html">Pending approvals</a>
+          <!-- ADDED: Link to the new reviews page -->
+          <a href="admin-reviews.html">All Reviews</a>
         </div>
       </div>
     </nav>
@@ -134,10 +136,12 @@
   <section class="stat-section">
     <h3 class="stat-section__title">Quality</h3>
     <div class="stat-tiles">
-      <div class="stat-tile stat-tile--info">
+      <!-- AMENDED: Changed to an <a> tag so it links to the reviews page -->
+      <a href="admin-reviews.html" class="stat-tile stat-tile--info" style="text-decoration: none; color: inherit; cursor: pointer;">
         <div class="stat-tile__value" id="tile-reviews-total">—</div>
         <div class="stat-tile__label">Reviews</div>
-      </div>
+      </a>
+      
       <div class="stat-tile stat-tile--ok">
         <div class="stat-tile__value" id="tile-avg-rating">—</div>
         <div class="stat-tile__label">Avg estate rating</div>
