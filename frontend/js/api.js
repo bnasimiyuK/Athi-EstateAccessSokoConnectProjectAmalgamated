@@ -163,5 +163,6 @@ const Api = {
     request(`${API_BASE}/residents/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   removeResident: (id) =>
     request(`${API_BASE}/residents/${id}`, { method: "DELETE" }),
-  
+    updateReview: (id, patch) =>
+    request(`${API_BASE}/reviews/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 };

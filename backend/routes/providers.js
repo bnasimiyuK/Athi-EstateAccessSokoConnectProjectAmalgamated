@@ -54,6 +54,7 @@ const PROVIDER_SELECT = `
 
 /* ------------------------------------------------------------
    GET /api/providers
+   Supports: category, phase, courtId, maxPrice, search, verified, availableOnly
    ------------------------------------------------------------ */
 router.get("/", async (req, res, next) => {
   try {
@@ -63,9 +64,13 @@ router.get("/", async (req, res, next) => {
 
     const conditions = [];
 
+    // FIXED: Handle both true and false for verified
     if (verified === "true") {
       conditions.push("p.verified = 1");
+    } else if (verified === "false") {
+      conditions.push("p.verified = 0");
     }
+
     if (availableOnly === "true") {
       conditions.push("p.is_available = 1");
     }
