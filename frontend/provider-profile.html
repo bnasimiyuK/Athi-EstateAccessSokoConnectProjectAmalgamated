@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>My incoming bookings — Athi Soko Connect</title>
+<title>My profile — Athi Soko Connect</title>
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -14,8 +14,8 @@
     <nav class="main-nav">
   <a href="index.html">Discover</a>
   <a href="register.html">Become a provider</a>
-  <a href="provider-dashboard.html" class="is-active">Bookings</a>
-  <a href="provider-profile.html">Profile</a>
+  <a href="provider-dashboard.html">Bookings</a>
+  <a href="provider-profile.html" class="is-active">Profile</a>
   <a href="residents.html">Sign Up</a>
   <div class="nav-dropdown">
     <a href="#">Admin ▾</a>
@@ -28,26 +28,30 @@
   </div>
 </header>
 
-<main class="container">
-  <div class="page-head page-head--with-actions">
+<main class="container" style="display:block; grid-template-columns:1fr;">
+  <div class="page-head">
     <div class="page-head__text">
-      <h1 id="page-title">My incoming bookings</h1>
-      <p>Requests residents have sent you. Confirm to accept, decline to pass, then mark completed when the job is done.</p>
+      <h1>My provider profile</h1>
+      <p>Manage how residents see you on the Discover page. Keep your details up to date.</p>
     </div>
   </div>
 
-  <div id="provider-bookings" class="section" style="padding-top:0;"></div>
+  <section class="stat-section" style="width:100%; display:block;">
+    <div id="profile-root">
+      <div class="empty-state">Loading your profile…</div>
+    </div>
+  </section>
 </main>
 
 <footer class="site-footer">
   <div class="container" style="width:100%;">
-    Bookings are visible only to you and the resident who sent them.
+    Changes you make here are visible to residents immediately.
   </div>
 </footer>
 
 <script src="js/auth.js"></script>
 <script src="js/api.js"></script>
 <script src="js/main.js"></script>
-<script src="js/provider-dashboard.js"></script>
+<script src="js/provider-profile.js"></script>
 </body>
 </html>

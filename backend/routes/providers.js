@@ -1,8 +1,6 @@
 /* ============================================================
    routes/providers.js — SQL Server version (resident-linked)
    Vendors are residents with a provider profile.
-   POST requires a verified resident_id.
-   Location model: Phase → Court (no "zone").
    ============================================================ */
 
 const express = require("express");
@@ -32,6 +30,7 @@ function providerToJson(row) {
     rating:        row.rating ? Number(row.rating) : 0,
     reviews:       row.reviews || 0,
     verified:      !!row.verified,
+    isAvailable:   row.is_available === undefined ? true : !!row.is_available,
     residentId:    row.resident_id,
     createdAt:     row.created_at,
   };
@@ -55,11 +54,10 @@ const PROVIDER_SELECT = `
 
 /* ------------------------------------------------------------
    GET /api/providers
-   Supports query params: category, phase, courtId, maxPrice, search, verified
    ------------------------------------------------------------ */
 router.get("/", async (req, res, next) => {
   try {
-    const { category, phase, courtId, maxPrice, search, verified } = req.query;
+    const { category, phase, courtId, maxPrice, search, verified, availableOnly } = req.query;
     const pool = await getPool();
     const request = pool.request();
 
@@ -67,6 +65,9 @@ router.get("/", async (req, res, next) => {
 
     if (verified === "true") {
       conditions.push("p.verified = 1");
+    }
+    if (availableOnly === "true") {
+      conditions.push("p.is_available = 1");
     }
     if (category) {
       conditions.push("p.category_id = @category");
@@ -94,7 +95,7 @@ router.get("/", async (req, res, next) => {
     const sql = `
       ${PROVIDER_SELECT}
       ${whereClause}
-      ORDER BY p.verified DESC, p.rating DESC, p.reviews DESC
+      ORDER BY p.is_available DESC, p.verified DESC, p.rating DESC, p.reviews DESC
     `;
 
     const result = await request.query(sql);
@@ -152,7 +153,6 @@ router.post("/", async (req, res, next) => {
 
     const pool = await getPool();
 
-    /* 1. Resident must exist and be verified */
     const residentCheck = await pool.request()
       .input("residentId", residentIdInt)
       .query(`
@@ -173,7 +173,6 @@ router.post("/", async (req, res, next) => {
       });
     }
 
-    /* 2. One provider profile per resident */
     const already = await pool.request()
       .input("residentId", residentIdInt)
       .query("SELECT id FROM Providers WHERE resident_id = @residentId");
@@ -183,7 +182,6 @@ router.post("/", async (req, res, next) => {
       });
     }
 
-    /* 3. Insert */
     const inserted = await pool.request()
       .input("residentId",  residentIdInt)
       .input("name",        name)
@@ -196,13 +194,12 @@ router.post("/", async (req, res, next) => {
       .input("services",    services.join(", "))
       .query(`
         INSERT INTO Providers
-          (resident_id, name, category_id, phone, hours, price_from, price_unit, bio, services, verified)
+          (resident_id, name, category_id, phone, hours, price_from, price_unit, bio, services, verified, is_available)
         OUTPUT INSERTED.*
         VALUES
-          (@residentId, @name, @category_id, @phone, @hours, @price_from, @price_unit, @bio, @services, 0)
+          (@residentId, @name, @category_id, @phone, @hours, @price_from, @price_unit, @bio, @services, 0, 1)
       `);
 
-    /* 4. Re-fetch with joins */
     const full = await pool.request()
       .input("id", inserted.recordset[0].id)
       .query(`${PROVIDER_SELECT} WHERE p.id = @id`);
@@ -222,14 +219,15 @@ router.patch("/:id", async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ error: "Invalid provider id" });
 
     const map = {
-      name:       "name",
-      category:   "category_id",
-      phone:      "phone",
-      hours:      "hours",
-      priceFrom:  "price_from",
-      priceUnit:  "price_unit",
-      bio:        "bio",
-      verified:   "verified",
+      name:        "name",
+      category:    "category_id",
+      phone:       "phone",
+      hours:       "hours",
+      priceFrom:   "price_from",
+      priceUnit:   "price_unit",
+      bio:         "bio",
+      verified:    "verified",
+      isAvailable: "is_available",
     };
 
     const request = (await getPool()).request().input("id", id);
@@ -239,7 +237,7 @@ router.patch("/:id", async (req, res, next) => {
       if (req.body[bodyKey] !== undefined) {
         let val = req.body[bodyKey];
         if (col === "category_id") val = parseInt(val, 10);
-        if (col === "verified")    val = val ? 1 : 0;
+        if (col === "verified" || col === "is_available") val = val ? 1 : 0;
         request.input(col, val);
         sets.push(`${col} = @${col}`);
       }

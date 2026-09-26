@@ -147,9 +147,16 @@ function providerCard(p) {
   const cat = p.categoryLabel
     || (typeof categoryLabel === "function" ? categoryLabel(p.category) : "—");
 
-  const badge = typeof verifiedBadge === "function"
+  /* Verified + Availability pills */
+  const verifiedPill = typeof verifiedBadge === "function"
     ? verifiedBadge(p.verified)
     : (p.verified ? `<span class="badge badge--verified">Verified</span>` : "");
+
+  const availabilityPill = p.isAvailable === false
+    ? `<span class="badge" style="background:#e74c3c;color:white;">Busy</span>`
+    : "";
+
+  const badge = verifiedPill + (availabilityPill ? " " + availabilityPill : "");
 
   const rating      = Number(p.rating || 0).toFixed(1);
   const reviewCount = Number(p.reviews || 0);
@@ -207,12 +214,13 @@ async function renderResults() {
 
   // Build the query object — qsOf() in api.js will drop empty values
   const filters = {
-    verified: true, // Discover only shows verified providers
-    search:   q,
-    phase:    phase,
-    courtId:  court,
-    category: category,
-    maxPrice: maxPrice,
+    verified:      true, // Discover only shows verified providers
+    availableOnly: true, // Hide providers who marked themselves unavailable
+    search:        q,
+    phase:         phase,
+    courtId:       court,
+    category:      category,
+    maxPrice:      maxPrice,
   };
 
   let results = [];
