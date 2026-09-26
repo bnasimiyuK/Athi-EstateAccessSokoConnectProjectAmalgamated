@@ -32,28 +32,273 @@ function switchTab(tabName) {
 /* ------------------------------------------------------------
    Dashboard stats — fills the 4 summary tiles
    ------------------------------------------------------------ */
+/* ------------------------------------------------------------
+   Dashboard stats — fills all tiles + alerts + charts
+   ------------------------------------------------------------ */
 async function loadDashboardStats() {
   try {
-    const stats = await Api.getAdminStats();
+    const s = await Api.getAdminStats();
+    console.log("[admin] stats loaded:", s);
 
-    document.getElementById("tile-pending-residents").textContent  = stats.pendingResidents;
-    document.getElementById("tile-pending-vendors").textContent    = stats.pendingVendors;
-    document.getElementById("tile-approved-residents").textContent = stats.approvedResidents;
-    document.getElementById("tile-approved-vendors").textContent   = stats.approvedVendors;
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value ?? "—";
+    };
 
-    console.log("[admin] stats loaded:", stats);
+    /* ----- Users ----- */
+    set("tile-pending-residents",  s.headline.pendingResidents);
+    set("tile-approved-residents", s.headline.approvedResidents);
+    set("tile-pending-vendors",    s.headline.pendingVendors);
+    set("tile-approved-vendors",   s.headline.approvedVendors);
+    set("tile-residents-joined",   s.headline.residentsJoinedThisMonth);
+    set("tile-vendors-joined",     s.headline.vendorsJoinedThisMonth);
+
+    /* ----- Bookings ----- */
+    set("tile-bookings-open",      s.bookings.open);
+    set("tile-bookings-confirmed", s.bookings.confirmed);
+    set("tile-bookings-completed", s.bookings.completed);
+    set("tile-bookings-cancelled", s.bookings.cancelled);
+    set("tile-bookings-total",     s.bookings.total);
+    set("tile-bookings-month",     s.bookings.thisMonth);
+    set("tile-completed-month",    s.bookings.completedThisMonth);
+    set("tile-cancelled-month",    s.bookings.cancelledThisMonth);
+    set("tile-bookings-7d",        s.bookings.last7d);
+    set("tile-bookings-30d",       s.bookings.last30d);
+
+    /* ----- Deltas ----- */
+    renderDelta("delta-bookings-month",
+      s.bookings.thisMonth, s.bookings.lastMonth, false);
+    renderDelta("delta-completed-month",
+      s.bookings.completedThisMonth, s.bookings.completedLastMonth, false);
+    renderDelta("delta-cancelled-month",
+      s.bookings.cancelledThisMonth, s.bookings.cancelledLastMonth, true);
+
+    /* ----- Quality ----- */
+    set("tile-reviews-total", s.quality.reviewsTotal);
+    set("tile-avg-rating",    Number(s.quality.avgRating).toFixed(2));
+    set("tile-reviews-5star", s.quality.reviews5Star);
+    set("tile-reviews-low",   s.quality.reviewsLow);
+
+    /* ----- Provider health ----- */
+    set("tile-vendors-active", s.providers.active30d);
+    set("tile-vendors-dead",   s.providers.withNoBookings);
+    set("tile-cats-empty",     s.providers.categoriesWithoutVendor);
+    set("tile-courts-total",   s.courts.total);
+
+    /* ----- Engagement ----- */
+    set("tile-distinct-bookers", s.residents.distinctBookers);
+    set("tile-repeat-bookers",   s.residents.repeatBookers);
+
+    /* ----- Alerts ----- */
+    renderAlertList("alert-empty-categories-body",
+      s.emptyCategories, (c) => c.label,
+      "Every category has an approved vendor.");
+    renderAlertList("alert-dead-vendors-body",
+      s.deadVendors, (v) => `${v.name} — ${v.phone || "no phone"}`,
+      "Every approved vendor has at least one booking.");
+    renderAlertList("alert-top-vendors-body",
+      s.topVendors, (v) => `${v.name} — ⭐ ${Number(v.rating).toFixed(1)} (${v.reviews})`,
+      "No reviews yet.");
+    renderWeekday("alert-weekday-body", s.byWeekday);
+
+    /* ----- Charts ----- */
+    renderAllCharts(s);
+
   } catch (err) {
     console.error("[admin] failed to load stats:", err);
-
-    // Leave tiles as em-dash so it's clear something failed
-    ["tile-pending-residents","tile-pending-vendors","tile-approved-residents","tile-approved-vendors"]
-      .forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = "—";
-      });
   }
 }
 
+/* ------------------------------------------------------------
+   Delta badge renderer
+   ------------------------------------------------------------ */
+function renderDelta(elId, current, previous, lowerIsBetter = false) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+
+  const diff = (current || 0) - (previous || 0);
+  if (diff === 0) {
+    el.textContent = "no change vs last month";
+    el.className = "stat-tile__delta";
+    return;
+  }
+  const isGood = lowerIsBetter ? diff < 0 : diff > 0;
+  el.textContent = `${diff > 0 ? "+" : ""}${diff} vs last month`;
+  el.className = "stat-tile__delta " + (isGood ? "is-good" : "is-bad");
+}
+
+/* ------------------------------------------------------------
+   Alert list renderer
+   ------------------------------------------------------------ */
+function renderAlertList(elId, items, mapFn, emptyMsg) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!items || !items.length) {
+    el.innerHTML = `<div class="alert-empty">${emptyMsg}</div>`;
+    return;
+  }
+  el.innerHTML = `<ul class="alert-list">${
+    items.map((it) => `<li>${mapFn(it)}</li>`).join("")
+  }</ul>`;
+}
+
+/* ------------------------------------------------------------
+   Weekday bar list
+   ------------------------------------------------------------ */
+function renderWeekday(elId, rows) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!rows || !rows.length) {
+    el.innerHTML = `<div class="alert-empty">No bookings yet.</div>`;
+    return;
+  }
+  const max = Math.max(...rows.map((r) => r.total));
+  el.innerHTML = `<ul class="weekday-list">${
+    rows.map((r) => `
+      <li>
+        <span class="weekday-label">${r.day}</span>
+        <span class="weekday-bar"><span style="width:${(r.total / max) * 100}%"></span></span>
+        <span class="weekday-count">${r.total}</span>
+      </li>
+    `).join("")
+  }</ul>`;
+}
+
+/* ============================================================
+   Chart.js rendering
+   ============================================================ */
+const CHART_COLORS = {
+  ink:   "#16233f",
+  ochre: "#c8862a",
+  teal:  "#2f6f5e",
+  clay:  "#b0472e",
+  blue:  "#4a7ba7",
+};
+
+const chartInstances = {};
+
+function destroyChart(id) {
+  if (chartInstances[id]) {
+    chartInstances[id].destroy();
+    delete chartInstances[id];
+  }
+}
+
+function renderTrendChart(trend) {
+  const ctx = document.getElementById("chart-trend");
+  if (!ctx) return;
+  destroyChart("chart-trend");
+
+  chartInstances["chart-trend"] = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: trend.map((r) => r.month),
+      datasets: [
+        { label: "Total",     data: trend.map((r) => r.total),
+          borderColor: CHART_COLORS.ink,  backgroundColor: "rgba(22, 35, 63, 0.08)",
+          tension: 0.3, fill: true },
+        { label: "Completed", data: trend.map((r) => r.completed),
+          borderColor: CHART_COLORS.teal, backgroundColor: "rgba(47, 111, 94, 0.08)",
+          tension: 0.3, fill: true },
+        { label: "Cancelled", data: trend.map((r) => r.cancelled),
+          borderColor: CHART_COLORS.clay, backgroundColor: "rgba(176, 71, 46, 0.08)",
+          tension: 0.3, fill: true },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom" } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+}
+
+function renderStatusChart(b) {
+  const ctx = document.getElementById("chart-status");
+  if (!ctx) return;
+  destroyChart("chart-status");
+
+  chartInstances["chart-status"] = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["Requested", "Confirmed", "Completed", "Cancelled"],
+      datasets: [{
+        data: [b.open, b.confirmed, b.completed, b.cancelled],
+        backgroundColor: [
+          CHART_COLORS.ochre, CHART_COLORS.blue,
+          CHART_COLORS.teal,  CHART_COLORS.clay,
+        ],
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: "62%",
+      plugins: { legend: { position: "bottom" } },
+    },
+  });
+}
+
+function renderCategoryChart(categories) {
+  const ctx = document.getElementById("chart-category");
+  if (!ctx) return;
+  destroyChart("chart-category");
+
+  chartInstances["chart-category"] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: categories.map((c) => c.label),
+      datasets: [
+        { label: "Approved", data: categories.map((c) => c.approved),
+          backgroundColor: CHART_COLORS.teal },
+        { label: "Pending",  data: categories.map((c) => c.pending),
+          backgroundColor: CHART_COLORS.ochre },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom" } },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+}
+
+function renderWeekdayChart(byWeekday) {
+  const ctx = document.getElementById("chart-weekday");
+  if (!ctx) return;
+  destroyChart("chart-weekday");
+
+  const order = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  const map = Object.fromEntries(byWeekday.map((r) => [r.day, r.total]));
+  const labels = order.filter((d) => map[d] !== undefined);
+  const values = labels.map((d) => map[d]);
+
+  chartInstances["chart-weekday"] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels.map((d) => d.slice(0, 3)),
+      datasets: [{
+        label: "Bookings",
+        data: values,
+        backgroundColor: CHART_COLORS.ink,
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+}
+
+function renderAllCharts(s) {
+  renderTrendChart(s.trend || []);
+  renderStatusChart(s.bookings || {});
+  renderCategoryChart(s.categories || []);
+  renderWeekdayChart(s.byWeekday || []);
+}
 /* ------------------------------------------------------------
    Verification queue (pending providers)
    ------------------------------------------------------------ */

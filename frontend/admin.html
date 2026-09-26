@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin dashboard — Athi Soko Connect</title>
 <link rel="stylesheet" href="css/styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 </head>
 <body>
@@ -194,6 +195,43 @@
     </div>
   </section>
 
+
+  <!-- ============================================================
+     CHARTS
+     ============================================================ -->
+<section class="stat-section">
+  <h3 class="stat-section__title">Visual overview</h3>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-card__head">Bookings — last 6 months</div>
+      <div class="chart-card__body">
+        <canvas id="chart-trend"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card__head">Bookings by status</div>
+      <div class="chart-card__body">
+        <canvas id="chart-status"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card__head">Providers by category</div>
+      <div class="chart-card__body">
+        <canvas id="chart-category"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card__head">Bookings by weekday</div>
+      <div class="chart-card__body">
+        <canvas id="chart-weekday"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
   <!-- ============================================================
        ALERTS — things that need attention
        ============================================================ -->

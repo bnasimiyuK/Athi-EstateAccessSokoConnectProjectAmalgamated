@@ -214,6 +214,18 @@ router.get("/stats",
         ORDER BY MIN(DATEPART(weekday, created_at))
       `);
 
+/* ---------- Categories with vendor counts (for chart) ---------- */
+const categories = await pool.request().query(`
+  SELECT
+    c.label AS label,
+    SUM(CASE WHEN p.verified = 1 THEN 1 ELSE 0 END) AS approved,
+    SUM(CASE WHEN p.verified = 0 THEN 1 ELSE 0 END) AS pending
+  FROM Categories c
+  LEFT JOIN Providers p ON p.category_id = c.id
+  GROUP BY c.label
+  ORDER BY approved DESC, c.label
+`);
+
       res.json({
         headline: {
           pendingResidents:  row.pending_residents,
@@ -261,6 +273,7 @@ router.get("/stats",
         emptyCategories: emptyCats.recordset,
         deadVendors: deadVendors.recordset,
         byWeekday:  byWeekday.recordset,
+         categories: categories.recordset,
       });
     } catch (err) {
       next(err);

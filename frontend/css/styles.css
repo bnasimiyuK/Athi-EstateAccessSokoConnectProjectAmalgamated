@@ -1151,3 +1151,31 @@ main.container:has(.page-head--with-actions) {
   font-weight: 600;
   color: var(--ink, #16233f);
 }
+/* ---------- Charts ---------- */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.chart-card {
+  background: var(--paper, #fff);
+  border: 1px solid var(--line, #dcd8cd);
+  border-radius: 8px;
+  padding: 16px 18px;
+  overflow: hidden;
+}
+
+.chart-card__head {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-70, #4a5670);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 12px;
+}
+
+.chart-card__body {
+  position: relative;
+  height: 240px;
+}
