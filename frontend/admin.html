@@ -77,57 +77,15 @@
   <div class="tab-panel is-active" id="tab-verify"></div>
   <div class="tab-panel" id="tab-reports"></div>
   <div class="tab-panel" id="tab-providers"></div>
+  <div class="admin-actions">
+  <button id="btn-excel" class="btn btn-export">📥 Excel</button>
+  <button id="btn-pdf"   class="btn btn-export">📄 PDF</button>
+</div>
 </main>
 
 <footer class="site-footer">
   <div class="container" style="width:100%;">Reports are logged for estate management review — this dashboard is not a dispute-resolution system.</div>
 </footer>
-
-<!-- Stat tile styling (page-scoped) -->
-<style>
-  .stat-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-    margin-bottom: 32px;
-  }
-  .stat-tile {
-    display: block;
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-m);
-    padding: 20px 22px;
-    text-decoration: none;
-    color: inherit;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-    border-left-width: 4px;
-  }
-  .stat-tile:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.06);
-  }
-  .stat-tile--warn {
-    border-left-color: var(--ochre);
-  }
-  .stat-tile--ok {
-    border-left-color: var(--teal);
-  }
-  .stat-tile__value {
-    font-family: var(--font-display);
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: var(--ink);
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-  .stat-tile__label {
-    font-size: 0.82rem;
-    color: var(--ink-70);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-weight: 600;
-  }
-</style>
 
 <script src="js/auth.js"></script>
 <script src="js/api.js"></script>
