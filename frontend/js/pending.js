@@ -11,7 +11,7 @@ let activeTab = "residents";
 /* ------------------------------------------------------------
    Pagination state for both columns
    ------------------------------------------------------------ */
-const PENDING_PER_PAGE = 1;
+const PENDING_PER_PAGE = 10;
 
 const pendingState = {
   residents: { page: 1, limit: PENDING_PER_PAGE, total: 0, totalPages: 1 },
