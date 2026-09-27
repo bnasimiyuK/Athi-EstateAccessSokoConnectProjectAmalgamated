@@ -48,7 +48,8 @@ function setupTabs() {
       document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("is-active"));
       document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("is-active"));
       btn.classList.add("is-active");
-      document.getElementById(`tab-${btn.dataset.tab}`).classList.add("is-active");
+      const panel = document.getElementById(`tab-${btn.dataset.tab}`);
+      if (panel) panel.classList.add("is-active");
     });
   });
 }
@@ -337,6 +338,11 @@ function renderAllCharts(s) {
    ------------------------------------------------------------ */
 async function renderVerifyQueue() {
   const el = document.getElementById("tab-verify");
+  if (!el) {
+    console.warn("[admin] #tab-verify not found — skipping verify queue render.");
+    return;
+  }
+
   el.innerHTML = `<div class="empty-state">Loading providers…</div>`;
 
   let result;
@@ -360,8 +366,10 @@ async function renderVerifyQueue() {
   verifyQueueState.totalPages = result.totalPages ?? 1;
 
   // Update the tab badge with the total pending count
-  document.getElementById("count-verify").textContent =
-    verifyQueueState.total ? `(${verifyQueueState.total})` : "";
+  const countEl = document.getElementById("count-verify");
+  if (countEl) {
+    countEl.textContent = verifyQueueState.total ? `(${verifyQueueState.total})` : "";
+  }
 
   if (!pending.length) {
     el.innerHTML = `<div class="empty-state">No listings waiting for review.</div>`;
@@ -464,6 +472,7 @@ function verifyQueuePaginationHtml() {
 
 function wireVerifyQueuePagination() {
   const el = document.getElementById("tab-verify");
+  if (!el) return;
 
   el.querySelectorAll("[data-verify-page]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -488,6 +497,11 @@ function wireVerifyQueuePagination() {
    ------------------------------------------------------------ */
 async function renderReports() {
   const el = document.getElementById("tab-reports");
+  if (!el) {
+    console.warn("[admin] #tab-reports not found — skipping reports render.");
+    return;
+  }
+
   el.innerHTML = `<div class="empty-state">Loading reports…</div>`;
 
   let result;
@@ -509,8 +523,10 @@ async function renderReports() {
   reportsState.totalPages = result.totalPages ?? 1;
 
   const openCount = result.openCount ?? reports.filter((r) => r.status === "open").length;
-  document.getElementById("count-reports").textContent =
-    openCount ? `(${openCount})` : "";
+  const countEl = document.getElementById("count-reports");
+  if (countEl) {
+    countEl.textContent = openCount ? `(${openCount})` : "";
+  }
 
   if (!reports.length) {
     el.innerHTML = `<div class="empty-state">No reports have been filed.</div>`;
@@ -588,6 +604,7 @@ function reportsPaginationHtml() {
 
 function wireReportsPagination() {
   const el = document.getElementById("tab-reports");
+  if (!el) return;
 
   el.querySelectorAll("[data-reports-page]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -612,6 +629,11 @@ function wireReportsPagination() {
    ------------------------------------------------------------ */
 async function renderAllProvidersPaginated() {
   const el = document.getElementById("tab-providers");
+  if (!el) {
+    console.warn("[admin] #tab-providers not found — skipping providers render.");
+    return;
+  }
+
   el.innerHTML = `<div class="empty-state">Loading providers…</div>`;
 
   let result;
@@ -713,6 +735,7 @@ function providersPaginationHtml() {
 
 function wireProvidersPagination() {
   const el = document.getElementById("tab-providers");
+  if (!el) return;
 
   el.querySelectorAll("[data-providers-page]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -736,11 +759,14 @@ function wireProvidersPagination() {
    Full refresh — all three tabs + stats
    ------------------------------------------------------------ */
 async function renderAll() {
-  await renderVerifyQueue();          // ← self-fetches paginated pending
-  await renderAllProvidersPaginated(); // ← paginated
-  await renderReports();               // ← paginated
-
-  await loadDashboardStats();
+  try {
+    await renderVerifyQueue();
+    await renderAllProvidersPaginated();
+    await renderReports();
+    await loadDashboardStats();
+  } catch (err) {
+    console.error("[admin] renderAll failed:", err);
+  }
 }
 
 /* ------------------------------------------------------------
