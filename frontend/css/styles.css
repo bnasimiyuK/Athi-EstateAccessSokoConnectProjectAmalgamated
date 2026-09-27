@@ -1360,3 +1360,91 @@ main.container:has(.register-container) {
     font-size: 0.78rem;
   }
 }
+/* ============================================================
+   Category tiles — Discover page (category-first landing)
+   ============================================================ */
+.category-head {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.category-head h2 {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+
+.category-head p {
+  color: var(--ink-70);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.category-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.category-tile {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
+  font-family: inherit;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-tile:hover {
+  border-color: var(--ochre);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.category-tile.is-active {
+  border-color: var(--ochre);
+  background: var(--amber-tint);
+}
+
+.category-tile__icon {
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+.category-tile__label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--ink);
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Mobile: 2-column category grid */
+@media (max-width: 640px) {
+  .category-tiles {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .category-tile {
+    padding: 14px 8px;
+  }
+  .category-tile__icon {
+    font-size: 1.5rem;
+  }
+  .category-tile__label {
+    font-size: 0.8rem;
+  }
+  .category-head h2 {
+    font-size: 1.4rem;
+  }
+}

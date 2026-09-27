@@ -1,7 +1,7 @@
 /* ============================================================
-   home.js — Discover page: Phase → Court cascade + filters
-   + Prev/Next pagination
-   + Live countdown on Busy provider cards ("Busy until HH:MM")
+   home.js — Discover page with category-first landing
+   + Load More pagination (replaces Prev/Next)
+   + Live "Busy until" countdown on provider cards
    ============================================================ */
 
 /* ---------------- helpers ---------------- */
@@ -22,7 +22,6 @@ function servicesArray(p) {
   return String(p.services).split(/,\s*/).map((s) => s.trim()).filter(Boolean);
 }
 
-/* ---------------- time-until formatter ---------------- */
 function formatTimeUntil(iso) {
   if (!iso) return null;
   const diffMs   = new Date(iso) - new Date();
@@ -44,9 +43,35 @@ function formatTimeUntil(iso) {
   return { relative, backTime };
 }
 
+/* Category icons (label → emoji) */
+function categoryIcon(label) {
+  const icons = {
+    Cleaning:   "🧽",
+    Errands:    "🛒",
+    Electrical: "⚡",
+    Gardening:  "🌿",
+    Moving:     "📦",
+    Painting:   "🎨",
+    Plumbing:   "🔧",
+    Tutoring:   "📚",
+  };
+  return icons[label] || "🧰";
+}
+
 /* ---------------- state ---------------- */
-const _state = { categories: [], courts: [] };
-const discoverState = { page: 1, limit: 6, total: 0, totalPages: 1 };
+const _state = {
+  categories: [],
+  courts: [],
+  activeCategory: null,   // null = all categories
+};
+
+const discoverState = {
+  page: 1,
+  limit: 6,
+  total: 0,
+  totalPages: 1,
+  accumulated: [],
+};
 
 /* ---------------- Phase → Court cascade ---------------- */
 function buildPhaseOptions(courts) {
@@ -80,39 +105,72 @@ function filterCourtsByPhase(phase) {
   $court.disabled = false;
 }
 
+/* ============================================================
+   CATEGORY TILES
+   ============================================================ */
+function renderCategoryTiles() {
+  const el = document.getElementById("category-tiles");
+  if (!el) return;
+
+  const tiles = _state.categories.map((c) => {
+    const isActive = _state.activeCategory === c.id;
+    return `
+      <button type="button" class="category-tile ${isActive ? "is-active" : ""}"
+              data-cat="${c.id}">
+        <div class="category-tile__icon">${categoryIcon(c.label)}</div>
+        <div class="category-tile__label">${escapeHtml(c.label)}</div>
+      </button>
+    `;
+  }).join("");
+
+  const allActive = _state.activeCategory === null;
+  const allTile = `
+    <button type="button" class="category-tile ${allActive ? "is-active" : ""}"
+            data-cat="">
+      <div class="category-tile__icon">🌐</div>
+      <div class="category-tile__label">All Providers</div>
+    </button>
+  `;
+
+  el.innerHTML = tiles + allTile;
+
+  el.querySelectorAll(".category-tile").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const raw = btn.dataset.cat;
+      _state.activeCategory = raw === "" ? null : parseInt(raw, 10);
+
+      renderCategoryTiles();
+      updateResultsHeading();
+
+      discoverState.page = 1;
+      discoverState.accumulated = [];
+      renderResults();
+
+      document.getElementById("results-heading")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
+function updateResultsHeading() {
+  const h = document.getElementById("results-heading");
+  if (!h) return;
+
+  if (_state.activeCategory === null) {
+    h.textContent = "All providers";
+  } else {
+    const cat = _state.categories.find((c) => c.id === _state.activeCategory);
+    h.textContent = cat ? `${cat.label} providers` : "Providers";
+  }
+}
+
 /* ---------------- populate ---------------- */
 async function populateFilters() {
   _state.categories = typeof loadCategoryCache === "function"
     ? await loadCategoryCache()
     : await Api.getCategories();
 
-  const $cat = document.getElementById("category");
-  $cat.innerHTML = `<option value="">All categories</option>`;
-  _state.categories.forEach((c) => {
-    const opt = document.createElement("option");
-    opt.value = c.id;
-    opt.textContent = c.label;
-    $cat.appendChild(opt);
-  });
-
-  const $chips = document.getElementById("chip-row");
-  $chips.innerHTML = "";
-
-  const allChip = document.createElement("button");
-  allChip.type = "button";
-  allChip.className = "chip is-active";
-  allChip.textContent = "All";
-  allChip.onclick = () => setCategoryChip("", allChip);
-  $chips.appendChild(allChip);
-
-  _state.categories.forEach((c) => {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "chip";
-    chip.textContent = c.label;
-    chip.onclick = () => setCategoryChip(c.id, chip);
-    $chips.appendChild(chip);
-  });
+  renderCategoryTiles();
 
   try {
     _state.courts = await Api.getCourts();
@@ -128,14 +186,6 @@ async function populateFilters() {
   } catch (err) {
     console.error("[home] stats failed:", err);
   }
-}
-
-function setCategoryChip(categoryId, chipEl) {
-  document.getElementById("category").value = categoryId;
-  document.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
-  chipEl.classList.add("is-active");
-  discoverState.page = 1;
-  renderResults();
 }
 
 /* ---------------- hero stats ---------------- */
@@ -171,21 +221,17 @@ function providerCard(p) {
   if (p.phase != null)  locParts.push(`Phase ${p.phase}`);
   const loc = locParts.join(" · ");
 
-  /* ---------- Busy countdown strip ---------- */
   let busyLine = "";
   if (p.isAvailable === false) {
     let text;
-
     if (p.unavailableUntil) {
       const t = formatTimeUntil(p.unavailableUntil);
       text = (t && t.backTime)
         ? `⏸️ Busy until ${t.backTime} · ${t.relative}`
         : "⏸️ Busy · back any moment";
     } else {
-      /* Safety fallback for indefinite mode */
       text = "⏸️ Busy · not accepting bookings";
     }
-
     busyLine = `
       <div class="busy-countdown"
            data-until="${p.unavailableUntil || ""}"
@@ -243,7 +289,7 @@ function buildDiscoverFilters() {
     search:   document.getElementById("q").value.trim(),
     phase:    document.getElementById("phase").value,
     courtId:  document.getElementById("court").value,
-    category: document.getElementById("category").value,
+    category: _state.activeCategory ?? "",
     maxPrice: document.getElementById("maxPrice").value,
     page:     discoverState.page,
     limit:    discoverState.limit,
@@ -251,16 +297,20 @@ function buildDiscoverFilters() {
 }
 
 /* ---------------- results ---------------- */
-async function renderResults() {
+async function renderResults({ append = false } = {}) {
   const grid = document.getElementById("provider-grid");
-  grid.innerHTML = `<div class="empty-state">Loading providers…</div>`;
+
+  if (!append) {
+    grid.innerHTML = `<div class="empty-state">Loading providers…</div>`;
+    discoverState.accumulated = [];
+  }
 
   let result;
   try {
     result = await Api.getProviders(buildDiscoverFilters());
   } catch (err) {
     console.error("[home] providers failed:", err);
-    grid.innerHTML = `<div class="empty-state">Could not load providers.</div>`;
+    if (!append) grid.innerHTML = `<div class="empty-state">Could not load providers.</div>`;
     return;
   }
 
@@ -270,85 +320,67 @@ async function renderResults() {
   discoverState.limit      = result.limit      ?? discoverState.limit;
   discoverState.totalPages = result.totalPages ?? 1;
 
+  if (append) {
+    discoverState.accumulated.push(...providers);
+  } else {
+    discoverState.accumulated = providers;
+  }
+
   if (discoverState.total === 0) {
     document.getElementById("results-count").textContent = "No providers found";
   } else {
-    const startRow = ((discoverState.page - 1) * discoverState.limit) + 1;
-    const endRow   = Math.min(discoverState.page * discoverState.limit, discoverState.total);
     document.getElementById("results-count").textContent =
-      `Showing ${startRow}–${endRow} of ${discoverState.total} provider${discoverState.total === 1 ? "" : "s"}`;
+      `Showing ${discoverState.accumulated.length} of ${discoverState.total} provider${discoverState.total === 1 ? "" : "s"}`;
   }
 
-  if (!providers.length) {
+  if (!discoverState.accumulated.length) {
     grid.innerHTML = `<div class="empty-state">No providers match your search.</div>`;
-    renderPaginationFooter();
+    renderLoadMoreButton();
     return;
   }
 
-  grid.innerHTML = providers.map(providerCard).join("");
-  renderPaginationFooter();
+  grid.innerHTML = discoverState.accumulated.map(providerCard).join("");
+  renderLoadMoreButton();
 }
 
-/* ---------------- Pagination footer ---------------- */
-function renderPaginationFooter() {
-  const grid   = document.getElementById("provider-grid");
-  const parent = grid.parentElement;
-  let footer   = document.getElementById("discover-pagination");
+/* ---------------- Load More button ---------------- */
+function renderLoadMoreButton() {
+  let btn = document.getElementById("load-more-btn");
 
-  const { page, limit, total, totalPages } = discoverState;
+  const shown   = discoverState.accumulated.length;
+  const total   = discoverState.total;
+  const hasMore = shown < total;
 
-  if (totalPages <= 1) {
-    if (footer) footer.remove();
+  if (!hasMore) {
+    if (btn) btn.remove();
     return;
   }
 
-  const prevDisabled = page <= 1 ? "disabled" : "";
-  const nextDisabled = page >= totalPages ? "disabled" : "";
-
-  if (!footer) {
-    footer = document.createElement("div");
-    footer.id = "discover-pagination";
-    footer.style.cssText =
-      "display:flex;justify-content:space-between;align-items:center;gap:12px;" +
-      "flex-wrap:wrap;margin-top:24px;padding-top:16px;width:100%;";
-    parent.appendChild(footer);
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "load-more-btn";
+    btn.type = "button";
+    btn.className = "btn btn--ghost";
+    btn.style.cssText =
+      "display:block; margin: 24px auto 8px; min-height:44px; padding: 12px 32px;";
+    btn.addEventListener("click", handleLoadMore);
+    document.getElementById("provider-grid").insertAdjacentElement("afterend", btn);
   }
 
-  footer.innerHTML = `
-    <div style="font-size:0.9rem;color:var(--ink-70);">
-      Showing <b>${((page - 1) * limit) + 1}–${Math.min(page * limit, total)}</b>
-      of <b>${total}</b> provider${total === 1 ? "" : "s"}
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <button class="btn btn--ghost btn--small" data-discover-page="prev" ${prevDisabled}>
-        « Prev
-      </button>
-      <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">
-        Page <b>${page}</b> of <b>${totalPages}</b>
-      </span>
-      <button class="btn btn--ghost btn--small" data-discover-page="next" ${nextDisabled}>
-        Next »
-      </button>
-    </div>
-  `;
+  const remaining = total - shown;
+  btn.textContent = `Load more (${remaining} remaining)`;
+  btn.disabled = false;
+}
 
-  footer.querySelectorAll("[data-discover-page]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const dir = btn.dataset.discoverPage;
+async function handleLoadMore() {
+  const btn = document.getElementById("load-more-btn");
+  if (!btn) return;
 
-      if (dir === "prev" && discoverState.page > 1) {
-        discoverState.page--;
-      } else if (dir === "next" && discoverState.page < discoverState.totalPages) {
-        discoverState.page++;
-      } else {
-        return;
-      }
+  btn.disabled = true;
+  btn.textContent = "Loading…";
 
-      await renderResults();
-      document.getElementById("results-heading")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  });
+  discoverState.page++;
+  await renderResults({ append: true });
 }
 
 /* ---------------- Live countdown ticker ---------------- */
@@ -365,7 +397,7 @@ function startCountdownTicker() {
         ? `⏸️ Busy until ${t.backTime} · ${t.relative}`
         : "⏸️ Busy · back any moment";
     });
-  }, 30000); // every 30 seconds
+  }, 30000);
 }
 
 /* ---------------- init ---------------- */
@@ -374,6 +406,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     await populateFilters();
+    updateResultsHeading();
     await renderResults();
     startCountdownTicker();
   } catch (err) {
@@ -385,6 +418,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
       discoverState.page = 1;
+      discoverState.accumulated = [];
       renderResults();
     }, 200);
   });
@@ -392,16 +426,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("phase").addEventListener("change", (e) => {
     filterCourtsByPhase(e.target.value);
     discoverState.page = 1;
+    discoverState.accumulated = [];
     renderResults();
   });
 
   document.getElementById("court").addEventListener("change", () => {
     discoverState.page = 1;
-    renderResults();
-  });
-
-  document.getElementById("category").addEventListener("change", () => {
-    discoverState.page = 1;
+    discoverState.accumulated = [];
     renderResults();
   });
 
@@ -409,6 +440,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
       discoverState.page = 1;
+      discoverState.accumulated = [];
       renderResults();
     }, 200);
   });
@@ -416,24 +448,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("search-form").addEventListener("submit", (e) => {
     e.preventDefault();
     discoverState.page = 1;
+    discoverState.accumulated = [];
     renderResults();
   });
 
-  /* Reset filters button */
+  /* Reset button */
   const resetBtn = document.getElementById("reset-search");
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
       document.getElementById("q").value = "";
       document.getElementById("phase").value = "";
       document.getElementById("court").value = "";
-      document.getElementById("category").value = "";
       document.getElementById("maxPrice").value = "";
 
-      document.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
-      document.querySelector(".chip")?.classList.add("is-active");
+      _state.activeCategory = null;
+      renderCategoryTiles();
+      updateResultsHeading();
 
       filterCourtsByPhase("");
       discoverState.page = 1;
+      discoverState.accumulated = [];
       renderResults();
       toast("Filters cleared.");
     });

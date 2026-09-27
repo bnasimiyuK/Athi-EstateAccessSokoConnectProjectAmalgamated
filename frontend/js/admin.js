@@ -358,14 +358,12 @@ async function renderVerifyQueue() {
     return;
   }
 
-  // Support both legacy (array) and paginated (envelope) responses
   const pending = Array.isArray(result) ? result : (result.data || []);
   verifyQueueState.total      = result.total      ?? pending.length;
   verifyQueueState.page       = result.page       ?? 1;
   verifyQueueState.limit      = result.limit      ?? VERIFY_QUEUE_PER_PAGE;
   verifyQueueState.totalPages = result.totalPages ?? 1;
 
-  // Update the tab badge with the total pending count
   const countEl = document.getElementById("count-verify");
   if (countEl) {
     countEl.textContent = verifyQueueState.total ? `(${verifyQueueState.total})` : "";
@@ -405,14 +403,13 @@ async function renderVerifyQueue() {
       await Api.updateProvider(btn.dataset.approve, { verified: true });
       toast("Provider approved and now visible to residents.");
 
-      // If we just emptied the last row on this page, step back
       const currentRows = el.querySelectorAll("tbody tr").length;
       if (currentRows === 1 && verifyQueueState.page > 1) {
         verifyQueueState.page--;
       }
 
       await renderVerifyQueue();
-      await loadDashboardStats();   // refresh pending count tiles
+      await loadDashboardStats();
     })
   );
 
@@ -771,6 +768,8 @@ async function renderAll() {
 
 /* ------------------------------------------------------------
    Export buttons — Excel and PDF downloads
+   XLSX: POST chart PNGs to the backend so they can be embedded.
+   PDF : plain GET — server renders the report.
    ------------------------------------------------------------ */
 async function downloadAdminReport(kind /* "xlsx" | "pdf" */) {
   const btnId = kind === "xlsx" ? "btn-excel" : "btn-pdf";
@@ -785,9 +784,35 @@ async function downloadAdminReport(kind /* "xlsx" | "pdf" */) {
     const token = typeof getToken === "function" ? getToken() : null;
     if (!token) throw new Error("Not logged in — no token found.");
 
-    const res = await fetch(`http://localhost:4050/api/admin/export.${kind}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    let res;
+
+    if (kind === "xlsx") {
+      /* ---------- Collect chart PNGs from the page ---------- */
+      const images = {};
+      ["chart-trend", "chart-status", "chart-category", "chart-weekday"]
+        .forEach((id) => {
+          const canvas = document.getElementById(id);
+          if (canvas && canvas.width > 0) {
+            images[id] = canvas.toDataURL("image/png");
+          }
+        });
+
+      console.log("[admin] sending", Object.keys(images).length, "chart image(s) to backend");
+
+      res = await fetch("http://localhost:4050/api/admin/export.xlsx", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ images }),
+      });
+    } else {
+      /* ---------- PDF stays a GET ---------- */
+      res = await fetch("http://localhost:4050/api/admin/export.pdf", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
 
     if (res.status === 401 || res.status === 403) {
       toast("Please log in as admin.");
@@ -809,7 +834,9 @@ async function downloadAdminReport(kind /* "xlsx" | "pdf" */) {
     a.remove();
     URL.revokeObjectURL(url);
 
-    toast(`Report downloaded (${kind.toUpperCase()}).`);
+    toast(kind === "xlsx"
+      ? "Report downloaded (XLSX with charts)."
+      : "Report downloaded (PDF).");
   } catch (err) {
     console.error(`[admin] ${kind} export failed:`, err);
     toast(err.message.includes("Not logged in")
