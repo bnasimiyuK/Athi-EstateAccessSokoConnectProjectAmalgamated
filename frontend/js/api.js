@@ -111,7 +111,6 @@ const Api = {
   registerProvider: (data) =>
     request(`${API_BASE}/providers`, { method: "POST", body: JSON.stringify(data) }),
   
-  // This correctly sends a PATCH request to your backend
   updateProvider: (id, patch) =>
     request(`${API_BASE}/providers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
     
@@ -122,13 +121,12 @@ const Api = {
   getReviews: (providerId) =>
     request(`${API_BASE}/reviews/provider/${providerId}`),
     
-  // ADDED: Fetch all reviews for the admin dashboard
-  getAllReviews: () => request(`${API_BASE}/reviews`), 
+  getAllReviews: (params = {}) =>
+    request(`${API_BASE}/reviews${qsOf(params)}`),
   
   addReview: (review) =>
     request(`${API_BASE}/reviews`, { method: "POST", body: JSON.stringify(review) }),
     
-  // ADDED: Allow admins to delete inappropriate reviews
   deleteReview: (id) => 
     request(`${API_BASE}/reviews/${id}`, { method: "DELETE" }),
 
@@ -140,7 +138,9 @@ const Api = {
     request(`${API_BASE}/bookings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   /* ---------- Reports ---------- */
-  getReports: () => request(`${API_BASE}/reports`),
+  // CHANGED: Now accepts pagination params
+  getReports: (params = {}) =>
+    request(`${API_BASE}/reports${qsOf(params)}`),
   addReport: (report) =>
     request(`${API_BASE}/reports`, { method: "POST", body: JSON.stringify(report) }),
   updateReport: (id, patch) =>
@@ -163,6 +163,7 @@ const Api = {
     request(`${API_BASE}/residents/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   removeResident: (id) =>
     request(`${API_BASE}/residents/${id}`, { method: "DELETE" }),
-    updateReview: (id, patch) =>
+
+  updateReview: (id, patch) =>
     request(`${API_BASE}/reviews/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 };

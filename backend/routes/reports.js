@@ -5,7 +5,7 @@
 const express = require("express");
 const router = express.Router();
 const { getPool } = require("../db");
-const { requireAuth, requireRole } = require("../middleware/auth");   // ← ADDED
+const { requireAuth, requireRole } = require("../middleware/auth");
 
 /* ------------------------------------------------------------
    Helper: DB row → JSON frontend expects
@@ -23,21 +23,52 @@ function reportToJson(row) {
 }
 
 /* ------------------------------------------------------------
-   GET /api/reports  — ADMIN ONLY
+   GET /api/reports  — ADMIN ONLY (Paginated)
+   Query: ?page=1&limit=20
+   Returns: { data, total, openCount, page, limit, totalPages }
    ------------------------------------------------------------ */
 router.get("/",
   requireAuth,
   requireRole("admin"),
   async (req, res, next) => {
     try {
+      const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+      const offset = (page - 1) * limit;
+
       const pool = await getPool();
-      const result = await pool.request().query(`
-        SELECT r.*, p.name AS provider_name
-        FROM Reports r
-        LEFT JOIN Providers p ON p.id = r.provider_id
-        ORDER BY r.created_at DESC
+
+      // Get total + open count for the tab badge
+      const countsRes = await pool.request().query(`
+        SELECT
+          COUNT(*)                                          AS total,
+          SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END)  AS open_count
+        FROM Reports
       `);
-      res.json(result.recordset.map(reportToJson));
+      const total     = countsRes.recordset[0].total || 0;
+      const openCount = countsRes.recordset[0].open_count || 0;
+
+      // Fetch just this page
+      const result = await pool.request()
+        .input("offset", offset)
+        .input("limit",  limit)
+        .query(`
+          SELECT r.*, p.name AS provider_name
+          FROM Reports r
+          LEFT JOIN Providers p ON p.id = r.provider_id
+          ORDER BY r.created_at DESC
+          OFFSET @offset ROWS
+          FETCH NEXT @limit ROWS ONLY
+        `);
+
+      res.json({
+        data:       result.recordset.map(reportToJson),
+        total,
+        openCount,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      });
     } catch (err) {
       next(err);
     }

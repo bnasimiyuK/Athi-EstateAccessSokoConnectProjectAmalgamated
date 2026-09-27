@@ -5,7 +5,7 @@
 const express = require("express");
 const router = express.Router();
 const { getPool } = require("../db");
-const { requireAuth, requireRole } = require("../middleware/auth");   // ← ADDED
+const { requireAuth, requireRole } = require("../middleware/auth");
 
 /* ------------------------------------------------------------
    Helper: DB row → JSON frontend expects
@@ -52,21 +52,48 @@ router.get("/provider/:providerId", async (req, res, next) => {
 });
 
 /* ------------------------------------------------------------
-   GET /api/reviews  — ADMIN ONLY
+   GET /api/reviews  — ADMIN ONLY (Paginated)
+   Query params: ?page=1&limit=20
+   Response: { data, total, page, limit, totalPages }
    ------------------------------------------------------------ */
 router.get("/",
   requireAuth,
   requireRole("admin"),
   async (req, res, next) => {
     try {
+      // Parse + clamp pagination params
+      const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+      const offset = (page - 1) * limit;
+
       const pool = await getPool();
-      const result = await pool.request().query(`
-        SELECT r.*, p.name AS provider_name
-        FROM Reviews r
-        LEFT JOIN Providers p ON r.provider_id = p.id
-        ORDER BY r.created_at DESC
+
+      // Total row count
+      const countRes = await pool.request().query(`
+        SELECT COUNT(*) AS total FROM Reviews
       `);
-      res.json(result.recordset.map(reviewToJson));
+      const total = countRes.recordset[0].total;
+
+      // Fetch the requested page
+      const result = await pool.request()
+        .input("offset", offset)
+        .input("limit",  limit)
+        .query(`
+          SELECT r.*, p.name AS provider_name
+          FROM Reviews r
+          LEFT JOIN Providers p ON r.provider_id = p.id
+          ORDER BY r.created_at DESC
+          OFFSET @offset ROWS
+          FETCH NEXT @limit ROWS ONLY
+        `);
+
+      res.json({
+        data:       result.recordset.map(reviewToJson),
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      });
     } catch (err) {
       next(err);
     }

@@ -53,57 +53,116 @@ const PROVIDER_SELECT = `
 `;
 
 /* ------------------------------------------------------------
+   Helper: apply filter inputs to a request object
+   (called twice — once for COUNT, once for the data query)
+   ------------------------------------------------------------ */
+function applyProviderFilters(request, { category, phase, courtId, maxPrice, search, verified, availableOnly }) {
+  const conditions = [];
+
+  if (verified === "true") {
+    conditions.push("p.verified = 1");
+  } else if (verified === "false") {
+    conditions.push("p.verified = 0");
+  }
+
+  if (availableOnly === "true") {
+    conditions.push("p.is_available = 1");
+  }
+  if (category) {
+    conditions.push("p.category_id = @category");
+    request.input("category", parseInt(category, 10));
+  }
+  if (phase) {
+    conditions.push("c.phase = @phase");
+    request.input("phase", parseInt(phase, 10));
+  }
+  if (courtId) {
+    conditions.push("r.court_id = @courtId");
+    request.input("courtId", parseInt(courtId, 10));
+  }
+  if (maxPrice) {
+    conditions.push("p.price_from <= @maxPrice");
+    request.input("maxPrice", parseFloat(maxPrice));
+  }
+  if (search) {
+    conditions.push("(p.name LIKE @search OR p.services LIKE @search OR p.bio LIKE @search)");
+    request.input("search", `%${search}%`);
+  }
+
+  return conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+}
+
+/* ------------------------------------------------------------
    GET /api/providers
-   Supports: category, phase, courtId, maxPrice, search, verified, availableOnly
+   Supports: category, phase, courtId, maxPrice, search,
+             verified, availableOnly, page, limit
+
+   - If ?page is passed → returns { data, total, page, limit, totalPages }
+   - Otherwise        → returns a plain array (legacy behaviour for
+                        home.js, pending.html, provider-dashboard.js)
    ------------------------------------------------------------ */
 router.get("/", async (req, res, next) => {
   try {
-    const { category, phase, courtId, maxPrice, search, verified, availableOnly } = req.query;
     const pool = await getPool();
+    const filters = req.query;
+
+    /* ============================================================
+       PAGINATED MODE (when ?page= is provided)
+       ============================================================ */
+    if (filters.page !== undefined) {
+      const pageNum  = Math.max(1, parseInt(filters.page, 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
+      const offset   = (pageNum - 1) * limitNum;
+
+      // ---------- Count query (same WHERE, no pagination) ----------
+      const countReq = pool.request();
+      const whereClause = applyProviderFilters(countReq, filters);
+
+      const countRes = await countReq.query(`
+        SELECT COUNT(*) AS total
+        FROM Providers p
+        LEFT JOIN Categories cat ON cat.id = p.category_id
+        LEFT JOIN Residents  r   ON r.id  = p.resident_id
+        LEFT JOIN Courts     c   ON c.id  = r.court_id
+        ${whereClause}
+      `);
+      const total = countRes.recordset[0].total || 0;
+
+      // ---------- Data query (same WHERE + OFFSET/FETCH) ----------
+      const dataReq = pool.request();
+      applyProviderFilters(dataReq, filters);   // re-bind the same inputs
+      dataReq.input("offset", offset);
+      dataReq.input("limit",  limitNum);
+
+      const dataRes = await dataReq.query(`
+        ${PROVIDER_SELECT}
+        ${whereClause}
+        ORDER BY p.is_available DESC, p.verified DESC, p.rating DESC, p.reviews DESC
+        OFFSET @offset ROWS
+        FETCH NEXT @limit ROWS ONLY
+      `);
+
+      return res.json({
+        data:       dataRes.recordset.map(providerToJson),
+        total,
+        page:       pageNum,
+        limit:      limitNum,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      });
+    }
+
+    /* ============================================================
+       LEGACY MODE (no ?page → plain array, unpaginated)
+       ============================================================ */
     const request = pool.request();
+    const whereClause = applyProviderFilters(request, filters);
 
-    const conditions = [];
-
-    // FIXED: Handle both true and false for verified
-    if (verified === "true") {
-      conditions.push("p.verified = 1");
-    } else if (verified === "false") {
-      conditions.push("p.verified = 0");
-    }
-
-    if (availableOnly === "true") {
-      conditions.push("p.is_available = 1");
-    }
-    if (category) {
-      conditions.push("p.category_id = @category");
-      request.input("category", parseInt(category, 10));
-    }
-    if (phase) {
-      conditions.push("c.phase = @phase");
-      request.input("phase", parseInt(phase, 10));
-    }
-    if (courtId) {
-      conditions.push("r.court_id = @courtId");
-      request.input("courtId", parseInt(courtId, 10));
-    }
-    if (maxPrice) {
-      conditions.push("p.price_from <= @maxPrice");
-      request.input("maxPrice", parseFloat(maxPrice));
-    }
-    if (search) {
-      conditions.push("(p.name LIKE @search OR p.services LIKE @search OR p.bio LIKE @search)");
-      request.input("search", `%${search}%`);
-    }
-
-    const whereClause = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
-
-    const sql = `
+    const result = await request.query(`
       ${PROVIDER_SELECT}
       ${whereClause}
       ORDER BY p.is_available DESC, p.verified DESC, p.rating DESC, p.reviews DESC
-    `;
+    `);
 
-    const result = await request.query(sql);
     res.json(result.recordset.map(providerToJson));
   } catch (err) {
     console.error("[providers] list failed:", err);

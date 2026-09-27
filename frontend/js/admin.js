@@ -4,6 +4,42 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
+   Verification queue pagination state
+   ------------------------------------------------------------ */
+const VERIFY_QUEUE_PER_PAGE = 20;
+
+const verifyQueueState = {
+  page:       1,
+  limit:      VERIFY_QUEUE_PER_PAGE,
+  total:      0,
+  totalPages: 1,
+};
+
+/* ------------------------------------------------------------
+   Reports pagination state
+   ------------------------------------------------------------ */
+const REPORTS_PER_PAGE = 20;
+
+const reportsState = {
+  page:       1,
+  limit:      REPORTS_PER_PAGE,
+  total:      0,
+  totalPages: 1,
+};
+
+/* ------------------------------------------------------------
+   Providers pagination state
+   ------------------------------------------------------------ */
+const PROVIDERS_PER_PAGE = 20;
+
+const providersState = {
+  page:       1,
+  limit:      PROVIDERS_PER_PAGE,
+  total:      0,
+  totalPages: 1,
+};
+
+/* ------------------------------------------------------------
    Tab switching
    ------------------------------------------------------------ */
 function setupTabs() {
@@ -297,12 +333,35 @@ function renderAllCharts(s) {
 }
 
 /* ------------------------------------------------------------
-   Verification queue (pending providers)
+   Verification queue (PAGINATED — pending providers only)
    ------------------------------------------------------------ */
-async function renderVerifyQueue(allProviders) {
-  const pending = allProviders.filter((p) => !p.verified);
-  document.getElementById("count-verify").textContent = pending.length ? `(${pending.length})` : "";
+async function renderVerifyQueue() {
   const el = document.getElementById("tab-verify");
+  el.innerHTML = `<div class="empty-state">Loading providers…</div>`;
+
+  let result;
+  try {
+    result = await Api.getProviders({
+      verified: "false",
+      page:     verifyQueueState.page,
+      limit:    verifyQueueState.limit,
+    });
+  } catch (err) {
+    console.error("[admin] verify queue load failed:", err);
+    el.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load providers: ${err.message}</div>`;
+    return;
+  }
+
+  // Support both legacy (array) and paginated (envelope) responses
+  const pending = Array.isArray(result) ? result : (result.data || []);
+  verifyQueueState.total      = result.total      ?? pending.length;
+  verifyQueueState.page       = result.page       ?? 1;
+  verifyQueueState.limit      = result.limit      ?? VERIFY_QUEUE_PER_PAGE;
+  verifyQueueState.totalPages = result.totalPages ?? 1;
+
+  // Update the tab badge with the total pending count
+  document.getElementById("count-verify").textContent =
+    verifyQueueState.total ? `(${verifyQueueState.total})` : "";
 
   if (!pending.length) {
     el.innerHTML = `<div class="empty-state">No listings waiting for review.</div>`;
@@ -318,7 +377,7 @@ async function renderVerifyQueue(allProviders) {
             <tr>
               <td>${p.name}</td>
               <td>${categoryLabel(p.category)}</td>
-              <td>${p.zone}</td>
+              <td>${p.zone || "—"}</td>
               <td>${p.phone}</td>
               <td class="row-actions">
                 <button class="btn btn--accent btn--small" data-approve="${p.id}">Approve</button>
@@ -327,32 +386,131 @@ async function renderVerifyQueue(allProviders) {
             </tr>`).join("")}
         </tbody>
       </table>
-    </div>`;
+    </div>
+    ${verifyQueuePaginationHtml()}
+  `;
+
+  wireVerifyQueuePagination();
 
   el.querySelectorAll("[data-approve]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       await Api.updateProvider(btn.dataset.approve, { verified: true });
       toast("Provider approved and now visible to residents.");
-      await renderAll();
+
+      // If we just emptied the last row on this page, step back
+      const currentRows = el.querySelectorAll("tbody tr").length;
+      if (currentRows === 1 && verifyQueueState.page > 1) {
+        verifyQueueState.page--;
+      }
+
+      await renderVerifyQueue();
+      await loadDashboardStats();   // refresh pending count tiles
     })
   );
+
   el.querySelectorAll("[data-reject]").forEach((btn) =>
     btn.addEventListener("click", async () => {
+      if (!confirm("Reject and remove this listing?")) return;
+
       await Api.removeProvider(btn.dataset.reject);
       toast("Listing rejected and removed.");
-      await renderAll();
+
+      const currentRows = el.querySelectorAll("tbody tr").length;
+      if (currentRows === 1 && verifyQueueState.page > 1) {
+        verifyQueueState.page--;
+      }
+
+      await renderVerifyQueue();
+      await loadDashboardStats();
     })
   );
 }
 
 /* ------------------------------------------------------------
-   Reports
+   Verify queue pagination controls
+   ------------------------------------------------------------ */
+function verifyQueuePaginationHtml() {
+  const { page, limit, total, totalPages } = verifyQueueState;
+
+  const startRow = total === 0 ? 0 : ((page - 1) * limit) + 1;
+  const endRow   = Math.min(page * limit, total);
+
+  const prevDisabled = page <= 1 ? "disabled" : "";
+  const nextDisabled = page >= totalPages ? "disabled" : "";
+
+  return `
+    <div class="pagination"
+         style="display:flex;justify-content:space-between;align-items:center;
+                gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
+                border-top:1px solid var(--line);">
+      <div style="font-size:0.9rem;color:var(--ink-70);">
+        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        pending listing${total === 1 ? "" : "s"}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn--ghost btn--small" data-verify-page="prev" ${prevDisabled}>
+          « Prev
+        </button>
+        <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">
+          Page <b>${page}</b> of <b>${totalPages}</b>
+        </span>
+        <button class="btn btn--ghost btn--small" data-verify-page="next" ${nextDisabled}>
+          Next »
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function wireVerifyQueuePagination() {
+  const el = document.getElementById("tab-verify");
+
+  el.querySelectorAll("[data-verify-page]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const dir = btn.dataset.verifyPage;
+
+      if (dir === "prev" && verifyQueueState.page > 1) {
+        verifyQueueState.page--;
+      } else if (dir === "next" && verifyQueueState.page < verifyQueueState.totalPages) {
+        verifyQueueState.page++;
+      } else {
+        return;
+      }
+
+      await renderVerifyQueue();
+      document.querySelector(".tab-row")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
+/* ------------------------------------------------------------
+   Reports (PAGINATED)
    ------------------------------------------------------------ */
 async function renderReports() {
-  const reports = (await Api.getReports()).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  const open = reports.filter((r) => r.status === "open");
-  document.getElementById("count-reports").textContent = open.length ? `(${open.length})` : "";
   const el = document.getElementById("tab-reports");
+  el.innerHTML = `<div class="empty-state">Loading reports…</div>`;
+
+  let result;
+  try {
+    result = await Api.getReports({
+      page:  reportsState.page,
+      limit: reportsState.limit,
+    });
+  } catch (err) {
+    console.error("[admin] reports load failed:", err);
+    el.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load reports: ${err.message}</div>`;
+    return;
+  }
+
+  const reports = Array.isArray(result) ? result : (result.data || []);
+  reportsState.total      = result.total      ?? reports.length;
+  reportsState.page       = result.page       ?? 1;
+  reportsState.limit      = result.limit      ?? REPORTS_PER_PAGE;
+  reportsState.totalPages = result.totalPages ?? 1;
+
+  const openCount = result.openCount ?? reports.filter((r) => r.status === "open").length;
+  document.getElementById("count-reports").textContent =
+    openCount ? `(${openCount})` : "";
 
   if (!reports.length) {
     el.innerHTML = `<div class="empty-state">No reports have been filed.</div>`;
@@ -376,22 +534,109 @@ async function renderReports() {
             </tr>`).join("")}
         </tbody>
       </table>
-    </div>`;
+    </div>
+    ${reportsPaginationHtml()}
+  `;
+
+  wireReportsPagination();
 
   el.querySelectorAll("[data-resolve]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       await Api.updateReport(btn.dataset.resolve, { status: "reviewed" });
       toast("Report marked as reviewed.");
-      await renderAll();
+      await renderReports();
+      await loadDashboardStats();
     })
   );
 }
 
 /* ------------------------------------------------------------
-   All providers table
+   Reports pagination controls
    ------------------------------------------------------------ */
-function renderAllProviders(providers) {
+function reportsPaginationHtml() {
+  const { page, limit, total, totalPages } = reportsState;
+
+  const startRow = total === 0 ? 0 : ((page - 1) * limit) + 1;
+  const endRow   = Math.min(page * limit, total);
+
+  const prevDisabled = page <= 1 ? "disabled" : "";
+  const nextDisabled = page >= totalPages ? "disabled" : "";
+
+  return `
+    <div class="pagination"
+         style="display:flex;justify-content:space-between;align-items:center;
+                gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
+                border-top:1px solid var(--line);">
+      <div style="font-size:0.9rem;color:var(--ink-70);">
+        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        report${total === 1 ? "" : "s"}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn--ghost btn--small" data-reports-page="prev" ${prevDisabled}>
+          « Prev
+        </button>
+        <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">
+          Page <b>${page}</b> of <b>${totalPages}</b>
+        </span>
+        <button class="btn btn--ghost btn--small" data-reports-page="next" ${nextDisabled}>
+          Next »
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function wireReportsPagination() {
+  const el = document.getElementById("tab-reports");
+
+  el.querySelectorAll("[data-reports-page]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const dir = btn.dataset.reportsPage;
+
+      if (dir === "prev" && reportsState.page > 1) {
+        reportsState.page--;
+      } else if (dir === "next" && reportsState.page < reportsState.totalPages) {
+        reportsState.page++;
+      } else {
+        return;
+      }
+
+      await renderReports();
+      document.querySelector(".tab-row")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
+/* ------------------------------------------------------------
+   All providers table (PAGINATED)
+   ------------------------------------------------------------ */
+async function renderAllProvidersPaginated() {
   const el = document.getElementById("tab-providers");
+  el.innerHTML = `<div class="empty-state">Loading providers…</div>`;
+
+  let result;
+  try {
+    result = await Api.getProviders({
+      page:  providersState.page,
+      limit: providersState.limit,
+    });
+  } catch (err) {
+    console.error("[admin] providers load failed:", err);
+    el.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load providers: ${err.message}</div>`;
+    return;
+  }
+
+  const providers = Array.isArray(result) ? result : (result.data || []);
+  providersState.total      = result.total      ?? providers.length;
+  providersState.page       = result.page       ?? 1;
+  providersState.limit      = result.limit      ?? PROVIDERS_PER_PAGE;
+  providersState.totalPages = result.totalPages ?? 1;
+
+  if (!providers.length) {
+    el.innerHTML = `<div class="empty-state">No providers on the platform.</div>`;
+    return;
+  }
+
   el.innerHTML = `
     <div class="table-wrap">
       <table>
@@ -407,13 +652,23 @@ function renderAllProviders(providers) {
             </tr>`).join("")}
         </tbody>
       </table>
-    </div>`;
+    </div>
+    ${providersPaginationHtml()}
+  `;
+
+  wireProvidersPagination();
 
   el.querySelectorAll("[data-remove]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       if (confirm("Remove this provider from the platform?")) {
         await Api.removeProvider(btn.dataset.remove);
         toast("Provider removed.");
+
+        const currentRows = el.querySelectorAll("tbody tr").length;
+        if (currentRows === 1 && providersState.page > 1) {
+          providersState.page--;
+        }
+
         await renderAll();
       }
     })
@@ -421,13 +676,69 @@ function renderAllProviders(providers) {
 }
 
 /* ------------------------------------------------------------
-   Full refresh — providers + reports + stats
+   Providers pagination controls
+   ------------------------------------------------------------ */
+function providersPaginationHtml() {
+  const { page, limit, total, totalPages } = providersState;
+
+  const startRow = total === 0 ? 0 : ((page - 1) * limit) + 1;
+  const endRow   = Math.min(page * limit, total);
+
+  const prevDisabled = page <= 1 ? "disabled" : "";
+  const nextDisabled = page >= totalPages ? "disabled" : "";
+
+  return `
+    <div class="pagination"
+         style="display:flex;justify-content:space-between;align-items:center;
+                gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
+                border-top:1px solid var(--line);">
+      <div style="font-size:0.9rem;color:var(--ink-70);">
+        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        provider${total === 1 ? "" : "s"}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn--ghost btn--small" data-providers-page="prev" ${prevDisabled}>
+          « Prev
+        </button>
+        <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">
+          Page <b>${page}</b> of <b>${totalPages}</b>
+        </span>
+        <button class="btn btn--ghost btn--small" data-providers-page="next" ${nextDisabled}>
+          Next »
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function wireProvidersPagination() {
+  const el = document.getElementById("tab-providers");
+
+  el.querySelectorAll("[data-providers-page]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const dir = btn.dataset.providersPage;
+
+      if (dir === "prev" && providersState.page > 1) {
+        providersState.page--;
+      } else if (dir === "next" && providersState.page < providersState.totalPages) {
+        providersState.page++;
+      } else {
+        return;
+      }
+
+      await renderAllProvidersPaginated();
+      document.querySelector(".tab-row")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
+/* ------------------------------------------------------------
+   Full refresh — all three tabs + stats
    ------------------------------------------------------------ */
 async function renderAll() {
-  const providers = await Api.getProviders();
-  await renderVerifyQueue(providers);
-  await renderReports();
-  renderAllProviders(providers);
+  await renderVerifyQueue();          // ← self-fetches paginated pending
+  await renderAllProvidersPaginated(); // ← paginated
+  await renderReports();               // ← paginated
 
   await loadDashboardStats();
 }
@@ -453,7 +764,6 @@ async function downloadAdminReport(kind /* "xlsx" | "pdf" */) {
     });
 
     if (res.status === 401 || res.status === 403) {
-      // CHANGED: alert → toast (+ redirect)
       toast("Please log in as admin.");
       window.location.href = "login.html?next=%2Fadmin.html";
       return;
