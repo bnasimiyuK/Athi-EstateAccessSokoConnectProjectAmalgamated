@@ -131,7 +131,7 @@ const Api = {
     request(`${API_BASE}/reviews/${id}`, { method: "DELETE" }),
 
   /* ---------- Bookings ---------- */
-  getBookings: () => request(`${API_BASE}/bookings`),
+  getBookings: (params = {}) => request(`${API_BASE}/bookings${qsOf(params)}`),
   addBooking: (booking) =>
     request(`${API_BASE}/bookings`, { method: "POST", body: JSON.stringify(booking) }),
   updateBooking: (id, patch) =>

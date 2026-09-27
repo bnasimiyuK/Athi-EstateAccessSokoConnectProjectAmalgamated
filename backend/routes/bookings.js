@@ -24,21 +24,74 @@ function bookingToJson(row) {
     reviewed:           !!row.reviewed,
     createdAt:          row.created_at,
     cancellationReason: row.cancellation_reason || null,
-    rating:             row.review_rating || null, // <--- THIS MUST BE HERE
+    rating:             row.review_rating || null,
   };
 }
 
 /* ------------------------------------------------------------
+   Helper: apply scoping + optional filters to a request object
+   Called twice (once for COUNT, once for DATA) since mssql
+   inputs belong to a specific request.
+   ------------------------------------------------------------ */
+function applyBookingFilters(request, { status, providerId, phone }) {
+  const conditions = [];
+
+  if (status) {
+    conditions.push("b.status = @status");
+    request.input("status", status);
+  }
+  if (providerId !== undefined && providerId !== null) {
+    conditions.push("b.provider_id = @providerId");
+    request.input("providerId", providerId);
+  }
+  if (phone) {
+    conditions.push("b.resident_phone = @phone");
+    request.input("phone", phone);
+  }
+
+  return conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+}
+
+/* ------------------------------------------------------------
    GET /api/bookings
+   Query params: ?status=X&page=N&limit=M
+
+   - If ?page present  → { data, total, page, limit, totalPages }
+   - Otherwise         → plain array (legacy behaviour)
    ------------------------------------------------------------ */
 router.get("/", requireAuth, async (req, res, next) => {
   try {
     const pool = await getPool();
     const { role, id } = req.user;
-    const request = pool.request();
-    let sqlText;
+    const { status, page, limit } = req.query;
 
-    // We MUST join Reviews to get the star rating
+    /* ---------- Resolve role-based scoping once ---------- */
+    let providerId;
+    let phone;
+
+    if (role === "vendor") {
+      providerId = id;
+    } else if (role === "resident") {
+      const me = await pool.request()
+        .input("id", id)
+        .query("SELECT phone FROM Residents WHERE id = @id");
+      phone = me.recordset[0]?.phone;
+
+      // No phone on file → no bookings. Return the appropriate empty shape.
+      if (!phone) {
+        if (page !== undefined) {
+          return res.json({
+            data: [], total: 0, page: 1,
+            limit: parseInt(limit, 10) || 20, totalPages: 1,
+          });
+        }
+        return res.json([]);
+      }
+    }
+    // admin → no scoping (providerId and phone remain undefined)
+
+    const scopeFilters = { status, providerId, phone };
+
     const baseSelect = `
       SELECT b.*, p.name AS provider_name, r.rating AS review_rating
       FROM Bookings b
@@ -46,24 +99,60 @@ router.get("/", requireAuth, async (req, res, next) => {
       LEFT JOIN Reviews r ON r.booking_id = b.id
     `;
 
-    if (role === "admin") {
-      sqlText = `${baseSelect} ORDER BY b.created_at DESC`;
-    } else if (role === "vendor") {
-      sqlText = `${baseSelect} WHERE b.provider_id = @providerId ORDER BY b.created_at DESC`;
-      request.input("providerId", id);
-    } else {
-      /* Resident — look up their phone from Residents */
-      const me = await pool.request()
-        .input("id", id)
-        .query("SELECT phone FROM Residents WHERE id = @id");
-      const phone = me.recordset[0]?.phone;
-      if (!phone) return res.json([]);
+    /* ============================================================
+       PAGINATED MODE (when ?page is provided)
+       ============================================================ */
+    if (page !== undefined) {
+      const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+      const offset   = (pageNum - 1) * limitNum;
 
-      sqlText = `${baseSelect} WHERE b.resident_phone = @phone ORDER BY b.created_at DESC`;
-      request.input("phone", phone);
+      // ---------- COUNT query ----------
+      const countReq = pool.request();
+      const whereClause = applyBookingFilters(countReq, scopeFilters);
+
+      const countRes = await countReq.query(`
+        SELECT COUNT(*) AS total
+        FROM Bookings b
+        ${whereClause}
+      `);
+      const total = countRes.recordset[0].total || 0;
+
+      // ---------- DATA query (same WHERE + OFFSET/FETCH) ----------
+      const dataReq = pool.request();
+      applyBookingFilters(dataReq, scopeFilters);   // re-bind same inputs
+      dataReq.input("offset", offset);
+      dataReq.input("limit",  limitNum);
+
+      const dataRes = await dataReq.query(`
+        ${baseSelect}
+        ${whereClause}
+        ORDER BY b.created_at DESC
+        OFFSET @offset ROWS
+        FETCH NEXT @limit ROWS ONLY
+      `);
+
+      return res.json({
+        data:       dataRes.recordset.map(bookingToJson),
+        total,
+        page:       pageNum,
+        limit:      limitNum,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      });
     }
 
-    const result = await request.query(sqlText);
+    /* ============================================================
+       LEGACY MODE (no ?page → plain array)
+       ============================================================ */
+    const request = pool.request();
+    const whereClause = applyBookingFilters(request, scopeFilters);
+
+    const result = await request.query(`
+      ${baseSelect}
+      ${whereClause}
+      ORDER BY b.created_at DESC
+    `);
+
     res.json(result.recordset.map(bookingToJson));
   } catch (err) {
     next(err);

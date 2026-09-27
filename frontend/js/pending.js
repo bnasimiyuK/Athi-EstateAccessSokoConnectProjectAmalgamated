@@ -1,6 +1,6 @@
 /* ============================================================
    pending.js — admin approval queue for residents + vendors
-   Only accessible to admins (checked via requireRole).
+   + Prev/Next pagination for both columns
    ============================================================ */
 
 /* ------------------------------------------------------------
@@ -9,13 +9,23 @@
 let activeTab = "residents";
 
 /* ------------------------------------------------------------
+   Pagination state for both columns
+   ------------------------------------------------------------ */
+const PENDING_PER_PAGE = 1;
+
+const pendingState = {
+  residents: { page: 1, limit: PENDING_PER_PAGE, total: 0, totalPages: 1 },
+  vendors:   { page: 1, limit: PENDING_PER_PAGE, total: 0, totalPages: 1 },
+};
+
+/* ------------------------------------------------------------
    Format "3 hours ago" style timestamps
    ------------------------------------------------------------ */
 function timeAgo(iso) {
   if (!iso) return "";
   const then = new Date(iso);
   const now  = new Date();
-  const diff = Math.floor((now - then) / 1000); // seconds
+  const diff = Math.floor((now - then) / 1000);
 
   if (diff < 60) return "just now";
   if (diff < 3600) {
@@ -28,18 +38,6 @@ function timeAgo(iso) {
   }
   const d = Math.floor(diff / 86400);
   return `${d} day${d === 1 ? "" : "s"} ago`;
-}
-
-/* ------------------------------------------------------------
-   Helper to update the count text (e.g., "Vendors (2)")
-   ------------------------------------------------------------ */
-function updateCount(kind, delta) {
-  const id = kind === "residents" ? "count-residents" : "count-vendors";
-  const el = document.getElementById(id);
-  if (el) {
-    const current = parseInt(el.textContent.replace(/[^0-9]/g, '')) || 0;
-    el.textContent = `(${Math.max(0, current + delta)})`;
-  }
 }
 
 /* ------------------------------------------------------------
@@ -58,7 +56,6 @@ function pendingCard(item, kind) {
 
   const label = isResident ? item.fullName : item.name;
 
-  // FIXED: Wrapped ${item.id} in quotes so string IDs don't break JavaScript
   return `
     <div class="pending-card" data-id="${item.id}">
       <div>
@@ -79,51 +76,146 @@ function pendingCard(item, kind) {
 }
 
 /* ------------------------------------------------------------
-   Load residents
+   Pagination footer HTML for a given column
+   ------------------------------------------------------------ */
+function paginationHtml(kind) {
+  const state = pendingState[kind];
+  const { page, limit, total, totalPages } = state;
+
+  if (totalPages <= 1) return "";
+
+  const startRow = ((page - 1) * limit) + 1;
+  const endRow   = Math.min(page * limit, total);
+  const prevDisabled = page <= 1 ? "disabled" : "";
+  const nextDisabled = page >= totalPages ? "disabled" : "";
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
+                border-top:1px solid var(--line);">
+      <div style="font-size:0.85rem;color:var(--ink-70);">
+        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn--ghost btn--small" data-pending-page="${kind}:prev" ${prevDisabled}>
+          « Prev
+        </button>
+        <span style="font-size:0.85rem;color:var(--ink-70);padding:0 4px;">
+          Page <b>${page}</b> of <b>${totalPages}</b>
+        </span>
+        <button class="btn btn--ghost btn--small" data-pending-page="${kind}:next" ${nextDisabled}>
+          Next »
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function wirePagination(kind) {
+  const listId = kind === "residents" ? "residents-list" : "vendors-list";
+  const listEl = document.getElementById(listId);
+  if (!listEl) return;
+
+  listEl.querySelectorAll(`[data-pending-page^="${kind}:"]`).forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const [, dir] = btn.dataset.pendingPage.split(":");
+      const state = pendingState[kind];
+
+      if (dir === "prev" && state.page > 1) {
+        state.page--;
+      } else if (dir === "next" && state.page < state.totalPages) {
+        state.page++;
+      } else {
+        return;
+      }
+
+      if (kind === "residents") await loadResidents();
+      else await loadVendors();
+    });
+  });
+}
+
+/* ------------------------------------------------------------
+   Load residents (paginated)
    ------------------------------------------------------------ */
 async function loadResidents() {
   const listEl = document.getElementById("residents-list");
   listEl.innerHTML = `<div class="empty-state">Loading…</div>`;
 
+  let result;
   try {
-    const residents = await Api.getResidents({ verified: "false" });
-
-    document.getElementById("count-residents").textContent = `(${residents.length})`;
-
-    if (!residents.length) {
-      listEl.innerHTML = `<div class="empty-state">No pending residents. 🎉</div>`;
-      return;
-    }
-
-    listEl.innerHTML = residents.map((r) => pendingCard(r, "residents")).join("");
+    result = await Api.getResidents({
+      verified: "false",
+      page:     pendingState.residents.page,
+      limit:    pendingState.residents.limit,
+    });
   } catch (err) {
     console.error("[pending] failed to load residents:", err);
     listEl.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load residents: ${err.message}</div>`;
+    return;
   }
+
+  // Support both legacy (array) and paginated (envelope)
+  const residents = Array.isArray(result) ? result : (result.data || []);
+  pendingState.residents.total      = result.total      ?? residents.length;
+  pendingState.residents.page       = result.page       ?? 1;
+  pendingState.residents.limit      = result.limit      ?? PENDING_PER_PAGE;
+  pendingState.residents.totalPages = result.totalPages ?? 1;
+
+  document.getElementById("count-residents").textContent =
+    pendingState.residents.total ? `(${pendingState.residents.total})` : "";
+
+  if (!residents.length) {
+    listEl.innerHTML = `<div class="empty-state">No pending residents. 🎉</div>`;
+    return;
+  }
+
+  listEl.innerHTML =
+    residents.map((r) => pendingCard(r, "residents")).join("") +
+    paginationHtml("residents");
+
+  wirePagination("residents");
 }
 
 /* ------------------------------------------------------------
-   Load vendors
+   Load vendors (paginated)
    ------------------------------------------------------------ */
 async function loadVendors() {
   const listEl = document.getElementById("vendors-list");
   listEl.innerHTML = `<div class="empty-state">Loading…</div>`;
 
+  let result;
   try {
-    const vendors = await Api.getProviders({ verified: "false" });
-
-    document.getElementById("count-vendors").textContent = `(${vendors.length})`;
-
-    if (!vendors.length) {
-      listEl.innerHTML = `<div class="empty-state">No pending vendors. 🎉</div>`;
-      return;
-    }
-
-    listEl.innerHTML = vendors.map((v) => pendingCard(v, "vendors")).join("");
+    result = await Api.getProviders({
+      verified: "false",
+      page:     pendingState.vendors.page,
+      limit:    pendingState.vendors.limit,
+    });
   } catch (err) {
     console.error("[pending] failed to load vendors:", err);
     listEl.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load vendors: ${err.message}</div>`;
+    return;
   }
+
+  const vendors = Array.isArray(result) ? result : (result.data || []);
+  pendingState.vendors.total      = result.total      ?? vendors.length;
+  pendingState.vendors.page       = result.page       ?? 1;
+  pendingState.vendors.limit      = result.limit      ?? PENDING_PER_PAGE;
+  pendingState.vendors.totalPages = result.totalPages ?? 1;
+
+  document.getElementById("count-vendors").textContent =
+    pendingState.vendors.total ? `(${pendingState.vendors.total})` : "";
+
+  if (!vendors.length) {
+    listEl.innerHTML = `<div class="empty-state">No pending vendors. 🎉</div>`;
+    return;
+  }
+
+  listEl.innerHTML =
+    vendors.map((v) => pendingCard(v, "vendors")).join("") +
+    paginationHtml("vendors");
+
+  wirePagination("vendors");
 }
 
 /* ------------------------------------------------------------
@@ -143,15 +235,20 @@ async function approve(id, kind) {
       toast("✅ Vendor approved.");
     }
 
-    // OPTIMIZED: Remove the card from the DOM instantly instead of reloading the whole list
-    const card = document.querySelector(`.pending-card[data-id="${id}"]`);
-    if (card) {
-      card.remove();
-      updateCount(kind, -1);
+    // Reload the current page (pagination-aware)
+    if (kind === "residents") {
+      // If we just emptied the last row on this page, step back
+      if (document.querySelectorAll("#residents-list .pending-card").length === 1
+          && pendingState.residents.page > 1) {
+        pendingState.residents.page--;
+      }
+      await loadResidents();
     } else {
-      // Fallback in case the card isn't found in the DOM
-      if (kind === "residents") await loadResidents();
-      else await loadVendors();
+      if (document.querySelectorAll("#vendors-list .pending-card").length === 1
+          && pendingState.vendors.page > 1) {
+        pendingState.vendors.page--;
+      }
+      await loadVendors();
     }
   } catch (err) {
     console.error("[pending] approve failed:", err);
@@ -163,27 +260,27 @@ async function approve(id, kind) {
    Reject
    ------------------------------------------------------------ */
 async function reject(id, kind, label) {
-  const label2 = kind === "residents" ? "resident" : "vendor";
-
   if (!confirm(`Reject ${label}? This will delete their application.`)) return;
 
   try {
     if (kind === "residents") {
       await Api.removeResident(id);
       toast("Resident application rejected.");
+
+      if (document.querySelectorAll("#residents-list .pending-card").length === 1
+          && pendingState.residents.page > 1) {
+        pendingState.residents.page--;
+      }
+      await loadResidents();
     } else {
       await Api.removeProvider(id);
       toast("Vendor application rejected.");
-    }
 
-    // OPTIMIZED: Remove the card from the DOM instantly
-    const card = document.querySelector(`.pending-card[data-id="${id}"]`);
-    if (card) {
-      card.remove();
-      updateCount(kind, -1);
-    } else {
-      if (kind === "residents") await loadResidents();
-      else await loadVendors();
+      if (document.querySelectorAll("#vendors-list .pending-card").length === 1
+          && pendingState.vendors.page > 1) {
+        pendingState.vendors.page--;
+      }
+      await loadVendors();
     }
   } catch (err) {
     console.error("[pending] reject failed:", err);

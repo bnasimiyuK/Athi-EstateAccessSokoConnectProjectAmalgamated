@@ -1,11 +1,22 @@
 /* ============================================================
    dashboard.js — resident's booking list + review flow
+   + Prev/Next pagination
    ============================================================ */
 
 let reviewTargetBooking = null;
 
+/* ---------------- pagination state ---------------- */
+const BOOKINGS_PER_PAGE = 10;
+
+const bookingsState = {
+  page:       1,
+  limit:      BOOKINGS_PER_PAGE,
+  total:      0,
+  totalPages: 1,
+};
+
 /* ------------------------------------------------------------
-   Helper: Render colored status badges
+   Status badge helper
    ------------------------------------------------------------ */
 function getStatusBadge(status) {
   const badges = {
@@ -19,19 +30,29 @@ function getStatusBadge(status) {
 }
 
 /* ------------------------------------------------------------
-   Booking list
+   Booking list (paginated)
    ------------------------------------------------------------ */
 async function renderBookings() {
   const list = document.getElementById("booking-list");
-  let bookings = [];
+  list.innerHTML = `<div class="empty-state">Loading bookings…</div>`;
+
+  let result;
   try {
-    bookings = await Api.getBookings();
+    result = await Api.getBookings({
+      page:  bookingsState.page,
+      limit: bookingsState.limit,
+    });
   } catch (err) {
     list.innerHTML = `<div class="empty-state">Couldn't reach the server. Is the backend running?</div>`;
     return;
   }
 
-  bookings = bookings.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  // Handle both legacy (array) and paginated (envelope) responses
+  const bookings = Array.isArray(result) ? result : (result.data || []);
+  bookingsState.total      = result.total      ?? bookings.length;
+  bookingsState.page       = result.page       ?? 1;
+  bookingsState.limit      = result.limit      ?? BOOKINGS_PER_PAGE;
+  bookingsState.totalPages = result.totalPages ?? 1;
 
   if (!bookings.length) {
     list.innerHTML = `<div class="empty-state">No bookings yet. <a href="index.html">Find a provider</a> to get started.</div>`;
@@ -48,22 +69,19 @@ async function renderBookings() {
           ${bookings.map(bookingRow).join("")}
         </tbody>
       </table>
-    </div>`;
+    </div>
+    ${bookingsPaginationHtml()}
+  `;
 
-  list.querySelectorAll("[data-review]").forEach((btn) =>
-    btn.addEventListener("click", () => openReview(btn.dataset.review, bookings))
-  );
-  
-  list.querySelectorAll("[data-cancel]").forEach((btn) =>
-    btn.addEventListener("click", () => cancelBooking(btn.dataset.cancel))
-  );
+  wireBookingsPagination();
+  wireBookingRowActions(bookings);
 }
 
 /* ------------------------------------------------------------
    One row of the bookings table
    ------------------------------------------------------------ */
 function bookingRow(b) {
-  const bookingId = b.id || b._id; 
+  const bookingId = b.id || b._id;
   let action = "";
 
   if (b.status === "requested") {
@@ -95,7 +113,77 @@ function bookingRow(b) {
 }
 
 /* ------------------------------------------------------------
-   Cancel a booking (Resident side)
+   Pagination footer
+   ------------------------------------------------------------ */
+function bookingsPaginationHtml() {
+  const { page, limit, total, totalPages } = bookingsState;
+
+  if (totalPages <= 1) return "";
+
+  const startRow = ((page - 1) * limit) + 1;
+  const endRow   = Math.min(page * limit, total);
+  const prevDisabled = page <= 1 ? "disabled" : "";
+  const nextDisabled = page >= totalPages ? "disabled" : "";
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
+                border-top:1px solid var(--line);">
+      <div style="font-size:0.9rem;color:var(--ink-70);">
+        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        booking${total === 1 ? "" : "s"}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn--ghost btn--small" data-bookings-page="prev" ${prevDisabled}>
+          « Prev
+        </button>
+        <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">
+          Page <b>${page}</b> of <b>${totalPages}</b>
+        </span>
+        <button class="btn btn--ghost btn--small" data-bookings-page="next" ${nextDisabled}>
+          Next »
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function wireBookingsPagination() {
+  const list = document.getElementById("booking-list");
+
+  list.querySelectorAll("[data-bookings-page]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const dir = btn.dataset.bookingsPage;
+
+      if (dir === "prev" && bookingsState.page > 1) {
+        bookingsState.page--;
+      } else if (dir === "next" && bookingsState.page < bookingsState.totalPages) {
+        bookingsState.page++;
+      } else {
+        return;
+      }
+
+      await renderBookings();
+      document.getElementById("booking-list")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
+function wireBookingRowActions(bookings) {
+  const list = document.getElementById("booking-list");
+
+  list.querySelectorAll("[data-review]").forEach((btn) =>
+    btn.addEventListener("click", () => openReview(btn.dataset.review, bookings))
+  );
+
+  list.querySelectorAll("[data-cancel]").forEach((btn) =>
+    btn.addEventListener("click", () => cancelBooking(btn.dataset.cancel))
+  );
+}
+
+/* ------------------------------------------------------------
+   Cancel a booking
    ------------------------------------------------------------ */
 async function cancelBooking(id) {
   const reason = prompt("Please provide a reason for cancelling this booking:");
@@ -103,12 +191,11 @@ async function cancelBooking(id) {
     try {
       await Api.updateBooking(id, { status: "cancelled", cancellationReason: reason });
       toast("Booking cancelled.");
-      renderBookings();
+      await renderBookings();
     } catch (err) {
       toast("Couldn't cancel the booking.");
     }
   } else if (reason !== null) {
-    // CHANGED: alert → toast
     toast("A reason is required to cancel a booking.");
   }
 }
@@ -145,18 +232,18 @@ async function handleReviewSubmit(e) {
       text:       document.getElementById("review-text").value,
     });
     await Api.updateBooking(targetId, { reviewed: true });
-    
+
     document.getElementById("review-modal").classList.remove("is-open");
     document.getElementById("review-form").reset();
     toast("Thanks — your review helps other residents.");
-    renderBookings();
+    await renderBookings();
   } catch (err) {
     toast("Couldn't submit the review.");
   }
 }
 
 /* ------------------------------------------------------------
-   Init (with role guard)
+   Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", () => {
   const user = JSON.parse(localStorage.getItem("asc_user") || "null");

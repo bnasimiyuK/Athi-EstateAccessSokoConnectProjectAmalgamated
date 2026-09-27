@@ -1,5 +1,6 @@
 /* ============================================================
    provider-dashboard.js — vendor view of incoming bookings
+   Fetch all at once, group by status, per-section Load More
    ============================================================ */
 
 /* ---------------- helpers ---------------- */
@@ -37,6 +38,20 @@ function getUser() {
   try { return JSON.parse(localStorage.getItem("asc_user") || "null"); }
   catch { return null; }
 }
+
+/* ------------------------------------------------------------
+   Global state — fetched once, sliced client-side
+   ------------------------------------------------------------ */
+const SECTION_LIMIT = 2;
+
+let allBookings = [];         // full list from the server
+const shownCount = {           // how many of each status are currently visible
+  requested:   SECTION_LIMIT,
+  confirmed:   SECTION_LIMIT,
+  in_progress: SECTION_LIMIT,
+  completed:   SECTION_LIMIT,
+  cancelled:   SECTION_LIMIT,
+};
 
 /* ---------------- booking card ---------------- */
 function bookingCard(b, variant) {
@@ -89,39 +104,47 @@ function bookingCard(b, variant) {
     </div>`;
 }
 
-/* ---------------- section renderer ---------------- */
-function renderSection(title, bookings, variant) {
-  if (!bookings.length) return "";
+/* ------------------------------------------------------------
+   Render a single section
+   - Slices the full list by status
+   - Shows only the first `shownCount[key]` items
+   - Shows a "Load more" button if there are more to reveal
+   ------------------------------------------------------------ */
+function sectionHtml(sectionKey, backendStatus, title, variant) {
+  const items = allBookings.filter((b) => b.status === backendStatus);
+  const total = items.length;
+  if (total === 0) return "";
+
+  const shown = Math.min(shownCount[sectionKey], total);
+  const visible = items.slice(0, shown);
+  const hasMore = shown < total;
+  const remaining = total - shown;
+
+  const footer = hasMore
+    ? `<button class="btn btn--ghost btn--small" data-load-more="${sectionKey}"
+               style="display:block; margin:12px auto 24px; min-height:44px; padding:10px 24px;">
+         Load more (${remaining} remaining)
+       </button>`
+    : "";
 
   return `
     <h2 style="margin-top:32px;">
       ${title}
-      <span style="color:var(--ink-40);font-size:1rem;">(${bookings.length})</span>
+      <span style="color:var(--ink-40);font-size:1rem;">(${total})</span>
     </h2>
-    ${bookings.map((b) => bookingCard(b, variant)).join("")}`;
+    ${visible.map((b) => bookingCard(b, variant)).join("")}
+    ${footer}`;
 }
 
-/* ---------------- load + render ---------------- */
-async function loadBookings() {
+/* ------------------------------------------------------------
+   Render everything from state (no fetch)
+   ------------------------------------------------------------ */
+function renderSections() {
   const el = document.getElementById("provider-bookings");
-  el.innerHTML = `<div class="empty-state">Loading bookings…</div>`;
 
-  let bookings;
-  try {
-    bookings = await Api.getBookings();
-  } catch (err) {
-    console.error("[provider-dashboard] load failed:", err);
-    el.innerHTML = `<div class="empty-state">Could not load bookings.</div>`;
-    return;
-  }
+  const hasAny = allBookings.length > 0;
 
-  const requested   = bookings.filter((b) => b.status === "requested");
-  const confirmed   = bookings.filter((b) => b.status === "confirmed");
-  const inProgress  = bookings.filter((b) => b.status === "in_progress");
-  const completed   = bookings.filter((b) => b.status === "completed");
-  const cancelled   = bookings.filter((b) => b.status === "cancelled");
-
-  if (!bookings.length) {
+  if (!hasAny) {
     el.innerHTML = `<div class="empty-state">
       No bookings yet. When residents request your services, they'll appear here.
     </div>`;
@@ -129,17 +152,42 @@ async function loadBookings() {
   }
 
   el.innerHTML = `
-    ${renderSection("New Requests", requested, "new")}
-    ${renderSection("Confirmed (Ready to Start)", confirmed, "confirmed")}
-    ${renderSection("In Progress", inProgress, "in-progress")}
-    ${renderSection("Completed", completed, "done")}
-    ${renderSection("Cancelled", cancelled, "done")}
+    ${sectionHtml("requested",   "requested",   "New Requests",               "new")}
+    ${sectionHtml("confirmed",   "confirmed",   "Confirmed (Ready to Start)",  "confirmed")}
+    ${sectionHtml("in_progress", "in_progress", "In Progress",                 "in-progress")}
+    ${sectionHtml("completed",   "completed",   "Completed",                   "done")}
+    ${sectionHtml("cancelled",   "cancelled",   "Cancelled",                   "done")}
   `;
 
   wireActions();
 }
 
-/* ---------------- wire buttons ---------------- */
+/* ------------------------------------------------------------
+   Fetch all bookings once
+   ------------------------------------------------------------ */
+async function loadBookings() {
+  const el = document.getElementById("provider-bookings");
+  el.innerHTML = `<div class="empty-state">Loading bookings…</div>`;
+
+  try {
+    // No params → backend returns plain array (legacy mode)
+    const result = await Api.getBookings();
+    allBookings = Array.isArray(result) ? result : (result.data || []);
+  } catch (err) {
+    console.error("[provider-dashboard] load failed:", err);
+    el.innerHTML = `<div class="empty-state">Could not load bookings.</div>`;
+    return;
+  }
+
+  // Reset visible counts on fresh load
+  Object.keys(shownCount).forEach((k) => shownCount[k] = SECTION_LIMIT);
+
+  renderSections();
+}
+
+/* ------------------------------------------------------------
+   Wire all buttons
+   ------------------------------------------------------------ */
 function wireActions() {
   const el = document.getElementById("provider-bookings");
 
@@ -161,28 +209,40 @@ function wireActions() {
       if (reason !== null && reason.trim() !== "") {
         updateStatus(btn.dataset.decline, "cancelled", reason);
       } else if (reason !== null) {
-        // CHANGED: alert → toast
         toast("A reason is required to cancel or decline a booking.");
       }
     })
   );
+
+  // Per-section Load more — just reveal more from the local array
+  el.querySelectorAll("[data-load-more]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const sectionKey = btn.dataset.loadMore;
+      shownCount[sectionKey] += SECTION_LIMIT;
+      renderSections();   // re-render from state — no fetch
+    })
+  );
 }
 
+/* ------------------------------------------------------------
+   Status update — reload all from server
+   ------------------------------------------------------------ */
 async function updateStatus(id, status, reason = null) {
   try {
     const payload = { status };
     if (reason) payload.cancellationReason = reason;
-    
+
     await Api.updateBooking(id, payload);
-    await loadBookings();
+    await loadBookings();   // refresh everything (items move sections)
   } catch (err) {
     console.error("[provider-dashboard] update failed:", err);
-    // CHANGED: alert → toast
     toast(err.message || "Could not update booking.");
   }
 }
 
-/* ---------------- init ---------------- */
+/* ------------------------------------------------------------
+   Init
+   ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
   const user = getUser();
   if (!user || user.role !== "vendor") {
