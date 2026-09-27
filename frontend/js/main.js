@@ -84,7 +84,7 @@ function renderAuthNav() {
   slot.style.alignItems = "center";
   slot.style.gap = "14px";
 
- if (typeof isLoggedIn === "function" && isLoggedIn()) {
+  if (typeof isLoggedIn === "function" && isLoggedIn()) {
     const user = getUser();
 
     const roleLabel = user?.role
@@ -137,8 +137,15 @@ function setupDropdown() {
   });
 }
 
-/* ---------------- TOAST ---------------- */
-function toast(message) {
+/* ---------------- TOAST ----------------
+   toast(message)               → default 3.2s (short messages)
+   toast(message, 6000)         → 6s (long messages like registration success)
+
+   Both the toast and any inline confirmation box you already have
+   will display the message — this function is only responsible for
+   the transient slide-up notification.
+-------------------------------------------- */
+function toast(message, duration = 3200) {
   let el = document.getElementById("asc-toast");
   if (!el) {
     el = document.createElement("div");
@@ -149,7 +156,7 @@ function toast(message) {
   el.textContent = message;
   el.classList.add("toast--visible");
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.classList.remove("toast--visible"), 3200);
+  toast._t = setTimeout(() => el.classList.remove("toast--visible"), duration);
 }
 
 /* ---------------- INIT ---------------- */

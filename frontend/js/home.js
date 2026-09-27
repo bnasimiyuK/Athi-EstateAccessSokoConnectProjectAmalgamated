@@ -1,5 +1,6 @@
 /* ============================================================
    home.js — Discover page: Phase → Court cascade + filters
+   + Prev/Next pagination
    ============================================================ */
 
 /* ---------------- helpers ---------------- */
@@ -35,6 +36,14 @@ function servicesArray(p) {
 const _state = {
   categories: [],
   courts:     [],
+};
+
+/* ---------------- Discover pagination state ---------------- */
+const discoverState = {
+  page:       1,
+  limit:      6,        // 6 cards per page
+  total:      0,
+  totalPages: 1,
 };
 
 /* ---------------- Phase → Court cascade ---------------- */
@@ -74,7 +83,6 @@ function filterCourtsByPhase(phase) {
 
 /* ---------------- populate ---------------- */
 async function populateFilters() {
-  /* Categories */
   _state.categories = typeof loadCategoryCache === "function"
     ? await loadCategoryCache()
     : await Api.getCategories();
@@ -108,7 +116,6 @@ async function populateFilters() {
     $chips.appendChild(chip);
   });
 
-  /* Courts → phase options + initial court list */
   try {
     _state.courts = await Api.getCourts();
     buildPhaseOptions(_state.courts);
@@ -117,7 +124,6 @@ async function populateFilters() {
     console.error("[home] courts failed:", err);
   }
 
-  /* Hero stats — fetch a full list once for the numbers */
   try {
     const all = await Api.getProviders();
     renderStats(all);
@@ -130,6 +136,7 @@ function setCategoryChip(categoryId, chipEl) {
   document.getElementById("category").value = categoryId;
   document.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
   chipEl.classList.add("is-active");
+  discoverState.page = 1;
   renderResults();
 }
 
@@ -147,7 +154,6 @@ function providerCard(p) {
   const cat = p.categoryLabel
     || (typeof categoryLabel === "function" ? categoryLabel(p.category) : "—");
 
-  /* Verified + Availability pills */
   const verifiedPill = typeof verifiedBadge === "function"
     ? verifiedBadge(p.verified)
     : (p.verified ? `<span class="badge badge--verified">Verified</span>` : "");
@@ -163,7 +169,6 @@ function providerCard(p) {
   const services    = servicesArray(p).slice(0, 3);
   const price       = Number(p.priceFrom || 0);
 
-  /* Location line: "Court · Phase N" */
   const locParts = [];
   if (p.courtName)      locParts.push(escapeHtml(p.courtName));
   if (p.phase != null)  locParts.push(`Phase ${p.phase}`);
@@ -201,43 +206,127 @@ function providerCard(p) {
   `;
 }
 
-/* ---------------- results ---------------- */
+/* ---------------- Build current filters ---------------- */
+function buildDiscoverFilters() {
+  return {
+    verified:      true,
+    availableOnly: true,
+    search:        document.getElementById("q").value.trim(),
+    phase:         document.getElementById("phase").value,
+    courtId:       document.getElementById("court").value,
+    category:      document.getElementById("category").value,
+    maxPrice:      document.getElementById("maxPrice").value,
+    page:          discoverState.page,
+    limit:         discoverState.limit,
+  };
+}
+
+/* ---------------- results (Prev/Next) ---------------- */
 async function renderResults() {
   const grid = document.getElementById("provider-grid");
   grid.innerHTML = `<div class="empty-state">Loading providers…</div>`;
 
-  const q        = document.getElementById("q").value.trim();
-  const phase    = document.getElementById("phase").value;
-  const court    = document.getElementById("court").value;
-  const category = document.getElementById("category").value;
-  const maxPrice = document.getElementById("maxPrice").value;
-
-  // Build the query object — qsOf() in api.js will drop empty values
-  const filters = {
-    verified:      true, // Discover only shows verified providers
-    availableOnly: true, // Hide providers who marked themselves unavailable
-    search:        q,
-    phase:         phase,
-    courtId:       court,
-    category:      category,
-    maxPrice:      maxPrice,
-  };
-
-  let results = [];
+  let result;
   try {
-    results = await Api.getProviders(filters);
+    result = await Api.getProviders(buildDiscoverFilters());
   } catch (err) {
     console.error("[home] providers failed:", err);
     grid.innerHTML = `<div class="empty-state">Could not load providers.</div>`;
     return;
   }
 
-  document.getElementById("results-count").textContent =
-    `${results.length} provider${results.length === 1 ? "" : "s"} found`;
+  const providers = Array.isArray(result) ? result : (result.data || []);
+  discoverState.total      = result.total      ?? providers.length;
+  discoverState.page       = result.page       ?? 1;
+  discoverState.limit      = result.limit      ?? discoverState.limit;
+  discoverState.totalPages = result.totalPages ?? 1;
 
-  grid.innerHTML = results.length
-    ? results.map(providerCard).join("")
-    : `<div class="empty-state">No providers match your search.</div>`;
+  /* Update counter */
+  if (discoverState.total === 0) {
+    document.getElementById("results-count").textContent = "No providers found";
+  } else {
+    const startRow = ((discoverState.page - 1) * discoverState.limit) + 1;
+    const endRow   = Math.min(discoverState.page * discoverState.limit, discoverState.total);
+    document.getElementById("results-count").textContent =
+      `Showing ${startRow}–${endRow} of ${discoverState.total} provider${discoverState.total === 1 ? "" : "s"}`;
+  }
+
+  if (!providers.length) {
+    grid.innerHTML = `<div class="empty-state">No providers match your search.</div>`;
+    renderPaginationFooter();
+    return;
+  }
+
+  grid.innerHTML = providers.map(providerCard).join("");
+  renderPaginationFooter();
+}
+
+/* ---------------- Pagination footer ---------------- */
+function renderPaginationFooter() {
+  const grid   = document.getElementById("provider-grid");
+  const parent = grid.parentElement;   // <main class="container section">
+  let footer   = document.getElementById("discover-pagination");
+
+  const { page, limit, total, totalPages } = discoverState;
+
+  if (totalPages <= 1) {
+    if (footer) footer.remove();
+    return;
+  }
+
+  const prevDisabled = page <= 1 ? "disabled" : "";
+  const nextDisabled = page >= totalPages ? "disabled" : "";
+
+  if (!footer) {
+    footer = document.createElement("div");
+    footer.id = "discover-pagination";
+    footer.style.cssText =
+      "display:flex;" +
+      "justify-content:space-between;" +
+      "align-items:center;" +
+      "gap:12px;" +
+      "flex-wrap:wrap;" +
+      "margin-top:24px;" +
+      "padding-top:16px;" +
+      "width:100%;";
+    parent.appendChild(footer);
+  }
+
+  footer.innerHTML = `
+    <div style="font-size:0.9rem;color:var(--ink-70);">
+      Showing <b>${((page - 1) * limit) + 1}–${Math.min(page * limit, total)}</b>
+      of <b>${total}</b> provider${total === 1 ? "" : "s"}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn--ghost btn--small" data-discover-page="prev" ${prevDisabled}>
+        « Prev
+      </button>
+      <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">
+        Page <b>${page}</b> of <b>${totalPages}</b>
+      </span>
+      <button class="btn btn--ghost btn--small" data-discover-page="next" ${nextDisabled}>
+        Next »
+      </button>
+    </div>
+  `;
+
+  footer.querySelectorAll("[data-discover-page]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const dir = btn.dataset.discoverPage;
+
+      if (dir === "prev" && discoverState.page > 1) {
+        discoverState.page--;
+      } else if (dir === "next" && discoverState.page < discoverState.totalPages) {
+        discoverState.page++;
+      } else {
+        return;
+      }
+
+      await renderResults();
+      document.getElementById("results-heading")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 }
 
 /* ---------------- init ---------------- */
@@ -251,29 +340,42 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("[home] init failed:", err);
   }
 
-  /* Live search — debounce so we don't re-render on every keystroke */
   let searchTimer = null;
   document.getElementById("q").addEventListener("input", () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderResults, 200);
+    searchTimer = setTimeout(() => {
+      discoverState.page = 1;
+      renderResults();
+    }, 200);
   });
 
-  /* Phase change → rebuild court list, then filter */
   document.getElementById("phase").addEventListener("change", (e) => {
     filterCourtsByPhase(e.target.value);
+    discoverState.page = 1;
     renderResults();
   });
 
-  document.getElementById("court").addEventListener("change", renderResults);
-  document.getElementById("category").addEventListener("change", renderResults);
-  document.getElementById("maxPrice").addEventListener("input", () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderResults, 200);
+  document.getElementById("court").addEventListener("change", () => {
+    discoverState.page = 1;
+    renderResults();
   });
 
-  /* Pressing Enter in the search box also re-renders immediately */
+  document.getElementById("category").addEventListener("change", () => {
+    discoverState.page = 1;
+    renderResults();
+  });
+
+  document.getElementById("maxPrice").addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      discoverState.page = 1;
+      renderResults();
+    }, 200);
+  });
+
   document.getElementById("search-form").addEventListener("submit", (e) => {
     e.preventDefault();
+    discoverState.page = 1;
     renderResults();
   });
 });

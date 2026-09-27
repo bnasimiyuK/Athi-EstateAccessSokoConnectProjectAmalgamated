@@ -128,7 +128,6 @@ nav.main-nav a.is-active { color: var(--ink); border-bottom-color: var(--ochre);
 .hero {
   padding: 64px 0 48px;
   border-bottom: 1px solid var(--line);
-  
 }
 .hero-grid {
   display: grid;
@@ -183,7 +182,6 @@ nav.main-nav a.is-active { color: var(--ink); border-bottom-color: var(--ochre);
   outline-offset: 1px;
 }
 
-
 /* ---------- Category chips ---------- */
 .chip-row {
   display: flex;
@@ -213,9 +211,11 @@ nav.main-nav a.is-active { color: var(--ink); border-bottom-color: var(--ochre);
 .section-head p { margin: 0; }
 
 /* ---------- Provider cards ---------- */
+/* ✅ FIXED: auto-fit (not auto-fill) so cards center when fewer than a full row */
 .provider-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 340px));
+  justify-content: center;
   gap: 20px;
 }
 .card {
@@ -404,7 +404,6 @@ tr:last-child td { border-bottom: none; }
   .hero-grid, .detail-grid { grid-template-columns: 1fr; }
   .hero-stats { flex-direction: row; border-left: none; border-top: 1px solid var(--line); padding-left: 0; padding-top: 18px; gap: 28px; }
   .search-panel { grid-template-columns: 1fr 1fr; }
-  
   .form-grid { grid-template-columns: 1fr; }
   nav.main-nav { display: none; }
   .booking-box { position: static; }
@@ -418,6 +417,7 @@ tr:last-child td { border-bottom: none; }
 }
 
 :focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
+
 /* ========== RESIDENT REGISTER CSS ========== */
 * {
   margin: 0;
@@ -646,9 +646,7 @@ body {
   letter-spacing: 0.2px;
 }
 
-.btn-primary i {
-  font-size: 1rem;
-}
+.btn-primary i { font-size: 1rem; }
 
 .btn-primary:hover {
   background: #145a4e;
@@ -687,9 +685,7 @@ body {
   white-space: nowrap;
 }
 
-.btn-secondary i {
-  color: #2f8b7a;
-}
+.btn-secondary i { color: #2f8b7a; }
 
 .btn-secondary:hover {
   background: #eaf3f1;
@@ -756,27 +752,14 @@ body {
 
 /* ========== RESPONSIVE ========== */
 @media (max-width: 560px) {
-  .register-container {
-    padding: 1.5rem;
-  }
-  .form-grid {
-    grid-template-columns: 1fr;
-    gap: 0.9rem;
-  }
-  .full-width {
-    grid-column: span 1;
-  }
-  .register-header h1 {
-    font-size: 1.5rem;
-  }
-  .actions {
-    flex-direction: column-reverse;
-    align-items: stretch;
-  }
-  .btn-secondary {
-    justify-content: center;
-  }
+  .register-container { padding: 1.5rem; }
+  .form-grid { grid-template-columns: 1fr; gap: 0.9rem; }
+  .full-width { grid-column: span 1; }
+  .register-header h1 { font-size: 1.5rem; }
+  .actions { flex-direction: column-reverse; align-items: stretch; }
+  .btn-secondary { justify-content: center; }
 }
+
 /* ============================================================
    🔧 GLOBAL FIX PATCH (non-destructive — overrides only)
    Fixes layout breaking caused by register styles
@@ -809,26 +792,22 @@ body.register-page {
 }
 
 /* 4. Prevent hero text from stretching too wide */
-.hero h1 {
-  max-width: 600px;
-}
-
-.hero p {
-  max-width: 520px;
-}
+.hero h1 { max-width: 600px; }
+.hero p  { max-width: 520px; }
 
 /* 5. Stabilize stats column */
-.hero-stats {
-  min-width: 220px;
-}
+.hero-stats { min-width: 220px; }
 
 /* 6. Improve spacing consistency */
-.section {
-  padding: 60px 0;
-}
-
+.section { padding: 60px 0; }
 .section-head {
-  margin-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  gap: 8px;
 }
 
 /* 7. Ensure nav spacing is clean */
@@ -836,7 +815,6 @@ nav.main-nav {
   gap: 20px !important;
   display: flex;
   align-items: center;
-  
 }
 
 /* 8. Prevent weird horizontal stretching */
@@ -853,6 +831,7 @@ nav.main-nav {
 .site-footer {
   display: block;
 }
+
 /* Dropdown container */
 .nav-dropdown {
   position: relative;
@@ -861,7 +840,7 @@ nav.main-nav {
 
 /* Dropdown menu */
 .dropdown-menu {
-  display: none;              /* ✅ FIX */
+  display: none;
   position: absolute;
   top: 100%;
   right: 0;
@@ -873,19 +852,16 @@ nav.main-nav {
   z-index: 100000;
 }
 .dropdown-menu.show {
-  display: block;             /* ✅ THIS is what JS uses */
+  display: block;
 }
-/* Links inside dropdown */
 .dropdown-menu a {
   display: block;
   padding: 10px 14px;
   text-decoration: none;
   color: #333;
 }
+.dropdown-menu a:hover { background: #f5f5f5; }
 
-.dropdown-menu a:hover {
-  background: #f5f5f5;
-}
 /* ---------- DROPDOWN OVERFLOW FIX ---------- */
 .site-header,
 .main-nav,
@@ -896,7 +872,7 @@ nav.main-nav {
 /* ============================================================
    Resident signup page — centered card, but with site header
    ============================================================ */
-main.container {
+main.container:has(.register-container) {
   display: flex;
   justify-content: center;
   padding-top: 40px;
@@ -907,65 +883,7 @@ main.container {
   width: 100%;
   max-width: 620px;
 }
-  .stat-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-    margin-bottom: 32px;
-  }
-  .stat-tile {
-    display: block;
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-m);
-    padding: 20px 22px;
-    text-decoration: none;
-    color: inherit;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-    border-left-width: 4px;
-  }
-  .stat-tile:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.06);
-  }
-  .stat-tile--warn {
-    border-left-color: var(--ochre);
-  }
-  .stat-tile--ok {
-    border-left-color: var(--teal);
-  }
-  .stat-tile__value {
-    font-family: var(--font-display);
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: var(--ink);
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-  .stat-tile__label {
-    font-size: 0.82rem;
-    color: var(--ink-70);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-weight: 600;
-  }
-.page-head--with-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-/* ============================================================
-   Admin page — override the register-page flex on <main>
-   ============================================================ */
-body:has(.page-head--with-actions) main.container,
-main.container:has(.page-head--with-actions) {
-  display: block;
-  justify-content: initial;
-  padding-top: 0;
-  padding-bottom: 0;
-}
+
 /* ============================================================
    Admin dashboard styles
    ============================================================ */
@@ -1026,6 +944,7 @@ main.container:has(.page-head--with-actions) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
+  margin-bottom: 32px;
 }
 
 .stat-tile {
@@ -1152,6 +1071,7 @@ main.container:has(.page-head--with-actions) {
   font-weight: 600;
   color: var(--ink, #16233f);
 }
+
 /* ---------- Charts ---------- */
 .chart-grid {
   display: grid;

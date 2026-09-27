@@ -17,7 +17,7 @@ async function loadCourts() {
     console.log(`[residents] loaded ${ALL_COURTS.length} courts`);
   } catch (err) {
     console.error("[residents] failed to load courts:", err);
-    showMessage("Could not load court list. Please refresh.", true);
+    toast("Could not load court list. Please refresh.");
   }
 }
 
@@ -131,22 +131,39 @@ async function handleSubmit(e) {
   const password        = pwEl  ? pwEl.value  : "";
   const confirmPassword = cpwEl ? cpwEl.value : "";
 
-  // Basic validation
-  if (!fullName)             { showMessage("Please enter your full name.", true); btn.disabled = false; return; }
-  if (!document.getElementById("phone").value.trim()) { showMessage("Please enter your phone number.", true); btn.disabled = false; return; }
-  if (!selectedCourtId)      { showMessage("Please select a court.", true); btn.disabled = false; return; }
+  /* ---------- Validation (uses toasts now) ---------- */
+  if (!firstName) {
+    toast("Please enter your first name.");
+    btn.disabled = false; return;
+  }
+  if (!lastName) {
+    toast("Please enter your last name.");
+    btn.disabled = false; return;
+  }
+  if (!document.getElementById("phone").value.trim()) {
+    toast("Please enter your phone number.");
+    btn.disabled = false; return;
+  }
+  if (!selectedCourtId) {
+    toast("Please select a court.");
+    btn.disabled = false; return;
+  }
 
-  // Password validation
+  /* ---------- Password rules ---------- */
   const pwCheck = validatePassword(password);
   if (!pwCheck.valid) {
-    showMessage(pwCheck.message, true);
-    btn.disabled = false;
-    return;
+    toast(pwCheck.message);
+    btn.disabled = false; return;
   }
   if (password !== confirmPassword) {
-    showMessage("Passwords do not match.", true);
-    btn.disabled = false;
-    return;
+    toast("Passwords do not match.");
+    btn.disabled = false; return;
+  }
+
+  /* ---------- Terms checkbox ---------- */
+  if (!document.getElementById("terms").checked) {
+    toast("Please agree to the Terms and Privacy Policy to continue.");
+    btn.disabled = false; return;
   }
 
   const payload = {
@@ -157,17 +174,21 @@ async function handleSubmit(e) {
     password,
   };
 
+  /* ---------- Submit ---------- */
   showMessage("Submitting…", false);
 
   try {
     await Api.registerResident(payload);
 
+    /* Persistent inline success + celebratory toast */
     showMessage(
       `✅ Thank you, ${fullName}. Your registration is pending admin approval. ` +
       `You'll receive an email once your account is approved.`,
       false
     );
+    toast(`Registration submitted! Pending admin approval, ${firstName}.`);
 
+    /* Reset form */
     e.target.reset();
     selectedCourtId = "";
     const searchEl = document.getElementById("courtSearch");
@@ -178,14 +199,17 @@ async function handleSubmit(e) {
 
   } catch (err) {
     console.error("[residents] submit failed:", err);
-    showMessage(err.message || "Could not submit registration.", true);
+    /* Backend error → toast (transient) + hide the "Submitting…" inline box */
+    document.getElementById("backendResponse").classList.add("hidden");
+    toast(err.message || "Could not submit registration.");
   } finally {
     btn.disabled = false;
   }
 }
 
 /* ------------------------------------------------------------
-   Show message
+   Inline message box (used only for persistent "Submitting…" and
+   final success confirmation — validation errors use toast())
    ------------------------------------------------------------ */
 function showMessage(text, isError) {
   const box = document.getElementById("backendResponse");
