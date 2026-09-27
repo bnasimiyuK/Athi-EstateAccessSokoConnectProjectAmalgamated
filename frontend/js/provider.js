@@ -1,6 +1,7 @@
 /* ============================================================
    frontend/js/provider.js — Provider profile + booking + report + refer
    Reads ?id=N, renders profile, submits booking, opens modal.
+   + Live countdown for busy vendors
    ============================================================ */
 
 /* ---------------- helpers ---------------- */
@@ -70,6 +71,32 @@ function isLoggedIn() {
   return typeof getToken === "function" && !!getToken();
 }
 
+/* ============================================================
+   NEW: time-until formatter — used by the live countdown
+   ============================================================ */
+function formatTimeUntil(iso) {
+  if (!iso) return null;
+  const diffMs   = new Date(iso) - new Date();
+  const diffMins = Math.round(diffMs / 60000);
+
+  if (diffMins <= 0) return { relative: "any moment", backTime: null };
+
+  const back = new Date(iso);
+  const backTime = back.toLocaleTimeString("en-KE", {
+    hour: "2-digit", minute: "2-digit",
+  });
+
+  let relative;
+  if (diffMins < 60) {
+    relative = `in ${diffMins} min`;
+  } else {
+    const hrs = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    relative = mins > 0 ? `in ${hrs}h ${mins}m` : `in ${hrs}h`;
+  }
+  return { relative, backTime };
+}
+
 /* ---------------- render states ---------------- */
 function renderLoading() {
   document.getElementById("provider-root").innerHTML =
@@ -84,7 +111,10 @@ function renderError(msg) {
     </div>`;
 }
 
-/* ---------------- header ---------------- */
+/* ============================================================
+   HEADER — includes the out-of-office banner + Busy badge
+   UPDATED: uses formatTimeUntil() + class="busy-countdown"
+   ============================================================ */
 function headerHtml(p) {
   const initials = initialsOf(p.name);
   const locParts = [];
@@ -97,7 +127,50 @@ function headerHtml(p) {
   const price   = Number(p.priceFrom || 0);
   const cat     = p.categoryLabel || "—";
 
+  let bannerMessage;
+  if (p.unavailableUntil) {
+    const t = formatTimeUntil(p.unavailableUntil);
+    bannerMessage = (t && t.backTime)
+      ? `Expected back around <b>${t.backTime}</b> (${t.relative}). You can try booking again after that.`
+      : "Back any moment.";
+  } else {
+    bannerMessage = `${escapeHtml(p.name)} has marked themselves unavailable right now. Check back later.`;
+  }
+
+  const unavailableBanner = p.isAvailable === false
+    ? `
+      <div class="out-of-office"
+           style="
+             background: #fff8e1;
+             border: 1px solid #f0c040;
+             border-left: 4px solid #f39c12;
+             border-radius: 8px;
+             padding: 14px 18px;
+             margin-bottom: 22px;
+             display: flex;
+             gap: 12px;
+             align-items: flex-start;
+           ">
+        <span style="font-size: 1.5rem; line-height: 1; flex-shrink: 0;">⏸️</span>
+        <div>
+          <strong style="color: #a86c1c; display: block; margin-bottom: 3px;">
+            Currently not accepting new bookings
+          </strong>
+          <span class="busy-countdown"
+                data-until="${p.unavailableUntil || ""}"
+                style="color: #7a5a20; font-size: 0.9rem; line-height: 1.45;">
+            ${bannerMessage}
+          </span>
+        </div>
+      </div>`
+    : "";
+
+  const availabilityBadge = p.isAvailable === false
+    ? `<span class="badge" style="background:#e74c3c;color:white;margin-left:6px;">Busy</span>`
+    : "";
+
   return `
+    ${unavailableBanner}
     <div class="provider-header">
       <div class="avatar avatar--lg">${escapeHtml(initials)}</div>
       <div>
@@ -118,6 +191,7 @@ function headerHtml(p) {
         ${p.verified
           ? `<span class="badge badge--verified">Verified</span>`
           : `<span class="badge badge--pending">Pending</span>`}
+        ${availabilityBadge}
       </div>
     </div>`;
 }
@@ -208,8 +282,15 @@ function leftColumnHtml(p, reviews) {
     </div>`;
 }
 
-/* ---------------- right column (booking form) ---------------- */
+/* ============================================================
+   RIGHT COLUMN — booking form
+   When the vendor is unavailable, the form is REPLACED with a
+   disabled card. Residents can still read the profile, reviews,
+   and contact details, but they cannot book.
+   UPDATED: uses formatTimeUntil() + class="busy-countdown"
+   ============================================================ */
 function bookingFormHtml(p) {
+  /* ---------- Not logged in ---------- */
   if (!isLoggedIn()) {
     const next = encodeURIComponent("provider.html?id=" + p.id);
     return `
@@ -222,6 +303,40 @@ function bookingFormHtml(p) {
       </div>`;
   }
 
+  /* ---------- Vendor is unavailable: show disabled card ---------- */
+  if (p.isAvailable === false) {
+    let backMessage = "The vendor is currently not accepting new bookings.";
+
+    if (p.unavailableUntil) {
+      const t = formatTimeUntil(p.unavailableUntil);
+      backMessage = (t && t.backTime)
+        ? `Expected back around <b>${t.backTime}</b> (${t.relative}). You can try booking again after that.`
+        : "Back any moment.";
+    } else {
+      backMessage = "The vendor is currently not accepting new bookings. Check back later.";
+    }
+
+    return `
+      <div class="booking-box" id="booking-box" style="text-align:center;">
+        <div style="font-size:2.5rem; line-height:1; margin-bottom:12px;">⏸️</div>
+        <h3 style="margin:0 0 8px;">Currently unavailable</h3>
+        <p class="busy-countdown"
+           data-until="${p.unavailableUntil || ""}"
+           style="font-size:0.9rem; color:var(--ink-70); margin-bottom:16px; line-height:1.5;">
+          ${backMessage}
+        </p>
+        <button class="btn" disabled
+                style="width:100%; cursor:not-allowed; opacity:0.55; background:#ccc; color:#666; border:none;">
+          Booking disabled
+        </button>
+        <p style="font-size:0.82rem; color:var(--ink-40); margin-top:14px;">
+          You can still browse their <a href="#reviews-heading" style="text-decoration:underline; color:var(--ink-70);">reviews</a>
+          or explore other providers on the <a href="index.html" style="text-decoration:underline; color:var(--ink-70);">Discover page</a>.
+        </p>
+      </div>`;
+  }
+
+  /* ---------- Vendor is available: normal booking form ---------- */
   const user = getCurrentUser() || {};
   const name  = user.name  || "";
   const phone = user.phone || "";
@@ -370,11 +485,9 @@ function wireReportModal(provider) {
       await Api.addReport({ providerId: provider.id, reason, details });
       modal.classList.remove("is-open");
       form.reset();
-      // CHANGED: alert → toast
       toast("✅ Report submitted. The estate admin will review it.");
     } catch (err) {
       console.error("[provider] report failed:", err);
-      // CHANGED: alert → toast
       toast(err.message || "Could not submit report.");
     }
   });
@@ -414,7 +527,6 @@ function wireReferPanel(provider) {
         document.execCommand("copy");
         toast("Link copied!");
       } catch {
-        // KEPT AS alert() — the URL is long and the user may need to read/copy it manually
         alert("Could not copy. Here is the link:\n\n" + providerUrl);
       }
       document.body.removeChild(tempInput);
@@ -466,6 +578,28 @@ async function initProviderPage() {
   wireBookingForm(provider);
   wireReportModal(provider);
   wireReferPanel(provider);
+
+  /* ============================================================
+     NEW: Live countdown ticker — updates every 30 seconds
+     Only runs when the vendor is busy with a timer set
+     ============================================================ */
+  if (provider.isAvailable === false && provider.unavailableUntil) {
+    setInterval(() => {
+      document.querySelectorAll(".busy-countdown").forEach((el) => {
+        const until = el.dataset.until;
+        if (!until) return;
+
+        const t = formatTimeUntil(until);
+        if (!t || !t.backTime) return;
+
+        if (el.tagName === "P") {
+          el.innerHTML = `Expected back around <b>${t.backTime}</b> (${t.relative}). You can try booking again after that.`;
+        } else {
+          el.textContent = `Expected back around ${t.backTime} (${t.relative}).`;
+        }
+      });
+    }, 30000); // 30 seconds
+  }
 }
 
 document.addEventListener("DOMContentLoaded", initProviderPage);

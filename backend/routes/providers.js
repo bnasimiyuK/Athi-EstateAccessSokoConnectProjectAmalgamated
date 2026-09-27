@@ -33,6 +33,7 @@ function providerToJson(row) {
     isAvailable:   row.is_available === undefined ? true : !!row.is_available,
     residentId:    row.resident_id,
     createdAt:     row.created_at,
+    unavailableUntil: row.unavailable_until ? new Date(row.unavailable_until).toISOString() : null,
   };
 }
 
@@ -292,21 +293,22 @@ router.patch("/:id", async (req, res, next) => {
       bio:         "bio",
       verified:    "verified",
       isAvailable: "is_available",
+      unavailableUntil: "unavailable_until",
     };
 
     const request = (await getPool()).request().input("id", id);
     const sets = [];
 
-    for (const [bodyKey, col] of Object.entries(map)) {
+          for (const [bodyKey, col] of Object.entries(map)) {
       if (req.body[bodyKey] !== undefined) {
         let val = req.body[bodyKey];
         if (col === "category_id") val = parseInt(val, 10);
         if (col === "verified" || col === "is_available") val = val ? 1 : 0;
+        if (col === "unavailable_until") val = val ? new Date(val) : null;
         request.input(col, val);
         sets.push(`${col} = @${col}`);
       }
     }
-
     if (Array.isArray(req.body.services)) {
       request.input("services", req.body.services.join(", "));
       sets.push("services = @services");

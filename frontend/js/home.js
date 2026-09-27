@@ -1,56 +1,57 @@
 /* ============================================================
    home.js — Discover page: Phase → Court cascade + filters
    + Prev/Next pagination
+   + Live countdown on Busy provider cards ("Busy until HH:MM")
    ============================================================ */
 
 /* ---------------- helpers ---------------- */
 function initialsOf(name) {
   return String(name || "?")
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+    .split(/\s+/).filter(Boolean).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
 function escapeHtml(s) {
   return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function servicesArray(p) {
   if (Array.isArray(p.services)) return p.services;
   if (!p.services) return [];
-  return String(p.services)
-    .split(/,\s*/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return String(p.services).split(/,\s*/).map((s) => s.trim()).filter(Boolean);
+}
+
+/* ---------------- time-until formatter ---------------- */
+function formatTimeUntil(iso) {
+  if (!iso) return null;
+  const diffMs   = new Date(iso) - new Date();
+  const diffMins = Math.round(diffMs / 60000);
+
+  if (diffMins <= 0) return { relative: "any moment", backTime: null };
+
+  const back = new Date(iso);
+  const backTime = back.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" });
+
+  let relative;
+  if (diffMins < 60) {
+    relative = `in ${diffMins} min`;
+  } else {
+    const hrs  = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    relative = mins > 0 ? `in ${hrs}h ${mins}m` : `in ${hrs}h`;
+  }
+  return { relative, backTime };
 }
 
 /* ---------------- state ---------------- */
-const _state = {
-  categories: [],
-  courts:     [],
-};
-
-/* ---------------- Discover pagination state ---------------- */
-const discoverState = {
-  page:       1,
-  limit:      6,        // 6 cards per page
-  total:      0,
-  totalPages: 1,
-};
+const _state = { categories: [], courts: [] };
+const discoverState = { page: 1, limit: 6, total: 0, totalPages: 1 };
 
 /* ---------------- Phase → Court cascade ---------------- */
 function buildPhaseOptions(courts) {
   const phases = [...new Set(courts.map((c) => Number(c.phase)))]
-    .filter((v) => !isNaN(v))
-    .sort((a, b) => a - b);
+    .filter((v) => !isNaN(v)).sort((a, b) => a - b);
 
   const $phase = document.getElementById("phase");
   $phase.innerHTML = `<option value="">All phases</option>`;
@@ -75,9 +76,7 @@ function filterCourtsByPhase(phase) {
   }
 
   $court.innerHTML = `<option value="">All courts</option>` +
-    list.map((c) =>
-      `<option value="${c.id}">${escapeHtml(c.name)}</option>`
-    ).join("");
+    list.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
   $court.disabled = false;
 }
 
@@ -96,7 +95,6 @@ async function populateFilters() {
     $cat.appendChild(opt);
   });
 
-  /* Category chips */
   const $chips = document.getElementById("chip-row");
   $chips.innerHTML = "";
 
@@ -150,7 +148,6 @@ function renderStats(providers) {
 /* ---------------- provider card ---------------- */
 function providerCard(p) {
   const initials = initialsOf(p.name);
-
   const cat = p.categoryLabel
     || (typeof categoryLabel === "function" ? categoryLabel(p.category) : "—");
 
@@ -174,6 +171,37 @@ function providerCard(p) {
   if (p.phase != null)  locParts.push(`Phase ${p.phase}`);
   const loc = locParts.join(" · ");
 
+  /* ---------- Busy countdown strip ---------- */
+  let busyLine = "";
+  if (p.isAvailable === false) {
+    let text;
+
+    if (p.unavailableUntil) {
+      const t = formatTimeUntil(p.unavailableUntil);
+      text = (t && t.backTime)
+        ? `⏸️ Busy until ${t.backTime} · ${t.relative}`
+        : "⏸️ Busy · back any moment";
+    } else {
+      /* Safety fallback for indefinite mode */
+      text = "⏸️ Busy · not accepting bookings";
+    }
+
+    busyLine = `
+      <div class="busy-countdown"
+           data-until="${p.unavailableUntil || ""}"
+           style="
+             font-size: 0.78rem;
+             color: #c0392b;
+             background: #fdecea;
+             border-left: 3px solid #e74c3c;
+             padding: 4px 8px;
+             border-radius: 4px;
+             margin-top: 6px;
+           ">
+        ${text}
+      </div>`;
+  }
+
   return `
     <a class="card" href="provider.html?id=${encodeURIComponent(p.id)}">
       <div class="card-top">
@@ -195,6 +223,8 @@ function providerCard(p) {
         ${services.map((s) => `<span class="tag">${escapeHtml(s)}</span>`).join("")}
       </div>
 
+      ${busyLine}
+
       <div class="card-footer">
         <span class="price">
           From KSh ${price.toLocaleString()}
@@ -209,19 +239,18 @@ function providerCard(p) {
 /* ---------------- Build current filters ---------------- */
 function buildDiscoverFilters() {
   return {
-    verified:      true,
-    availableOnly: true,
-    search:        document.getElementById("q").value.trim(),
-    phase:         document.getElementById("phase").value,
-    courtId:       document.getElementById("court").value,
-    category:      document.getElementById("category").value,
-    maxPrice:      document.getElementById("maxPrice").value,
-    page:          discoverState.page,
-    limit:         discoverState.limit,
+    verified: true,
+    search:   document.getElementById("q").value.trim(),
+    phase:    document.getElementById("phase").value,
+    courtId:  document.getElementById("court").value,
+    category: document.getElementById("category").value,
+    maxPrice: document.getElementById("maxPrice").value,
+    page:     discoverState.page,
+    limit:    discoverState.limit,
   };
 }
 
-/* ---------------- results (Prev/Next) ---------------- */
+/* ---------------- results ---------------- */
 async function renderResults() {
   const grid = document.getElementById("provider-grid");
   grid.innerHTML = `<div class="empty-state">Loading providers…</div>`;
@@ -241,7 +270,6 @@ async function renderResults() {
   discoverState.limit      = result.limit      ?? discoverState.limit;
   discoverState.totalPages = result.totalPages ?? 1;
 
-  /* Update counter */
   if (discoverState.total === 0) {
     document.getElementById("results-count").textContent = "No providers found";
   } else {
@@ -264,7 +292,7 @@ async function renderResults() {
 /* ---------------- Pagination footer ---------------- */
 function renderPaginationFooter() {
   const grid   = document.getElementById("provider-grid");
-  const parent = grid.parentElement;   // <main class="container section">
+  const parent = grid.parentElement;
   let footer   = document.getElementById("discover-pagination");
 
   const { page, limit, total, totalPages } = discoverState;
@@ -281,14 +309,8 @@ function renderPaginationFooter() {
     footer = document.createElement("div");
     footer.id = "discover-pagination";
     footer.style.cssText =
-      "display:flex;" +
-      "justify-content:space-between;" +
-      "align-items:center;" +
-      "gap:12px;" +
-      "flex-wrap:wrap;" +
-      "margin-top:24px;" +
-      "padding-top:16px;" +
-      "width:100%;";
+      "display:flex;justify-content:space-between;align-items:center;gap:12px;" +
+      "flex-wrap:wrap;margin-top:24px;padding-top:16px;width:100%;";
     parent.appendChild(footer);
   }
 
@@ -329,6 +351,23 @@ function renderPaginationFooter() {
   });
 }
 
+/* ---------------- Live countdown ticker ---------------- */
+function startCountdownTicker() {
+  if (startCountdownTicker._id) clearInterval(startCountdownTicker._id);
+
+  startCountdownTicker._id = setInterval(() => {
+    document.querySelectorAll(".busy-countdown").forEach((el) => {
+      const until = el.dataset.until;
+      if (!until) return;
+
+      const t = formatTimeUntil(until);
+      el.textContent = (t && t.backTime)
+        ? `⏸️ Busy until ${t.backTime} · ${t.relative}`
+        : "⏸️ Busy · back any moment";
+    });
+  }, 30000); // every 30 seconds
+}
+
 /* ---------------- init ---------------- */
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof requireAuth === "function" && !requireAuth()) return;
@@ -336,6 +375,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await populateFilters();
     await renderResults();
+    startCountdownTicker();
   } catch (err) {
     console.error("[home] init failed:", err);
   }
@@ -378,4 +418,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     discoverState.page = 1;
     renderResults();
   });
+
+  /* Reset filters button */
+  const resetBtn = document.getElementById("reset-search");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      document.getElementById("q").value = "";
+      document.getElementById("phase").value = "";
+      document.getElementById("court").value = "";
+      document.getElementById("category").value = "";
+      document.getElementById("maxPrice").value = "";
+
+      document.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
+      document.querySelector(".chip")?.classList.add("is-active");
+
+      filterCourtsByPhase("");
+      discoverState.page = 1;
+      renderResults();
+      toast("Filters cleared.");
+    });
+  }
 });
