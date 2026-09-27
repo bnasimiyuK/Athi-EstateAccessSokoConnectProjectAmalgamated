@@ -53,13 +53,11 @@ function bookingCard(b, variant) {
     actions.push(`<button class="btn btn--ghost btn--small" data-decline="${b.id}">Cancel</button>`);
   }
 
-  // ADDED: Display star rating
   let starsHtml = "";
   if (b.rating) {
     starsHtml = `<li><span>Rating</span><span style="color:#d4af37;">${"★".repeat(b.rating)}${"☆".repeat(5 - b.rating)}</span></li>`;
   }
 
-  // ADDED: Display cancellation reason
   let reasonHtml = "";
   if (b.status === "cancelled" && b.cancellationReason) {
     reasonHtml = `<li><span>Reason</span><span style="color:var(--clay);">${escapeHtml(b.cancellationReason)}</span></li>`;
@@ -159,12 +157,12 @@ function wireActions() {
 
   el.querySelectorAll("[data-decline]").forEach((btn) =>
     btn.addEventListener("click", () => {
-      // ADDED: Prompt for cancellation reason
       const reason = prompt("Please provide a reason for declining/cancelling this booking:");
       if (reason !== null && reason.trim() !== "") {
         updateStatus(btn.dataset.decline, "cancelled", reason);
       } else if (reason !== null) {
-        alert("A reason is required to cancel/decline a booking.");
+        // CHANGED: alert → toast
+        toast("A reason is required to cancel or decline a booking.");
       }
     })
   );
@@ -179,7 +177,8 @@ async function updateStatus(id, status, reason = null) {
     await loadBookings();
   } catch (err) {
     console.error("[provider-dashboard] update failed:", err);
-    alert(err.message || "Could not update booking.");
+    // CHANGED: alert → toast
+    toast(err.message || "Could not update booking.");
   }
 }
 

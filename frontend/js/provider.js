@@ -184,7 +184,6 @@ function leftColumnHtml(p, reviews) {
           </button>
         </div>
 
-        <!-- Refer inline panel (hidden by default) -->
         <div id="refer-panel" style="
           display:none; margin-top:12px; padding:14px;
           border:1px solid var(--line); border-radius:8px;
@@ -371,10 +370,12 @@ function wireReportModal(provider) {
       await Api.addReport({ providerId: provider.id, reason, details });
       modal.classList.remove("is-open");
       form.reset();
-      alert("Report submitted. The estate admin will review it.");
+      // CHANGED: alert → toast
+      toast("✅ Report submitted. The estate admin will review it.");
     } catch (err) {
       console.error("[provider] report failed:", err);
-      alert(err.message || "Could not submit report.");
+      // CHANGED: alert → toast
+      toast(err.message || "Could not submit report.");
     }
   });
 }
@@ -389,45 +390,44 @@ function wireReferPanel(provider) {
 
   if (!referBtn || !panel || !copyBtn || !whatsappBtn || !closeBtn) return;
 
-  // Build the sharable URL and message
   const providerUrl = `${window.location.origin}${window.location.pathname}?id=${provider.id}`;
   const shareMessage =
     `Check out ${provider.name} on Athi Soko Connect — ` +
     `${provider.categoryLabel || "a service provider"} in Phase ${provider.phase || "?"}. ` +
     `Book them here: ${providerUrl}`;
 
-  // Toggle the panel
   referBtn.addEventListener("click", () => {
     panel.style.display = panel.style.display === "none" ? "block" : "none";
   });
 
-  // Copy link to clipboard
   copyBtn.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(providerUrl);
       toast("Link copied! Share it with your neighbors.");
       panel.style.display = "none";
     } catch (err) {
-      // Fallback for older browsers / http contexts
       const tempInput = document.createElement("input");
       tempInput.value = providerUrl;
       document.body.appendChild(tempInput);
       tempInput.select();
-      try { document.execCommand("copy"); toast("Link copied!"); }
-      catch { alert("Could not copy. Here is the link:\n\n" + providerUrl); }
+      try {
+        document.execCommand("copy");
+        toast("Link copied!");
+      } catch {
+        // KEPT AS alert() — the URL is long and the user may need to read/copy it manually
+        alert("Could not copy. Here is the link:\n\n" + providerUrl);
+      }
       document.body.removeChild(tempInput);
       panel.style.display = "none";
     }
   });
 
-  // Share on WhatsApp
   whatsappBtn.addEventListener("click", () => {
     const waUrl = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
     window.open(waUrl, "_blank");
     panel.style.display = "none";
   });
 
-  // Close panel
   closeBtn.addEventListener("click", () => {
     panel.style.display = "none";
   });
@@ -465,7 +465,7 @@ async function initProviderPage() {
 
   wireBookingForm(provider);
   wireReportModal(provider);
-  wireReferPanel(provider);  // <-- NEW: Wires up the refer panel
+  wireReferPanel(provider);
 }
 
 document.addEventListener("DOMContentLoaded", initProviderPage);

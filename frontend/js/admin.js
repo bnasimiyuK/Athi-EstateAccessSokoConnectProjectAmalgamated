@@ -24,14 +24,10 @@ function switchTab(tabName) {
   const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
   if (btn) {
     btn.click();
-    // Smooth-scroll to the tabs
     document.querySelector(".tab-row")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 
-/* ------------------------------------------------------------
-   Dashboard stats — fills the 4 summary tiles
-   ------------------------------------------------------------ */
 /* ------------------------------------------------------------
    Dashboard stats — fills all tiles + alerts + charts
    ------------------------------------------------------------ */
@@ -299,6 +295,7 @@ function renderAllCharts(s) {
   renderCategoryChart(s.categories || []);
   renderWeekdayChart(s.byWeekday || []);
 }
+
 /* ------------------------------------------------------------
    Verification queue (pending providers)
    ------------------------------------------------------------ */
@@ -432,17 +429,11 @@ async function renderAll() {
   await renderReports();
   renderAllProviders(providers);
 
-  // Refresh the summary tiles too
   await loadDashboardStats();
 }
 
 /* ------------------------------------------------------------
-   Init
-   ------------------------------------------------------------ */
-/* ------------------------------------------------------------
    Export buttons — Excel and PDF downloads
-   Endpoints: GET /api/admin/export.xlsx
-              GET /api/admin/export.pdf
    ------------------------------------------------------------ */
 async function downloadAdminReport(kind /* "xlsx" | "pdf" */) {
   const btnId = kind === "xlsx" ? "btn-excel" : "btn-pdf";
@@ -454,17 +445,16 @@ async function downloadAdminReport(kind /* "xlsx" | "pdf" */) {
   btn.textContent = "⏳ Preparing…";
 
   try {
-    // Api.getToken() must exist in your api.js — it returns the JWT
- // Use auth.js's getToken() — the source of truth for the JWT.
-const token = typeof getToken === "function" ? getToken() : null;
-if (!token) throw new Error("Not logged in — no token found.");
+    const token = typeof getToken === "function" ? getToken() : null;
+    if (!token) throw new Error("Not logged in — no token found.");
 
     const res = await fetch(`http://localhost:4050/api/admin/export.${kind}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (res.status === 401 || res.status === 403) {
-      alert("Please log in as admin.");
+      // CHANGED: alert → toast (+ redirect)
+      toast("Please log in as admin.");
       window.location.href = "login.html?next=%2Fadmin.html";
       return;
     }
@@ -486,7 +476,9 @@ if (!token) throw new Error("Not logged in — no token found.");
     toast(`Report downloaded (${kind.toUpperCase()}).`);
   } catch (err) {
     console.error(`[admin] ${kind} export failed:`, err);
-    alert(`Could not download ${kind.toUpperCase()}. See console for details.`);
+    toast(err.message.includes("Not logged in")
+      ? `Could not download ${kind.toUpperCase()}. Please log in as admin.`
+      : `Could not download ${kind.toUpperCase()}.`);
   } finally {
     btn.disabled = false;
     btn.textContent = originalText;
@@ -505,15 +497,12 @@ function setupExportButtons() {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
-  // Guard: must be admin
   if (typeof requireRole === "function" && !requireRole("admin")) return;
 
-  // Wire up the export buttons immediately, before any async work
   setupExportButtons();
 
   await loadCategoryCache();
   setupTabs();
 
-  // Load everything
   await renderAll();
 });

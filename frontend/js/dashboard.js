@@ -50,7 +50,6 @@ async function renderBookings() {
       </table>
     </div>`;
 
-  // Attach event listeners
   list.querySelectorAll("[data-review]").forEach((btn) =>
     btn.addEventListener("click", () => openReview(btn.dataset.review, bookings))
   );
@@ -81,7 +80,6 @@ function bookingRow(b) {
     action = `<span class="meta" style="color:#e74c3c;">Cancelled</span>`;
   }
 
-  // Show cancellation reason if cancelled
   let reasonHtml = "";
   if (b.status === "cancelled" && b.cancellationReason) {
     reasonHtml = `<div class="meta" style="color:var(--clay); font-size:0.85em; margin-top:4px;">Reason: ${b.cancellationReason}</div>`;
@@ -110,7 +108,8 @@ async function cancelBooking(id) {
       toast("Couldn't cancel the booking.");
     }
   } else if (reason !== null) {
-    alert("A reason is required to cancel a booking.");
+    // CHANGED: alert → toast
+    toast("A reason is required to cancel a booking.");
   }
 }
 
@@ -140,7 +139,7 @@ async function handleReviewSubmit(e) {
   try {
     await Api.addReview({
       providerId: reviewTargetBooking.providerId,
-      bookingId:  targetId, // <-- FIXED: Now sending the booking ID to link the review
+      bookingId:  targetId,
       author:     "You",
       rating:     Number(document.getElementById("review-rating").value),
       text:       document.getElementById("review-text").value,
