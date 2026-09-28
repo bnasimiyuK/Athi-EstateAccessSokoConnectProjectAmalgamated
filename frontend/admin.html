@@ -6,7 +6,7 @@
 <title>Admin dashboard — Athi Soko Connect</title>
 <link rel="stylesheet" href="css/styles.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<link rel="icon" href="data:,"> 
+<link rel="icon" href="data:,">
 </head>
 <body>
 
@@ -24,8 +24,9 @@
         <div class="dropdown-menu">
           <a href="admin.html">Dashboard</a>
           <a href="pending.html">Pending approvals</a>
-          <!-- ADDED: Link to the new reviews page -->
           <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+          <a href="admin-providers.html">All vendors</a>
         </div>
       </div>
     </nav>
@@ -55,15 +56,15 @@
         <div class="stat-tile__value" id="tile-pending-residents">—</div>
         <div class="stat-tile__label">Pending residents</div>
       </a>
-      <a href="pending.html" class="stat-tile stat-tile--warn">
+      <a href="admin-providers.html?verified=false" class="stat-tile stat-tile--warn">
         <div class="stat-tile__value" id="tile-pending-vendors">—</div>
         <div class="stat-tile__label">Pending vendors</div>
       </a>
-      <a href="residents.html" class="stat-tile stat-tile--ok">
+      <a href="admin-residents.html" class="stat-tile stat-tile--ok">
         <div class="stat-tile__value" id="tile-approved-residents">—</div>
         <div class="stat-tile__label">Approved residents</div>
       </a>
-      <a href="#tab-providers" class="stat-tile stat-tile--ok" onclick="switchTab('providers')">
+      <a href="admin-providers.html?verified=true" class="stat-tile stat-tile--ok">
         <div class="stat-tile__value" id="tile-approved-vendors">—</div>
         <div class="stat-tile__label">Approved vendors</div>
       </a>
@@ -136,12 +137,11 @@
   <section class="stat-section">
     <h3 class="stat-section__title">Quality</h3>
     <div class="stat-tiles">
-      <!-- AMENDED: Changed to an <a> tag so it links to the reviews page -->
       <a href="admin-reviews.html" class="stat-tile stat-tile--info" style="text-decoration: none; color: inherit; cursor: pointer;">
         <div class="stat-tile__value" id="tile-reviews-total">—</div>
         <div class="stat-tile__label">Reviews</div>
       </a>
-      
+
       <div class="stat-tile stat-tile--ok">
         <div class="stat-tile__value" id="tile-avg-rating">—</div>
         <div class="stat-tile__label">Avg estate rating</div>
@@ -199,43 +199,43 @@
     </div>
   </section>
 
-
   <!-- ============================================================
-     CHARTS
-     ============================================================ -->
-<section class="stat-section">
-  <h3 class="stat-section__title">Visual overview</h3>
+       CHARTS
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">Visual overview</h3>
 
-  <div class="chart-grid">
-    <div class="chart-card">
-      <div class="chart-card__head">Bookings — last 6 months</div>
-      <div class="chart-card__body">
-        <canvas id="chart-trend"></canvas>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card__head">Bookings — last 6 months</div>
+        <div class="chart-card__body">
+          <canvas id="chart-trend"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card__head">Bookings by status</div>
+        <div class="chart-card__body">
+          <canvas id="chart-status"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card__head">Providers by category</div>
+        <div class="chart-card__body">
+          <canvas id="chart-category"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card__head">Bookings by weekday</div>
+        <div class="chart-card__body">
+          <canvas id="chart-weekday"></canvas>
+        </div>
       </div>
     </div>
+  </section>
 
-    <div class="chart-card">
-      <div class="chart-card__head">Bookings by status</div>
-      <div class="chart-card__body">
-        <canvas id="chart-status"></canvas>
-      </div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-card__head">Providers by category</div>
-      <div class="chart-card__body">
-        <canvas id="chart-category"></canvas>
-      </div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-card__head">Bookings by weekday</div>
-      <div class="chart-card__body">
-        <canvas id="chart-weekday"></canvas>
-      </div>
-    </div>
-  </div>
-</section>
   <!-- ============================================================
        ALERTS — things that need attention
        ============================================================ -->
@@ -262,7 +262,8 @@
   </section>
 
   <!-- ============================================================
-       EXISTING TABS
+       TABS — verification queue + reports
+       (Providers moved to admin-providers.html)
        ============================================================ -->
   <div class="tab-row">
     <button class="tab-btn is-active" data-tab="verify">
@@ -271,14 +272,13 @@
     <button class="tab-btn" data-tab="reports">
       Reports <span id="count-reports"></span>
     </button>
-    <button class="tab-btn" data-tab="providers">
-      All providers
-    </button>
+    <a class="tab-btn" href="admin-providers.html">
+      All providers →
+    </a>
   </div>
 
   <div class="tab-panel is-active" id="tab-verify"></div>
   <div class="tab-panel" id="tab-reports"></div>
-  <div class="tab-panel" id="tab-providers"></div>
 </main>
 
 <footer class="site-footer">

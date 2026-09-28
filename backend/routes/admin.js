@@ -509,4 +509,507 @@ router.get("/export.pdf",
   }
 );
 
+/* ============================================================
+   Residents export — Excel + PDF
+   Reuses the same filter shape as routes/residents.js:
+     ?verified=true|false&phase=1|2&courtId=N&q=text
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Shared query — mirrors applyResidentFilters() in residents.js
+   ------------------------------------------------------------ */
+async function fetchResidentsForExport(query) {
+  const { phase, courtId, q, verified } = query;
+  const pool = await getPool();
+  const request = pool.request();
+
+  const where = [];
+
+  if (phase) {
+    where.push("c.phase = @phase");
+    request.input("phase", parseInt(phase, 10));
+  }
+  if (courtId) {
+    where.push("r.court_id = @courtId");
+    request.input("courtId", parseInt(courtId, 10));
+  }
+  if (q && q.trim()) {
+    where.push("(r.full_name LIKE @q OR r.phone LIKE @q)");
+    request.input("q", `%${q.trim()}%`);
+  }
+  if (verified === "true" || verified === "false") {
+    where.push("r.verified = @verified");
+    request.input("verified", verified === "true" ? 1 : 0);
+  }
+
+  const whereSql = where.length ? "WHERE " + where.join(" AND ") : "";
+
+  const result = await request.query(`
+    SELECT
+      r.id,
+      r.full_name,
+      r.phone,
+      r.email,
+      r.court_id,
+      r.verified,
+      r.created_at,
+      c.name  AS court_name,
+      c.phase AS phase
+    FROM Residents r
+    JOIN Courts c ON c.id = r.court_id
+    ${whereSql}
+    ORDER BY c.phase ASC, c.name ASC, r.full_name ASC
+  `);
+
+  return result.recordset;
+}
+
+/* ------------------------------------------------------------
+   Column definitions (shared by Excel + PDF)
+   ------------------------------------------------------------ */
+const RESIDENT_EXPORT_COLUMNS = [
+  { header: "ID",          key: "id",       width: 10 },
+  { header: "Full name",   key: "fullName", width: 28 },
+  { header: "ID number",   key: "idNumber", width: 15 },
+  { header: "Phone",       key: "phone",    width: 18 },
+  { header: "Email",       key: "email",    width: 26 },
+  { header: "Phase",       key: "phase",    width: 10 },
+  { header: "Court",       key: "court",    width: 20 },
+  { header: "Role",        key: "role",     width: 12 },
+  { header: "Approved on", key: "approved", width: 18 },
+  { header: "Status",      key: "status",   width: 12 },
+];
+
+function residentRowToExportShape(r) {
+  const approved = r.created_at
+    ? new Date(r.created_at).toLocaleDateString("en-GB", {
+        day: "2-digit", month: "short", year: "numeric",
+      })
+    : "—";
+
+  return {
+    id:       "AR-" + String(r.id).padStart(3, "0"),
+    fullName: r.full_name || "—",
+    idNumber: "—",
+    phone:    r.phone || "—",
+    email:    r.email || "—",
+    phase:    r.phase ? "Phase " + r.phase : "—",
+    court:    r.court_name || "—",
+    role:     "Resident",
+    approved,
+    status:   r.verified ? "Approved" : "Pending",
+  };
+}
+
+/* ============================================================
+   GET /api/admin/residents/export.xlsx
+   ============================================================ */
+router.get("/residents/export.xlsx",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const rows = await fetchResidentsForExport(req.query);
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "Athi Soko Connect";
+      wb.created = new Date();
+
+      const ws = wb.addWorksheet("Approved Residents");
+
+      ws.columns = RESIDENT_EXPORT_COLUMNS.map((c) => ({
+        header: c.header,
+        key:    c.key,
+        width:  c.width,
+      }));
+
+      rows.forEach((r) => ws.addRow(residentRowToExportShape(r)));
+
+      /* Style header */
+      ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      ws.getRow(1).fill = {
+        type: "pattern", pattern: "solid",
+        fgColor: { argb: "FF16233F" },
+      };
+      ws.getRow(1).alignment = { vertical: "middle", horizontal: "left" };
+
+      /* Freeze + autofilter */
+      ws.views = [{ state: "frozen", ySplit: 1 }];
+      ws.autoFilter = {
+        from: { row: 1, column: 1 },
+        to:   { row: 1, column: RESIDENT_EXPORT_COLUMNS.length },
+      };
+
+      const filename = `athi-soko-approved-residents-${new Date()
+        .toISOString().slice(0, 10)}.xlsx`;
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+      await wb.xlsx.write(res);
+      res.end();
+    } catch (err) {
+      console.error("[admin] residents xlsx export failed:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Residents Excel export failed." });
+      }
+    }
+  }
+);
+
+/* ============================================================
+   GET /api/admin/residents/export.pdf
+   ============================================================ */
+router.get("/residents/export.pdf",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const rows = await fetchResidentsForExport(req.query);
+
+      const filename = `athi-soko-approved-residents-${new Date()
+        .toISOString().slice(0, 10)}.pdf`;
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+      const doc = new PDFDocument({
+        size: "A4",
+        margin: 40,
+        layout: "landscape",
+      });
+      doc.pipe(res);
+
+      /* ---------- Header ---------- */
+      doc.fontSize(20).fillColor("#16233f")
+         .text("Athi Soko Connect");
+      doc.moveDown(0.3);
+      doc.fontSize(14).fillColor("#16233f")
+         .text("Approved Residents Report");
+      doc.moveDown(0.2);
+      doc.fontSize(9).fillColor("#666")
+         .text("Generated: " + new Date().toLocaleString("en-GB"));
+      doc.moveDown(1);
+
+      /* ---------- Table layout ---------- */
+      const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const cols      = RESIDENT_EXPORT_COLUMNS;
+      const totalW    = cols.reduce((s, c) => s + c.width, 0);
+      const scale     = pageWidth / totalW;
+      const colX      = [];
+      let x = doc.page.margins.left;
+      cols.forEach((c) => {
+        colX.push(x);
+        x += c.width * scale;
+      });
+
+      const rowH    = 18;
+      const headerY = doc.y;
+
+      /* ---------- Header row ---------- */
+      doc.rect(doc.page.margins.left, headerY, pageWidth, rowH).fill("#16233f");
+      doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold");
+      cols.forEach((c, i) => {
+        doc.text(c.header, colX[i] + 4, headerY + 5, {
+          width:    c.width * scale - 8,
+          ellipsis: true,
+          lineBreak: false,
+        });
+      });
+
+      /* ---------- Body ---------- */
+      let y = headerY + rowH;
+      doc.font("Helvetica").fontSize(9).fillColor("#222");
+
+      rows.forEach((r, idx) => {
+        /* page break */
+        if (y + rowH > doc.page.height - doc.page.margins.bottom - 20) {
+          doc.addPage();
+          y = doc.page.margins.top;
+
+          doc.rect(doc.page.margins.left, y, pageWidth, rowH).fill("#16233f");
+          doc.fillColor("#ffffff").font("Helvetica-Bold");
+          cols.forEach((c, i) => {
+            doc.text(c.header, colX[i] + 4, y + 5, {
+              width:    c.width * scale - 8,
+              ellipsis: true,
+              lineBreak: false,
+            });
+          });
+          y += rowH;
+          doc.font("Helvetica").fillColor("#222");
+        }
+
+        /* zebra */
+        if (idx % 2 === 0) {
+          doc.rect(doc.page.margins.left, y, pageWidth, rowH)
+             .fill("#f5f5f5")
+             .fillColor("#222");
+        }
+
+        const shaped = residentRowToExportShape(r);
+        cols.forEach((c, i) => {
+          doc.fillColor("#222").text(
+            String(shaped[c.key] ?? "—"),
+            colX[i] + 4,
+            y + 5,
+            { width: c.width * scale - 8, ellipsis: true, lineBreak: false }
+          );
+        });
+
+        y += rowH;
+      });
+
+      doc.moveDown(1);
+      doc.fontSize(8).fillColor("#888")
+         .text(`Total: ${rows.length} resident${rows.length === 1 ? "" : "s"}`);
+
+      doc.end();
+    } catch (err) {
+      console.error("[admin] residents pdf export failed:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Residents PDF export failed." });
+      }
+    }
+  }
+);
+/* ============================================================
+   Providers export — Excel + PDF
+   Mirrors residents export but for the Providers table.
+   ============================================================ */
+
+async function fetchProvidersForExport(query) {
+  const { phase, courtId, q, verified } = query;
+  const pool = await getPool();
+  const request = pool.request();
+
+  const where = [];
+
+  if (phase) {
+    where.push("c.phase = @phase");
+    request.input("phase", parseInt(phase, 10));
+  }
+  if (courtId) {
+    // court_id lives on Residents (r), NOT on Providers (p)
+    where.push("r.court_id = @courtId");
+    request.input("courtId", parseInt(courtId, 10));
+  }
+  if (q && q.trim()) {
+    where.push("(p.name LIKE @q OR p.phone LIKE @q OR cat.label LIKE @q)");
+    request.input("q", `%${q.trim()}%`);
+  }
+  if (verified === "true" || verified === "false") {
+    where.push("p.verified = @verified");
+    request.input("verified", verified === "true" ? 1 : 0);
+  }
+
+  const whereSql = where.length ? "WHERE " + where.join(" AND ") : "";
+
+  const result = await request.query(`
+    SELECT
+      p.id,
+      p.name,
+      p.phone,
+      p.verified,
+      p.rating,
+      p.reviews,
+      p.category_id,
+      p.created_at,
+      r.court_id  AS court_id,
+      c.name      AS court_name,
+      c.phase     AS phase,
+      cat.label   AS category_label
+    FROM Providers p
+    LEFT JOIN Categories cat ON cat.id  = p.category_id
+    LEFT JOIN Residents  r   ON r.id   = p.resident_id
+    LEFT JOIN Courts     c   ON c.id   = r.court_id
+    ${whereSql}
+    ORDER BY c.phase ASC, c.name ASC, p.name ASC
+  `);
+
+  return result.recordset;
+}
+
+const PROVIDER_EXPORT_COLUMNS = [
+  { header: "ID",          key: "id",        width: 8  },
+  { header: "Business",    key: "name",      width: 28 },
+  { header: "Category",    key: "category",  width: 20 },
+  { header: "Phase",       key: "phase",     width: 10 },
+  { header: "Court",       key: "court",     width: 20 },
+  { header: "Phone",       key: "phone",     width: 18 },
+  { header: "Rating",      key: "rating",    width: 10 },
+  { header: "Reviews",     key: "reviews",   width: 10 },
+  { header: "Status",      key: "status",    width: 14 },
+  { header: "Registered",  key: "created",   width: 16 },
+];
+
+function providerRowToExportShape(p) {
+  const created = p.created_at
+    ? new Date(p.created_at).toLocaleDateString("en-GB", {
+        day: "2-digit", month: "short", year: "numeric",
+      })
+    : "—";
+
+  return {
+    id:       "PV-" + String(p.id).padStart(3, "0"),
+    name:     p.name || "—",
+    category: p.category_label || "—",
+    phase:    p.phase ? "Phase " + p.phase : "—",
+    court:    p.court_name || "—",
+    phone:    p.phone || "—",
+    rating:   p.rating != null ? Number(p.rating).toFixed(1) : "—",
+    reviews:  p.reviews != null ? p.reviews : "—",
+    status:   p.verified ? "Verified" : "Pending review",
+    created,
+  };
+}
+
+/* GET /api/admin/providers/export.xlsx */
+router.get("/providers/export.xlsx",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const rows = await fetchProvidersForExport(req.query);
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "Athi Soko Connect";
+      wb.created = new Date();
+
+      const ws = wb.addWorksheet("Providers");
+      ws.columns = PROVIDER_EXPORT_COLUMNS.map((c) => ({
+        header: c.header, key: c.key, width: c.width,
+      }));
+
+      rows.forEach((r) => ws.addRow(providerRowToExportShape(r)));
+
+      ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      ws.getRow(1).fill = {
+        type: "pattern", pattern: "solid",
+        fgColor: { argb: "FF16233F" },
+      };
+      ws.views = [{ state: "frozen", ySplit: 1 }];
+      ws.autoFilter = {
+        from: { row: 1, column: 1 },
+        to:   { row: 1, column: PROVIDER_EXPORT_COLUMNS.length },
+      };
+
+      const filename = `athi-soko-providers-${new Date()
+        .toISOString().slice(0, 10)}.xlsx`;
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+      await wb.xlsx.write(res);
+      res.end();
+    } catch (err) {
+      console.error("[admin] providers xlsx export failed:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Providers Excel export failed." });
+      }
+    }
+  }
+);
+
+/* GET /api/admin/providers/export.pdf */
+router.get("/providers/export.pdf",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const rows = await fetchProvidersForExport(req.query);
+
+      const filename = `athi-soko-providers-${new Date()
+        .toISOString().slice(0, 10)}.pdf`;
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+      const doc = new PDFDocument({
+        size: "A4", margin: 40, layout: "landscape",
+      });
+      doc.pipe(res);
+
+      doc.fontSize(20).fillColor("#16233f").text("Athi Soko Connect");
+      doc.moveDown(0.3);
+      doc.fontSize(14).fillColor("#16233f").text("Providers Report");
+      doc.moveDown(0.2);
+      doc.fontSize(9).fillColor("#666")
+         .text("Generated: " + new Date().toLocaleString("en-GB"));
+      doc.moveDown(1);
+
+      const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const cols      = PROVIDER_EXPORT_COLUMNS;
+      const totalW    = cols.reduce((s, c) => s + c.width, 0);
+      const scale     = pageWidth / totalW;
+      const colX      = [];
+      let x = doc.page.margins.left;
+      cols.forEach((c) => { colX.push(x); x += c.width * scale; });
+
+      const rowH    = 18;
+      const headerY = doc.y;
+
+      doc.rect(doc.page.margins.left, headerY, pageWidth, rowH).fill("#16233f");
+      doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold");
+      cols.forEach((c, i) => {
+        doc.text(c.header, colX[i] + 4, headerY + 5, {
+          width: c.width * scale - 8, ellipsis: true, lineBreak: false,
+        });
+      });
+
+      let y = headerY + rowH;
+      doc.font("Helvetica").fontSize(9).fillColor("#222");
+
+      rows.forEach((r, idx) => {
+        if (y + rowH > doc.page.height - doc.page.margins.bottom - 20) {
+          doc.addPage();
+          y = doc.page.margins.top;
+          doc.rect(doc.page.margins.left, y, pageWidth, rowH).fill("#16233f");
+          doc.fillColor("#ffffff").font("Helvetica-Bold");
+          cols.forEach((c, i) => {
+            doc.text(c.header, colX[i] + 4, y + 5, {
+              width: c.width * scale - 8, ellipsis: true, lineBreak: false,
+            });
+          });
+          y += rowH;
+          doc.font("Helvetica").fillColor("#222");
+        }
+
+        if (idx % 2 === 0) {
+          doc.rect(doc.page.margins.left, y, pageWidth, rowH)
+             .fill("#f5f5f5").fillColor("#222");
+        }
+
+        const shaped = providerRowToExportShape(r);
+        cols.forEach((c, i) => {
+          doc.fillColor("#222").text(
+            String(shaped[c.key] ?? "—"),
+            colX[i] + 4, y + 5,
+            { width: c.width * scale - 8, ellipsis: true, lineBreak: false }
+          );
+        });
+
+        y += rowH;
+      });
+
+      doc.moveDown(1);
+      doc.fontSize(8).fillColor("#888")
+         .text(`Total: ${rows.length} provider${rows.length === 1 ? "" : "s"}`);
+
+      doc.end();
+    } catch (err) {
+      console.error("[admin] providers pdf export failed:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Providers PDF export failed." });
+      }
+    }
+  }
+);
+
 module.exports = router;

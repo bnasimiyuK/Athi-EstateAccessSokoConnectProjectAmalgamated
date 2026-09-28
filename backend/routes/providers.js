@@ -56,8 +56,26 @@ const PROVIDER_SELECT = `
 /* ------------------------------------------------------------
    Helper: apply filter inputs to a request object
    (called twice — once for COUNT, once for the data query)
+
+   Accepted query params:
+     - category       (int)
+     - phase          (1 | 2)
+     - courtId        (int)
+     - maxPrice       (number)
+     - search OR q    (text — searches name, services, bio, category label)
+     - verified       ("true" | "false")
+     - availableOnly  ("true")
    ------------------------------------------------------------ */
-function applyProviderFilters(request, { category, phase, courtId, maxPrice, search, verified, availableOnly }) {
+function applyProviderFilters(request, {
+  category,
+  phase,
+  courtId,
+  maxPrice,
+  search,
+  q,
+  verified,
+  availableOnly,
+}) {
   const conditions = [];
 
   if (verified === "true") {
@@ -69,25 +87,38 @@ function applyProviderFilters(request, { category, phase, courtId, maxPrice, sea
   if (availableOnly === "true") {
     conditions.push("p.is_available = 1");
   }
+
   if (category) {
     conditions.push("p.category_id = @category");
     request.input("category", parseInt(category, 10));
   }
+
   if (phase) {
     conditions.push("c.phase = @phase");
     request.input("phase", parseInt(phase, 10));
   }
+
   if (courtId) {
     conditions.push("r.court_id = @courtId");
     request.input("courtId", parseInt(courtId, 10));
   }
+
   if (maxPrice) {
     conditions.push("p.price_from <= @maxPrice");
     request.input("maxPrice", parseFloat(maxPrice));
   }
-  if (search) {
-    conditions.push("(p.name LIKE @search OR p.services LIKE @search OR p.bio LIKE @search)");
-    request.input("search", `%${search}%`);
+
+  /* Accept both `search` (existing callers) and `q` (admin page) */
+  const textQuery = (search || q || "").trim();
+  if (textQuery) {
+    conditions.push(`(
+      p.name        LIKE @search
+      OR p.services LIKE @search
+      OR p.bio      LIKE @search
+      OR cat.label  LIKE @search
+      OR p.phone    LIKE @search
+    )`);
+    request.input("search", `%${textQuery}%`);
   }
 
   return conditions.length ? "WHERE " + conditions.join(" AND ") : "";
@@ -95,7 +126,7 @@ function applyProviderFilters(request, { category, phase, courtId, maxPrice, sea
 
 /* ------------------------------------------------------------
    GET /api/providers
-   Supports: category, phase, courtId, maxPrice, search,
+   Supports: category, phase, courtId, maxPrice, search (or q),
              verified, availableOnly, page, limit
 
    - If ?page is passed → returns { data, total, page, limit, totalPages }
@@ -299,7 +330,7 @@ router.patch("/:id", async (req, res, next) => {
     const request = (await getPool()).request().input("id", id);
     const sets = [];
 
-          for (const [bodyKey, col] of Object.entries(map)) {
+    for (const [bodyKey, col] of Object.entries(map)) {
       if (req.body[bodyKey] !== undefined) {
         let val = req.body[bodyKey];
         if (col === "category_id") val = parseInt(val, 10);

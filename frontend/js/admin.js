@@ -758,7 +758,7 @@ function wireProvidersPagination() {
 async function renderAll() {
   try {
     await renderVerifyQueue();
-    await renderAllProvidersPaginated();
+    // Providers now live on admin-providers.html — no inline render here.
     await renderReports();
     await loadDashboardStats();
   } catch (err) {

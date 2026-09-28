@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Approved residents — Athi Soko Connect</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Connect</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="residents.html" data-nav="residents.html">Sign Up</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>Approved residents</h1>
+      <p>
+        Residents whose registration has been approved by estate admin.
+        <br><small style="color:var(--ink-70);">
+          Not every resident is a provider.
+          See <a href="admin.html#tab-providers">Approved vendors</a> for the seller list.
+        </small>
+      </p>
+    </div>
+
+    <div class="admin-actions">
+      <button id="btn-excel-residents" class="btn btn-export" type="button">📥 Excel</button>
+      <button id="btn-pdf-residents"   class="btn btn-export" type="button">📄 PDF</button>
+    </div>
+  </div>
+
+  <!-- Filters: PHASE → searchable COURT, backed by /api/courts -->
+  <form id="residents-filter"
+        style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-start;">
+
+    <select id="filter-phase" class="input" disabled>
+      <option value="">Loading phases…</option>
+    </select>
+
+    <!-- Searchable court picker -->
+    <div class="court-picker" style="position:relative; min-width:220px;">
+      <input type="text"
+             id="filter-court-search"
+             class="input"
+             placeholder="All courts — type to search…"
+             autocomplete="off"
+             disabled
+             style="width:100%;" />
+
+      <div id="filter-court-list"
+           style="display:none;
+                  position:absolute;
+                  top:100%;
+                  left:0;
+                  right:0;
+                  margin-top:4px;
+                  max-height:220px;
+                  overflow-y:auto;
+                  border:1px solid var(--line);
+                  border-radius:var(--radius-s);
+                  background:#fff;
+                  box-shadow:0 4px 12px rgba(0,0,0,0.08);
+                  z-index:100;">
+      </div>
+
+      <!-- Hidden value holder (what we actually filter on) -->
+      <input type="hidden" id="filter-court" value="" />
+    </div>
+
+    <input type="text" id="filter-search" class="input"
+           placeholder="Search name, phone, ID…" />
+
+    <button type="submit" class="btn btn--accent">Filter</button>
+    <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
+  </form>
+
+  <div id="residents-list">
+    <div class="empty-state">Loading approved residents…</div>
+  </div>
+
+  <div id="residents-pagination"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    This list contains only residents whose registration has been approved by estate admin.
+  </div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin-residents.js"></script>
+</body>
+</html>
