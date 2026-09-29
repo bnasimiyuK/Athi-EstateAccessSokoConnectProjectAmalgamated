@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Payments — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="billing.html" data-nav="billing.html">My billing</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+          <a href="admin-house-numbers.html">House numbers</a>
+          <a href="admin-invoices.html">Invoices</a>
+          <a href="admin-payments.html">Payments</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>Payments</h1>
+      <p>
+        Verify pending M-Pesa payments or record a manual payment.
+        <br><small style="color:var(--ink-70);">
+          Verified payments auto-allocate to the resident's oldest unpaid invoice.
+        </small>
+      </p>
+    </div>
+
+    <div class="admin-actions">
+      <button id="btn-manual-payment" class="btn btn--accent" type="button">➕ Record manual payment</button>
+    </div>
+  </div>
+
+  <section class="stat-section">
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--warn"><div class="stat-tile__value" id="tile-pending">—</div><div class="stat-tile__label">Pending</div></div>
+      <div class="stat-tile stat-tile--ok"><div class="stat-tile__value" id="tile-verified">—</div><div class="stat-tile__label">Verified</div></div>
+      <div class="stat-tile stat-tile--danger"><div class="stat-tile__value" id="tile-rejected">—</div><div class="stat-tile__label">Rejected</div></div>
+    </div>
+  </section>
+
+  <form id="payments-filter" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+    <select id="filter-status" class="input">
+      <option value="pending">Pending (needs action)</option>
+      <option value="">All payments</option>
+      <option value="verified">Verified</option>
+      <option value="rejected">Rejected</option>
+    </select>
+    <input type="text" id="filter-q" class="input" placeholder="Search name, house #, receipt…" style="min-width:260px;" />
+    <button type="submit" class="btn btn--accent">Filter</button>
+    <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
+  </form>
+
+  <div class="table-wrap" id="payments-table-wrap">
+    <div class="empty-state">Loading payments…</div>
+  </div>
+
+  <div id="payments-pagination"></div>
+</main>
+
+<div id="manual-payment-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:#fff;max-width:480px;width:90%;padding:24px;border-radius:8px;">
+    <h2 style="margin-top:0;">Record manual payment</h2>
+    <form id="manual-payment-form">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <label>House number *<input type="text" id="mp-house" class="input" required placeholder="e.g. Riverside-A01" /></label>
+        <label>Amount (KSh) *<input type="number" id="mp-amount" class="input" required min="1" step="1" value="2000" /></label>
+        <label>M-Pesa receipt<input type="text" id="mp-receipt" class="input" placeholder="e.g. RKT4XYZ123" /></label>
+        <label>Phone<input type="text" id="mp-phone" class="input" placeholder="+254…" /></label>
+        <label>Payment date<input type="date" id="mp-date" class="input" /></label>
+        <label>Notes<textarea id="mp-notes" class="input" rows="2"></textarea></label>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button type="button" class="btn btn--ghost" id="mp-cancel">Cancel</button>
+        <button type="submit" class="btn btn--accent" id="mp-submit">Save payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    Paybill: 1024162 · Account: house number · Name on receipt: VICTOR/DOUGLAS/ISAAC
+  </div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin-payments.js"></script>
+</body>
+</html>

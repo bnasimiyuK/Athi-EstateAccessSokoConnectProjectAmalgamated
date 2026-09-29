@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>House numbers — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="billing.html" data-nav="billing.html">My billing</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+          <a href="admin-house-numbers.html">House numbers</a>
+          <a href="admin-invoices.html">Invoices</a>
+          <a href="admin-payments.html">Payments</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>House numbers</h1>
+      <p>
+        Assign a house number to each approved resident. Format:
+        <code>{CourtName}-{Side}{NN}</code> — e.g. <code>Riverside-A01</code>.
+        <br><small style="color:var(--ink-70);">
+          Every invoice and M-Pesa payment is keyed to the house number.
+        </small>
+      </p>
+    </div>
+
+    <div class="admin-actions">
+      <button id="btn-download-template" class="btn btn--ghost" type="button">📄 Download template (CSV)</button>
+      <button id="btn-upload-csv"          class="btn btn-export" type="button">📥 Upload CSV</button>
+      <input type="file" id="csv-input" accept=".csv" style="display:none;" />
+    </div>
+  </div>
+
+  <!-- Summary tiles -->
+  <section class="stat-section">
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-assigned">—</div>
+        <div class="stat-tile__label">Assigned</div>
+      </div>
+      <div class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="tile-unassigned">—</div>
+        <div class="stat-tile__label">Unassigned</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-total">—</div>
+        <div class="stat-tile__label">Total approved</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Filters -->
+  <form id="hn-filter" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-start;">
+    <select id="filter-status" class="input">
+      <option value="unassigned">Unassigned only</option>
+      <option value="">All residents</option>
+      <option value="assigned">Assigned only</option>
+    </select>
+
+    <select id="filter-phase" class="input" disabled>
+      <option value="">Loading phases…</option>
+    </select>
+
+    <div class="court-picker" style="position:relative; min-width:220px;">
+      <input type="text"
+             id="filter-court-search"
+             class="input"
+             placeholder="All courts — type to search…"
+             autocomplete="off"
+             disabled
+             style="width:100%;" />
+      <div id="filter-court-list"
+           style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;
+                  max-height:220px;overflow-y:auto;border:1px solid var(--line);
+                  border-radius:var(--radius-s);background:#fff;
+                  box-shadow:0 4px 12px rgba(0,0,0,0.08);z-index:100;"></div>
+      <select id="filter-court" style="display:none;"><option value=""></option></select>
+    </div>
+
+    <input type="text" id="filter-q" class="input" placeholder="Search name, phone or house #…" style="min-width:220px;" />
+
+    <button type="submit" class="btn btn--accent">Filter</button>
+    <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
+  </form>
+
+  <!-- Table -->
+  <div class="table-wrap" id="hn-table-wrap">
+    <div class="empty-state">Loading residents…</div>
+  </div>
+
+  <div id="hn-pagination"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    House numbers must be unique across the estate. Format is enforced on save.
+  </div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin-house-numbers.js"></script>
+</body>
+</html>

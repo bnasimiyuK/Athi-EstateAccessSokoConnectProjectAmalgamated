@@ -150,7 +150,7 @@ const Api = {
     request(`${API_BASE}/reports/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   /* ---------- Courts ---------- */
-  // Courty records carry a `phase` field (1 or 2)
+  // Court records carry a `phase` field (1 or 2)
   getCourts: (params = {}) =>
     request(`${API_BASE}/courts${qsOf(params)}`),
   addCourt: (data) =>
@@ -181,13 +181,13 @@ const Api = {
     const token = typeof getToken === "function" ? getToken() : null;
     if (!token) throw new Error("Not logged in.");
 
-   const qs = new URLSearchParams(
-  Object.fromEntries(
-    Object.entries({ verified: "true", ...params }).filter(
-      ([, v]) => v !== "" && v !== undefined && v !== null
-    )
-  )
-).toString();
+    const qs = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries({ verified: "true", ...params }).filter(
+          ([, v]) => v !== "" && v !== undefined && v !== null
+        )
+      )
+    ).toString();
 
     const res = await fetch(
       `${API_BASE}/admin/residents/export.${kind}${qs ? "?" + qs : ""}`,
@@ -202,7 +202,8 @@ const Api = {
     }
     return res.blob();
   },
-    /**
+
+  /**
    * Download the providers report as XLSX or PDF.
    * Uses the same filters as the on-screen list.
    *
@@ -235,4 +236,82 @@ const Api = {
     }
     return res.blob();
   },
+
+  /* ============================================================
+     BILLING
+     ============================================================ */
+
+  /* ---------- Billing: shared ---------- */
+  getBillingSettings: () =>
+    request(`${API_BASE}/invoices/settings`),
+
+  /* ---------- Billing: resident self-service ---------- */
+  getMyInvoices: () =>
+    request(`${API_BASE}/invoices/mine`),
+
+  getMyPayments: () =>
+    request(`${API_BASE}/payments/mine`),
+
+  selfReportPayment: (payload) =>
+    request(`${API_BASE}/payments/self-report`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  /* ---------- Billing: admin — invoices ---------- */
+  getInvoices: (params = {}) =>
+    request(`${API_BASE}/invoices${qsOf(params)}`),
+
+  getInvoice: (id) =>
+    request(`${API_BASE}/invoices/${id}`),
+
+  generateInvoices: (month) =>
+    request(`${API_BASE}/invoices/generate`, {
+      method: "POST",
+      body: JSON.stringify({ month }),
+    }),
+
+  markInvoicesOverdue: () =>
+    request(`${API_BASE}/invoices/mark-overdue`, { method: "POST" }),
+
+  /* ---------- Billing: admin — payments ---------- */
+  getPayments: (params = {}) =>
+    request(`${API_BASE}/payments${qsOf(params)}`),
+
+  recordManualPayment: (payload) =>
+    request(`${API_BASE}/payments/manual`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  verifyPayment: (id) =>
+    request(`${API_BASE}/payments/${id}/verify`, { method: "POST" }),
+
+  rejectPayment: (id, reason) =>
+    request(`${API_BASE}/payments/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
+  /* ---------- House numbers (admin) ---------- */
+  getHouseNumberSummary: () =>
+    request(`${API_BASE}/house-numbers/summary`),
+
+  getHouseNumberResidents: (params = {}) =>
+    request(`${API_BASE}/house-numbers/residents${qsOf(params)}`),
+
+  getHouseNumberProposal: () =>
+    request(`${API_BASE}/house-numbers/proposal`),
+
+  setResidentHouseNumber: (id, houseNumber) =>
+    request(`${API_BASE}/house-numbers/residents/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ houseNumber }),
+    }),
+
+  bulkAssignHouseNumbers: (rows) =>
+    request(`${API_BASE}/house-numbers/bulk`, {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    }),
 };

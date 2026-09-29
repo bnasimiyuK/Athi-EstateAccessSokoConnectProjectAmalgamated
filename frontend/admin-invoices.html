@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Invoices — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="billing.html" data-nav="billing.html">My billing</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+          <a href="admin-house-numbers.html">House numbers</a>
+          <a href="admin-invoices.html">Invoices</a>
+          <a href="admin-payments.html">Payments</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>Monthly invoices</h1>
+      <p>
+        Generate invoices per household, track payments, and mark overdue units.
+        <br><small style="color:var(--ink-70);">
+          Fee: KSh 2,000 per household · Due by the 5th of each month.
+        </small>
+      </p>
+    </div>
+
+    <div class="admin-actions">
+      <input type="month" id="generate-month" class="input" style="min-width:160px;" />
+      <button id="btn-generate" class="btn btn--accent" type="button">⚙️ Generate for month</button>
+      <button id="btn-mark-overdue" class="btn btn--danger" type="button">⚠️ Mark overdue</button>
+    </div>
+  </div>
+
+  <section class="stat-section">
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-total">—</div>
+        <div class="stat-tile__label">Total invoices</div>
+      </div>
+      <div class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="tile-unpaid">—</div>
+        <div class="stat-tile__label">Unpaid / partial</div>
+      </div>
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-paid">—</div>
+        <div class="stat-tile__label">Paid</div>
+      </div>
+      <div class="stat-tile stat-tile--danger">
+        <div class="stat-tile__value" id="tile-overdue">—</div>
+        <div class="stat-tile__label">Overdue</div>
+      </div>
+    </div>
+  </section>
+
+  <form id="invoices-filter" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+    <input type="text" id="filter-month" class="input" placeholder="YYYY-MM (e.g. 2026-09)" style="min-width:170px;" />
+    <select id="filter-status" class="input">
+      <option value="">All statuses</option>
+      <option value="unpaid">Unpaid</option>
+      <option value="partial">Partial</option>
+      <option value="paid">Paid</option>
+      <option value="overdue">Overdue</option>
+    </select>
+    <input type="text" id="filter-q" class="input" placeholder="Search name, house # or phone…" style="min-width:240px;" />
+    <button type="submit" class="btn btn--accent">Filter</button>
+    <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
+  </form>
+
+  <div class="table-wrap" id="invoices-table-wrap">
+    <div class="empty-state">Loading invoices…</div>
+  </div>
+
+  <div id="invoices-pagination"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    Generation is idempotent — safe to re-run for the same month.
+  </div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin-invoices.js"></script>
+</body>
+</html>

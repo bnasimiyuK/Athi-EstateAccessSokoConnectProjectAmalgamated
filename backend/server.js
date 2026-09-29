@@ -23,6 +23,7 @@ const authRouter       = require("./routes/auth");
 const adminRouter      = require("./routes/admin");
 const invoicesRouter = require("./routes/invoices");
 const paymentsRouter = require("./routes/payments");
+const houseNumbersRouter = require("./routes/house-numbers");
 
 const app = express();
 const PORT = process.env.PORT || 4050;
@@ -67,6 +68,7 @@ app.use("/api/courts",     courtsRouter);
 app.use("/api/admin",      adminRouter);
 app.use("/api/invoices", invoicesRouter);
 app.use("/api/payments", paymentsRouter);
+app.use("/api/house-numbers", houseNumbersRouter);
 
 /* ---------- Static frontend ---------- */
 app.use(express.static(FRONTEND_DIR));

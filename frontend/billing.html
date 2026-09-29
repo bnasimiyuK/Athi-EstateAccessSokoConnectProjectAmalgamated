@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My billing — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="billing.html" data-nav="billing.html">My billing</a>
+      <a href="residents.html" data-nav="residents.html">Sign Up</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+          <a href="admin-house-numbers.html">House numbers</a>
+          <a href="admin-invoices.html">Invoices</a>
+          <a href="admin-payments.html">Payments</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>My billing</h1>
+      <p>Monthly service charge &amp; garbage collection. KSh 2,000 per household, due by the 5th.</p>
+    </div>
+    <div class="admin-actions">
+      <button id="btn-report-payment" class="btn btn--accent" type="button">💳 I have paid</button>
+    </div>
+  </div>
+
+  <section class="stat-section">
+    <h3 class="stat-section__title">My household</h3>
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="my-house">—</div>
+        <div class="stat-tile__label">House number</div>
+      </div>
+      <div class="stat-tile" id="my-status-tile">
+        <div class="stat-tile__value" id="my-status">—</div>
+        <div class="stat-tile__label">Billing status</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="my-balance">—</div>
+        <div class="stat-tile__label">Outstanding (KSh)</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stat-section">
+    <h3 class="stat-section__title">How to pay</h3>
+    <div class="alert-card" style="max-width:680px;">
+      <div class="alert-card__head">M-Pesa Paybill</div>
+      <div class="alert-card__body" style="font-size:0.95rem;line-height:1.8;">
+        <div><b>1.</b> M-Pesa → Lipa na M-Pesa → Pay Bill</div>
+        <div><b>2.</b> Business Number: <code id="pb-business">—</code></div>
+        <div><b>3.</b> Account Number: <code id="pb-account">—</code> <em>(your house number)</em></div>
+        <div><b>4.</b> Amount: <code id="pb-amount">—</code></div>
+        <div><b>5.</b> Name shown: <b id="pb-name">—</b> <em>(your estate's paybill account)</em></div>
+        <div style="margin-top:10px;color:var(--ink-70);font-size:0.9rem;">
+          After paying, click <b>"I have paid"</b> above and enter your M-Pesa receipt. Admin will verify.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stat-section">
+    <h3 class="stat-section__title">My invoices</h3>
+    <div class="table-wrap" id="my-invoices">
+      <div class="empty-state">Loading invoices…</div>
+    </div>
+  </section>
+
+  <section class="stat-section">
+    <h3 class="stat-section__title">My payments</h3>
+    <div class="table-wrap" id="my-payments">
+      <div class="empty-state">Loading payments…</div>
+    </div>
+  </section>
+</main>
+
+<!-- Self-report modal -->
+<div id="report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:#fff;max-width:460px;width:90%;padding:24px;border-radius:8px;">
+    <h2 style="margin-top:0;">Report your payment</h2>
+    <p style="color:var(--ink-70);font-size:0.9rem;margin-top:0;">
+      Enter the M-Pesa receipt from your confirmation SMS. Admin will verify.
+    </p>
+    <form id="report-form">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <label>Amount (KSh) *<input type="number" id="rp-amount" class="input" required min="1" step="1" value="2000" /></label>
+        <label>M-Pesa receipt *<input type="text" id="rp-receipt" class="input" required placeholder="e.g. RKT4XYZ123" /></label>
+        <label>Phone used<input type="text" id="rp-phone" class="input" placeholder="+254…" /></label>
+        <label>Payment date<input type="date" id="rp-date" class="input" /></label>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button type="button" class="btn btn--ghost" id="rp-cancel">Cancel</button>
+        <button type="submit" class="btn btn--accent" id="rp-submit">Submit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    Payments are verified by estate admin. Contact management if your payment is not reflected within 24 hours.
+  </div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/billing.js"></script>
+</body>
+</html>
