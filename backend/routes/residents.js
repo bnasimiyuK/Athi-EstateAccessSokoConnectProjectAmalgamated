@@ -3,6 +3,7 @@
    Residents reference a court; the court's phase is derived.
    Approval (verified: false → true) triggers a welcome email.
    + Paginated GET /
+   + house_number + access_blocked support
    ============================================================ */
 
 require("dotenv").config();
@@ -13,27 +14,28 @@ const { getPool } = require("../db");
 const { sendMail, residentApprovedEmail } = require("../utils/mailer");
 
 /* ------------------------------------------------------------
-   Helper: DB row → JSON (joins court info)
+   Helper: DB row → JSON
    ------------------------------------------------------------ */
 function residentToJson(row) {
   return {
-    id:          row.id,
-    fullName:    row.full_name,
-    phone:       row.phone,
-    email:       row.email || "",
-    courtId:     row.court_id,
-    courtName:   row.court_name,      // from JOIN
-    phase:       row.phase,           // from JOIN
-    verified:    !!row.verified,
-    createdAt:   row.created_at,
+    id:            row.id,
+    fullName:      row.full_name,
+    phone:         row.phone,
+    email:         row.email || "",
+    courtId:       row.court_id,
+    courtName:     row.court_name,
+    phase:         row.phase,
+    houseNumber:   row.house_number || null,
+    accessBlocked: !!row.access_blocked,
+    verified:      !!row.verified,
+    createdAt:     row.created_at,
   };
 }
 
 /* ------------------------------------------------------------
-   Helper: build the WHERE clause + bind inputs
-   Called twice (COUNT + DATA) since inputs belong to a request
+   Helper: build WHERE clause + bind inputs
    ------------------------------------------------------------ */
-function applyResidentFilters(request, { phase, courtId, q, verified }) {
+function applyResidentFilters(request, { phase, courtId, q, verified, houseNumber }) {
   const where = [];
 
   if (phase) {
@@ -44,8 +46,12 @@ function applyResidentFilters(request, { phase, courtId, q, verified }) {
     where.push("r.court_id = @courtId");
     request.input("courtId", parseInt(courtId, 10));
   }
+  if (houseNumber) {
+    where.push("r.house_number = @houseNumber");
+    request.input("houseNumber", String(houseNumber).trim());
+  }
   if (q && q.trim()) {
-    where.push("(r.full_name LIKE @q OR r.phone LIKE @q)");
+    where.push("(r.full_name LIKE @q OR r.phone LIKE @q OR r.house_number LIKE @q)");
     request.input("q", `%${q.trim()}%`);
   }
   if (verified === "true" || verified === "false") {
@@ -57,17 +63,14 @@ function applyResidentFilters(request, { phase, courtId, q, verified }) {
 }
 
 /* ------------------------------------------------------------
-   GET /api/residents?phase=&courtId=&q=&verified=&page=&limit=
-
-   - If ?page present  → { data, total, page, limit, totalPages }
-   - Otherwise         → plain array (legacy)
+   GET /api/residents?phase=&courtId=&q=&verified=&houseNumber=&page=&limit=
    ------------------------------------------------------------ */
 router.get("/", async (req, res, next) => {
   try {
     const pool = await getPool();
-    const { phase, courtId, q, verified, page, limit } = req.query;
+    const { phase, courtId, q, verified, houseNumber, page, limit } = req.query;
 
-    const filters = { phase, courtId, q, verified };
+    const filters = { phase, courtId, q, verified, houseNumber };
 
     const baseSelect = `
       SELECT r.*, c.name AS court_name, c.phase
@@ -77,15 +80,12 @@ router.get("/", async (req, res, next) => {
 
     const orderBy = "ORDER BY c.phase ASC, c.name ASC, r.full_name ASC";
 
-    /* ============================================================
-       PAGINATED MODE
-       ============================================================ */
+    /* ---------- PAGINATED ---------- */
     if (page !== undefined) {
       const pageNum  = Math.max(1, parseInt(page, 10) || 1);
       const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
       const offset   = (pageNum - 1) * limitNum;
 
-      // ---------- COUNT ----------
       const countReq = pool.request();
       const whereClause = applyResidentFilters(countReq, filters);
 
@@ -97,7 +97,6 @@ router.get("/", async (req, res, next) => {
       `);
       const total = countRes.recordset[0].total || 0;
 
-      // ---------- DATA ----------
       const dataReq = pool.request();
       applyResidentFilters(dataReq, filters);
       dataReq.input("offset", offset);
@@ -120,9 +119,7 @@ router.get("/", async (req, res, next) => {
       });
     }
 
-    /* ============================================================
-       LEGACY MODE (plain array)
-       ============================================================ */
+    /* ---------- LEGACY (plain array) ---------- */
     const request = pool.request();
     const whereClause = applyResidentFilters(request, filters);
 
@@ -184,7 +181,6 @@ router.post("/", async (req, res, next) => {
 
     const pool = await getPool();
 
-    // Verify court exists
     const court = await pool.request()
       .input("courtId", courtIdInt)
       .query("SELECT id FROM Courts WHERE id = @courtId");
@@ -192,7 +188,6 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ error: "Court not found." });
     }
 
-    // Check phone uniqueness
     const existing = await pool.request()
       .input("phone", phone.trim())
       .query("SELECT id FROM Residents WHERE phone = @phone");
@@ -211,7 +206,6 @@ router.post("/", async (req, res, next) => {
         VALUES (@fullName, @phone, @email, @courtId, 0)
       `);
 
-    // Re-fetch with court info for consistent response shape
     const full = await pool.request()
       .input("id", inserted.recordset[0].id)
       .query(`
@@ -229,8 +223,9 @@ router.post("/", async (req, res, next) => {
 
 /* ------------------------------------------------------------
    PATCH /api/residents/:id
-   Body: { fullName, phone, email, courtId, verified }
-   When verified flips to true, sends a welcome email.
+   Body: { fullName, phone, email, courtId, verified, houseNumber, accessBlocked }
+   When verified flips true → welcome email.
+   When houseNumber is set → uniqueness enforced by DB index.
    ------------------------------------------------------------ */
 router.patch("/:id", async (req, res, next) => {
   try {
@@ -238,11 +233,13 @@ router.patch("/:id", async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
 
     const map = {
-      fullName: "full_name",
-      phone:    "phone",
-      email:    "email",
-      courtId:  "court_id",
-      verified: "verified",
+      fullName:      "full_name",
+      phone:         "phone",
+      email:         "email",
+      courtId:       "court_id",
+      verified:      "verified",
+      houseNumber:   "house_number",
+      accessBlocked: "access_blocked",
     };
 
     const pool = await getPool();
@@ -252,8 +249,10 @@ router.patch("/:id", async (req, res, next) => {
     for (const [key, col] of Object.entries(map)) {
       if (req.body[key] !== undefined) {
         let val = req.body[key];
-        if (col === "court_id") val = parseInt(val, 10);
-        if (col === "verified") val = val ? 1 : 0;
+        if (col === "court_id")       val = parseInt(val, 10);
+        if (col === "verified")       val = val ? 1 : 0;
+        if (col === "access_blocked") val = val ? 1 : 0;
+        if (col === "house_number")   val = val ? String(val).trim() : null;
         request.input(col, val);
         sets.push(`${col} = @${col}`);
       }
@@ -263,7 +262,6 @@ router.patch("/:id", async (req, res, next) => {
       return res.status(400).json({ error: "No updatable fields provided" });
     }
 
-    // Fetch the resident BEFORE update so we can compare old verified state
     const before = await pool.request()
       .input("id", id)
       .query("SELECT * FROM Residents WHERE id = @id");
@@ -272,12 +270,20 @@ router.patch("/:id", async (req, res, next) => {
     }
     const wasVerified = !!before.recordset[0].verified;
 
-    // Perform the update
-    const updated = await request.query(`
-      UPDATE Residents SET ${sets.join(", ")}
-      OUTPUT INSERTED.*
-      WHERE id = @id
-    `);
+    let updated;
+    try {
+      updated = await request.query(`
+        UPDATE Residents SET ${sets.join(", ")}
+        OUTPUT INSERTED.*
+        WHERE id = @id
+      `);
+    } catch (err) {
+      // Catch unique-index violation on house_number
+      if (err.number === 2601 || err.number === 2627) {
+        return res.status(409).json({ error: "That house number is already assigned to another resident." });
+      }
+      throw err;
+    }
 
     if (!updated.recordset.length) {
       return res.status(404).json({ error: "Resident not found" });
@@ -286,9 +292,7 @@ router.patch("/:id", async (req, res, next) => {
     const updatedRow = updated.recordset[0];
     const isNowVerified = !!updatedRow.verified;
 
-    /* ------------------------------------------------------------
-       If verified just flipped from false → true, send welcome email
-       ------------------------------------------------------------ */
+    /* ---------- Welcome email on approval ---------- */
     if (!wasVerified && isNowVerified) {
       try {
         if (updatedRow.email) {
@@ -309,12 +313,10 @@ router.patch("/:id", async (req, res, next) => {
           console.log(`[residents] ⚠️  No email on file for resident ${updatedRow.id} — email skipped.`);
         }
       } catch (mailErr) {
-        // Do not fail the approval if the email fails
         console.error("[residents] ❌ Approval email failed:", mailErr.message);
       }
     }
 
-    // Re-fetch with court info
     const full = await pool.request()
       .input("id", id)
       .query(`

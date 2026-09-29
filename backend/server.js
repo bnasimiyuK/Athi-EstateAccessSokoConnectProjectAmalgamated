@@ -1,5 +1,5 @@
 /* ============================================================
-   server.js — Athi Soko Connect backend
+   server.js — AthiEstateAccessSokoConnectProjectAmalgamated backend
    Serves the REST API under /api/* and the static frontend
    (../frontend) on every other path. Run with: node server.js
    ============================================================ */
@@ -21,6 +21,8 @@ const residentsRouter  = require("./routes/residents");
 const courtsRouter     = require("./routes/courts");
 const authRouter       = require("./routes/auth");
 const adminRouter      = require("./routes/admin");
+const invoicesRouter = require("./routes/invoices");
+const paymentsRouter = require("./routes/payments");
 
 const app = express();
 const PORT = process.env.PORT || 4050;
@@ -63,6 +65,8 @@ app.use("/api/reports",    reportsRouter);
 app.use("/api/residents",  residentsRouter);
 app.use("/api/courts",     courtsRouter);
 app.use("/api/admin",      adminRouter);
+app.use("/api/invoices", invoicesRouter);
+app.use("/api/payments", paymentsRouter);
 
 /* ---------- Static frontend ---------- */
 app.use(express.static(FRONTEND_DIR));

@@ -1,5 +1,7 @@
 /* ============================================================
    db.js — SQL Server connection pool (shared across all routes)
+   Works for both local SQL Server AND Azure SQL Database.
+   Toggle encryption via env vars.
    ============================================================ */
 
 require("dotenv").config();
@@ -10,8 +12,8 @@ const dbConfig = {
   port:     parseInt(process.env.DB_PORT || "1433", 10),
   database: process.env.DB_NAME,
   options: {
-    encrypt: false,
-    trustServerCertificate: true,
+    encrypt:                process.env.DB_ENCRYPT === "true",
+    trustServerCertificate: process.env.DB_TRUST_SERVER_CERT !== "false",
   },
   pool: {
     max: 10,

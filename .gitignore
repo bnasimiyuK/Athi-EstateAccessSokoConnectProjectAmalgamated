@@ -19,3 +19,10 @@ build/
 
 *.pem
 *.key
+# ---- SQL backups ----
+*.bak
+*.mdf
+*.ldf
+
+# ---- Office lock files ----
+~$*
