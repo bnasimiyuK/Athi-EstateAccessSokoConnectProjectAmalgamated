@@ -1448,3 +1448,51 @@ main.container:has(.register-container) {
     font-size: 1.4rem;
   }
 }
+/* ============================================================
+   FINAL HEADER FIX - appended last, wins the cascade
+   Desktop/tablet only (>= 641px). Mobile keeps its own styles.
+   ============================================================ */
+@media (min-width: 641px) {
+  .site-header .container {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    height: 72px !important;
+    gap: 20px !important;
+  }
+
+  .site-header .logo {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  nav.main-nav {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    margin-left: auto !important;
+    gap: 18px !important;
+  }
+
+  nav.main-nav > a,
+  nav.main-nav .nav-dropdown > a {
+    white-space: nowrap !important;
+    font-size: 0.88rem !important;
+  }
+
+  nav.main-nav .nav-dropdown {
+    flex-shrink: 0 !important;
+    position: relative;
+  }
+
+  .auth-slot {
+    display: flex !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+    gap: 10px !important;
+    white-space: nowrap !important;
+    font-size: 0.85rem;
+    color: var(--ink-70);
+  }
+}
