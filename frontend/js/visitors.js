@@ -2,13 +2,16 @@
    visitors.js — resident pre-registration page
    - Submit single or group visit
    - Add vehicles per visitor
-   - List own visits with status
+   - List own visits with status + pagination
    - Cancel before check-in
    - View access code once approved
    ============================================================ */
 
 let VISITOR_TEMPLATE_COUNT = 0;
 let CONFIG = { minLeadHours: 48, codeValidHours: 24, maxLookaheadDays: 30 };
+
+const VV_PER_PAGE = 10;
+const vvState = { page: 1, limit: VV_PER_PAGE, total: 0, totalPages: 1, rows: [] };
 
 /* ------------------------------------------------------------
    Escape helper
@@ -146,8 +149,6 @@ function collectForm() {
 function validateForm(data) {
   if (!data.visitDate) return "Please choose a visit date.";
 
-  /* Enforce the 48h minimum client-side too, using expectedTime when given.
-     Falls back to end-of-day if only a date is chosen. */
   const visit = new Date(
     data.expectedTime
       ? `${data.visitDate}T${data.expectedTime}`
@@ -178,9 +179,10 @@ async function submitVisit(e) {
 
   btn.disabled = true; btn.textContent = "Submitting…";
   try {
-    const r = await Api.createVisitorGroup(data);
+    await Api.createVisitorGroup(data);
     toast("✅ Submitted for admin approval.");
     closeVisitModal();
+    vvState.page = 1;
     await loadVisits();
   } catch (e2) {
     toast(e2.message || "Could not submit.");
@@ -190,7 +192,7 @@ async function submitVisit(e) {
 }
 
 /* ------------------------------------------------------------
-   List visits
+   List visits — paginated
    ------------------------------------------------------------ */
 async function loadVisits() {
   const wrap = document.getElementById("visits-wrap");
@@ -204,10 +206,19 @@ async function loadVisits() {
     return;
   }
 
+  vvState.rows       = rows;
+  vvState.total      = rows.length;
+  vvState.totalPages = Math.max(1, Math.ceil(rows.length / vvState.limit));
+  if (vvState.page > vvState.totalPages) vvState.page = vvState.totalPages;
+
   if (!rows.length) {
     wrap.innerHTML = `<div class="empty-state">You have not pre-registered any visitors yet.</div>`;
+    renderVVSPagination();
     return;
   }
+
+  const startIdx = (vvState.page - 1) * vvState.limit;
+  const slice    = rows.slice(startIdx, startIdx + vvState.limit);
 
   wrap.innerHTML = `
     <table>
@@ -223,7 +234,7 @@ async function loadVisits() {
         </tr>
       </thead>
       <tbody>
-        ${rows.map((g) => `
+        ${slice.map((g) => `
           <tr data-id="${g.id}">
             <td>${escapeHtml(fmtDate(g.visit_date))}</td>
             <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
@@ -247,6 +258,42 @@ async function loadVisits() {
   wrap.querySelectorAll("[data-cancel]").forEach((b) =>
     b.addEventListener("click", () => cancelVisit(b.dataset.cancel))
   );
+
+  renderVVSPagination();
+}
+
+/* ------------------------------------------------------------
+   Resident page — pagination controls
+   ------------------------------------------------------------ */
+function renderVVSPagination() {
+  const el = document.getElementById("visits-pagination");
+  if (!el) return;
+  const { page, limit, total, totalPages } = vvState;
+  if (total <= limit) { el.innerHTML = ""; return; }
+
+  const startRow = (page - 1) * limit + 1;
+  const endRow   = Math.min(page * limit, total);
+
+  el.innerHTML = `
+    <div class="pagination" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;border-top:1px solid var(--line);">
+      <div style="font-size:0.9rem;color:var(--ink-70);">
+        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn--ghost btn--small" data-vvs-page="prev" ${page <= 1 ? "disabled" : ""}>« Prev</button>
+        <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">Page <b>${page}</b> of <b>${totalPages}</b></span>
+        <button class="btn btn--ghost btn--small" data-vvs-page="next" ${page >= totalPages ? "disabled" : ""}>Next »</button>
+      </div>
+    </div>
+  `;
+
+  el.querySelectorAll("[data-vvs-page]").forEach((b) => {
+    b.addEventListener("click", () => {
+      if (b.dataset.vvsPage === "prev" && vvState.page > 1) vvState.page--;
+      if (b.dataset.vvsPage === "next" && vvState.page < vvState.totalPages) vvState.page++;
+      loadVisits();
+    });
+  });
 }
 
 function canCancel(status) {
@@ -266,7 +313,7 @@ async function cancelVisit(id) {
 }
 
 /* ------------------------------------------------------------
-   Show details modal
+   Show details modal — now uses expected_time_hhmm
    ------------------------------------------------------------ */
 async function showDetails(id) {
   const body = document.getElementById("details-body");
@@ -324,7 +371,6 @@ function openVisitModal() {
   VISITOR_TEMPLATE_COUNT = 0;
   addVisitorBlock();
 
-  /* Default visit date = today + 48h rounded to next day */
   const min = new Date(Date.now() + CONFIG.minLeadHours * 3600e3);
   const minStr = min.toISOString().slice(0, 10);
   const dateInput = document.getElementById("vf-date");
@@ -344,13 +390,11 @@ function closeVisitModal() {
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof requireRole === "function" && !requireRole("resident")) return;
 
-  /* Load config */
   try {
     const cfg = await Api.getVisitorConfig();
     CONFIG = { ...CONFIG, ...cfg };
   } catch { /* use defaults */ }
 
-  /* Init modal */
   document.getElementById("btn-new-visit").addEventListener("click", openVisitModal);
   document.getElementById("vf-cancel").addEventListener("click", closeVisitModal);
   document.getElementById("btn-add-visitor").addEventListener("click", () => addVisitorBlock());
