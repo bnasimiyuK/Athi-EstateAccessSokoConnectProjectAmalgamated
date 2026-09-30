@@ -74,15 +74,8 @@ const Api = {
 
   /* ---------- Admin ---------- */
   getAdminStats: () => request(`${API_BASE}/admin/stats`),
-
-  /* ---------- Admin: dashboard + exports ---------- */
   getAdminDashboard: () => request(`${API_BASE}/admin/dashboard`),
 
-  /**
-   * Download the admin dashboard report as a binary file.
-   * @param {"xlsx"|"pdf"} kind
-   * @returns {Promise<Blob>}
-   */
   downloadAdminReport: async (kind) => {
     const token = typeof getToken === "function" ? getToken() : null;
     if (!token) throw new Error("Not logged in.");
@@ -94,9 +87,7 @@ const Api = {
     if (res.status === 401 || res.status === 403) {
       throw new Error("Session expired. Please log in again.");
     }
-    if (!res.ok) {
-      throw new Error(`Export failed (${res.status})`);
-    }
+    if (!res.ok) throw new Error(`Export failed (${res.status})`);
     return res.blob();
   },
 
@@ -110,26 +101,20 @@ const Api = {
     request(`${API_BASE}/providers/${id}`),
   registerProvider: (data) =>
     request(`${API_BASE}/providers`, { method: "POST", body: JSON.stringify(data) }),
-
   updateProvider: (id, patch) =>
     request(`${API_BASE}/providers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
-
   removeProvider: (id) =>
     request(`${API_BASE}/providers/${id}`, { method: "DELETE" }),
 
   /* ---------- Reviews ---------- */
   getReviews: (providerId) =>
     request(`${API_BASE}/reviews/provider/${providerId}`),
-
   getAllReviews: (params = {}) =>
     request(`${API_BASE}/reviews${qsOf(params)}`),
-
   addReview: (review) =>
     request(`${API_BASE}/reviews`, { method: "POST", body: JSON.stringify(review) }),
-
   deleteReview: (id) =>
     request(`${API_BASE}/reviews/${id}`, { method: "DELETE" }),
-
   updateReview: (id, patch) =>
     request(`${API_BASE}/reviews/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
@@ -150,7 +135,6 @@ const Api = {
     request(`${API_BASE}/reports/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   /* ---------- Courts ---------- */
-  // Court records carry a `phase` field (1 or 2)
   getCourts: (params = {}) =>
     request(`${API_BASE}/courts${qsOf(params)}`),
   addCourt: (data) =>
@@ -168,15 +152,7 @@ const Api = {
   removeResident: (id) =>
     request(`${API_BASE}/residents/${id}`, { method: "DELETE" }),
 
-  /* ---------- Admin: approved residents export ---------- */
-  /**
-   * Download approved residents as XLSX or PDF.
-   * Uses the same filters as the on-screen list.
-   *
-   * @param {"xlsx"|"pdf"} kind
-   * @param {Object} params   e.g. { search, phase, courtId }
-   * @returns {Promise<Blob>}
-   */
+  /* ---------- Admin exports ---------- */
   downloadResidentsReport: async (kind, params = {}) => {
     const token = typeof getToken === "function" ? getToken() : null;
     if (!token) throw new Error("Not logged in.");
@@ -197,20 +173,10 @@ const Api = {
     if (res.status === 401 || res.status === 403) {
       throw new Error("Session expired. Please log in again.");
     }
-    if (!res.ok) {
-      throw new Error(`Export failed (${res.status})`);
-    }
+    if (!res.ok) throw new Error(`Export failed (${res.status})`);
     return res.blob();
   },
 
-  /**
-   * Download the providers report as XLSX or PDF.
-   * Uses the same filters as the on-screen list.
-   *
-   * @param {"xlsx"|"pdf"} kind
-   * @param {Object} params   e.g. { verified, phase, courtId, q }
-   * @returns {Promise<Blob>}
-   */
   downloadProvidersReport: async (kind, params = {}) => {
     const token = typeof getToken === "function" ? getToken() : null;
     if (!token) throw new Error("Not logged in.");
@@ -231,21 +197,16 @@ const Api = {
     if (res.status === 401 || res.status === 403) {
       throw new Error("Session expired. Please log in again.");
     }
-    if (!res.ok) {
-      throw new Error(`Export failed (${res.status})`);
-    }
+    if (!res.ok) throw new Error(`Export failed (${res.status})`);
     return res.blob();
   },
 
   /* ============================================================
      BILLING
      ============================================================ */
-
-  /* ---------- Billing: shared ---------- */
   getBillingSettings: () =>
     request(`${API_BASE}/invoices/settings`),
 
-  /* ---------- Billing: resident self-service ---------- */
   getMyInvoices: () =>
     request(`${API_BASE}/invoices/mine`),
 
@@ -258,7 +219,6 @@ const Api = {
       body: JSON.stringify(payload),
     }),
 
-  /* ---------- Billing: admin — invoices ---------- */
   getInvoices: (params = {}) =>
     request(`${API_BASE}/invoices${qsOf(params)}`),
 
@@ -274,7 +234,6 @@ const Api = {
   markInvoicesOverdue: () =>
     request(`${API_BASE}/invoices/mark-overdue`, { method: "POST" }),
 
-  /* ---------- Billing: admin — payments ---------- */
   getPayments: (params = {}) =>
     request(`${API_BASE}/payments${qsOf(params)}`),
 
@@ -293,7 +252,9 @@ const Api = {
       body: JSON.stringify({ reason }),
     }),
 
-  /* ---------- House numbers (admin) ---------- */
+  /* ============================================================
+     HOUSE NUMBERS
+     ============================================================ */
   getHouseNumberSummary: () =>
     request(`${API_BASE}/house-numbers/summary`),
 
@@ -313,7 +274,11 @@ const Api = {
     request(`${API_BASE}/house-numbers/bulk`, {
       method: "POST",
       body: JSON.stringify({ rows }),
-        /* ---------- Visitors ---------- */
+    }),
+
+  /* ============================================================
+     VISITORS — resident
+     ============================================================ */
   getVisitorConfig: () =>
     request(`${API_BASE}/visitors/config`),
 
@@ -331,12 +296,15 @@ const Api = {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
-      /* ---------- Visitors (admin + security) ---------- */
-  getVisitorPendingSecurity: () =>
-    request(`${API_BASE}/visitors/pending-security`),
 
+  /* ============================================================
+     VISITORS — admin + security
+     ============================================================ */
   getVisitorPendingAdmin: () =>
     request(`${API_BASE}/visitors/pending-admin`),
+
+  getVisitorPendingSecurity: () =>
+    request(`${API_BASE}/visitors/pending-security`),
 
   getVisitorGroups: (params = {}) =>
     request(`${API_BASE}/visitors${qsOf(params)}`),
@@ -373,5 +341,4 @@ const Api = {
 
   getVisitorAnalytics: (params = {}) =>
     request(`${API_BASE}/visitors/analytics${qsOf(params)}`),
-    }),
 };
