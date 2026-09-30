@@ -919,5 +919,43 @@ router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res,
     res.json({ ok: true, expired: r.recordset.length });
   } catch (err) { next(err); }
 });
+/* ------------------------------------------------------------
+   GET /api/visitors/:id — single group with visitors + vehicles
+   ------------------------------------------------------------ */
+router.get("/:id", requireAuth, requireRole("admin", "security", "resident"), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
 
+    const pool = await getPool();
+    const g = await pool.request().input("id", id)
+      .query(`
+        SELECT g.*, r.full_name AS resident_name, r.phone AS resident_phone, r.email AS resident_email
+        FROM visitor_groups g
+        JOIN Residents r ON r.id = g.resident_id
+        WHERE g.id = @id
+      `);
+    if (!g.recordset.length) return res.status(404).json({ error: "Not found." });
+
+    const grp = g.recordset[0];
+    if (req.user.role === "resident" && grp.resident_id !== req.user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const vs = await pool.request().input("gid", id)
+      .query(`
+        SELECT v.*,
+               (SELECT vehicle_type AS [type], plate_number AS [plate], driver_name AS [driver]
+                FROM visitor_vehicles WHERE visitor_id = v.id FOR JSON PATH) AS vehicles_json
+        FROM visitors v
+        WHERE v.group_id = @gid
+      `);
+    const visitors = vs.recordset.map((v) => ({
+      ...v,
+      vehicles: v.vehicles_json ? JSON.parse(v.vehicles_json) : [],
+    }));
+
+    res.json({ ...grp, visitors });
+  } catch (err) { next(err); }
+});
 module.exports = router;
