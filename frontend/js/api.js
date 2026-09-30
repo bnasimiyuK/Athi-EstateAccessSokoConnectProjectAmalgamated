@@ -27,9 +27,27 @@ const API_BASE = (() => {
   // (capacitor://localhost on iOS, http://localhost on Android)
   // In this case, window.location.hostname is "localhost" but we're on a device,
   // so we must use the LAN_IP.
-  if (protocol === "capacitor:" || protocol === "ionic:") {
+    // Capacitor on Android (v3+) serves the app from https://localhost.
+  // Detect: we're loaded over HTTPS on "localhost" → we're in the app.
+  if (
+    protocol === "capacitor:" ||
+    protocol === "ionic:" ||
+    (protocol === "https:" && host === "localhost")
+  ) {
     return `http://${LAN_IP}:${BACKEND_PORT}/api`;
   }
+
+  // Browser on PC → use localhost
+  if (host === "localhost" || host === "127.0.0.1") {
+    return `http://localhost:${BACKEND_PORT}/api`;
+  }
+
+  // Browser on LAN IP → use the same host
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    return `http://${host}:${BACKEND_PORT}/api`;
+  }
+
+  return `http://${LAN_IP}:${BACKEND_PORT}/api`;
 
   // Browser running at localhost — use localhost backend
   if (host === "localhost" || host === "127.0.0.1") {

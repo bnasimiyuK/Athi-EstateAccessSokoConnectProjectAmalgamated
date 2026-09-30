@@ -81,7 +81,7 @@ app.use("/api", (req, res) => {
   res.status(404).json({ error: `No API route for ${req.method} ${req.originalUrl}` });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Athi Soko Connect backend running at http://localhost:${PORT}`);
   console.log(`Serving frontend from ${FRONTEND_DIR}`);
 });
