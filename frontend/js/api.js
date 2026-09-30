@@ -1,9 +1,52 @@
 /* ============================================================
    api.js — thin fetch wrapper around the backend REST API.
    Now attaches the JWT (from auth.js) to every request.
+
+   API base URL is resolved dynamically:
+     - Browser running at localhost         → http://localhost:4050/api
+     - Browser running at LAN IP (192.168..) → http://<same-host>:4050/api
+     - Capacitor mobile app (capacitor://)   → falls back to LAN IP
+
+   🔧 TO CHANGE THE LAN IP, EDIT THE `LAN_IP` CONSTANT BELOW.
    ============================================================ */
 
-const API_BASE = "http://localhost:4050/api";
+/* ------------------------------------------------------------
+   SETTINGS — edit these two values if your network changes
+   ------------------------------------------------------------ */
+const BACKEND_PORT = 4050;
+const LAN_IP       = "192.168.100.5";   // ← your PC's LAN IP
+
+/* ------------------------------------------------------------
+   Resolve API base at runtime
+   ------------------------------------------------------------ */
+const API_BASE = (() => {
+  const protocol = window.location.protocol;
+  const host     = window.location.hostname;
+
+  // Capacitor mobile app — runs inside a WebView with a special protocol
+  // (capacitor://localhost on iOS, http://localhost on Android)
+  // In this case, window.location.hostname is "localhost" but we're on a device,
+  // so we must use the LAN_IP.
+  if (protocol === "capacitor:" || protocol === "ionic:") {
+    return `http://${LAN_IP}:${BACKEND_PORT}/api`;
+  }
+
+  // Browser running at localhost — use localhost backend
+  if (host === "localhost" || host === "127.0.0.1") {
+    return `http://localhost:${BACKEND_PORT}/api`;
+  }
+
+  // Browser running at a LAN IP — use the same host with backend port
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    return `http://${host}:${BACKEND_PORT}/api`;
+  }
+
+  // Fallback (unknown host) — use LAN IP
+  return `http://${LAN_IP}:${BACKEND_PORT}/api`;
+})();
+
+// Log it once for debugging
+console.log("[api] API_BASE resolved to:", API_BASE);
 
 /* ------------------------------------------------------------
    Core request helper — attaches Bearer token if present
