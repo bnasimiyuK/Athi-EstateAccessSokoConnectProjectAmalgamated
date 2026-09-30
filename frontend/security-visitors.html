@@ -16,8 +16,14 @@
       <a href="index.html" data-nav="index.html">Discover</a>
       <a href="billing.html" data-nav="billing.html">My billing</a>
       <a href="visitors.html" data-nav="visitors.html">My visitors</a>
-      <span id="user-greeting" style="margin-left:auto;color:var(--ink-70);font-size:0.9rem;"></span>
-      <button onclick="logout()" class="btn btn--ghost btn--small">Logout</button>
+
+      <div class="nav-dropdown">
+        <a href="#">Security ▾</a>
+        <div class="dropdown-menu">
+          <a href="security-visitors.html">Visitor control</a>
+          <a href="admin-visitor-analytics.html">Visitor analytics</a>
+        </div>
+      </div>
     </nav>
   </div>
 </header>
@@ -51,30 +57,20 @@
     </div>
   </section>
 
-  <!-- Tabs -->
   <div class="tab-row">
     <button class="tab-btn is-active" data-tab="approvals">
       Pending approval <span id="count-approvals"></span>
     </button>
-    <button class="tab-btn" data-tab="today">
-      Today's visitors
-    </button>
-    <button class="tab-btn" data-tab="checkin">
-      Check in / out
-    </button>
-    <a class="tab-btn" href="admin-visitor-analytics.html">
-      Analytics →
-    </a>
+    <button class="tab-btn" data-tab="today">Today's visitors</button>
+    <button class="tab-btn" data-tab="checkin">Check in / out</button>
   </div>
 
-  <!-- Tab: Approvals -->
   <div class="tab-panel is-active" id="tab-approvals">
     <div id="approvals-list">
       <div class="empty-state">Loading…</div>
     </div>
   </div>
 
-  <!-- Tab: Today -->
   <div class="tab-panel" id="tab-today">
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
       <input type="date" id="today-date" class="input" style="min-width:180px;" />
@@ -87,7 +83,6 @@
     </div>
   </div>
 
-  <!-- Tab: Check in / out -->
   <div class="tab-panel" id="tab-checkin">
     <div class="alert-card" style="max-width:640px;">
       <div class="alert-card__head">Find a visit to check in / out</div>
