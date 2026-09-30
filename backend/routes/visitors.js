@@ -3,6 +3,7 @@
    2-stage approval: Admin → Security
    Code generated only after both approve.
    Email delivery to visitor + resident.
+   + Bulk approval (max 200 per call, batched emails).
    ============================================================ */
 
 const express = require("express");
@@ -14,9 +15,10 @@ const { sendMail } = require("../utils/mailer");
 /* ------------------------------------------------------------
    Constants
    ------------------------------------------------------------ */
-const MIN_LEAD_HOURS   = 48;   // must pre-register at least 48h ahead
-const CODE_VALID_HOURS = 24;   // code expires 24h after generation
-const MAX_LOOKAHEAD_DAYS = 30; // no more than 30 days ahead
+const MIN_LEAD_HOURS   = 48;
+const CODE_VALID_HOURS = 24;
+const MAX_LOOKAHEAD_DAYS = 30;
+const BULK_MAX         = 200;
 
 /* ------------------------------------------------------------
    Helpers
@@ -53,7 +55,6 @@ async function logEvent(pool, groupId, eventType, actorId, actorRole, notes = nu
     `);
 }
 
-/* Recompute visitor_group_summary row from events */
 async function updateSummary(pool, groupId) {
   await pool.request()
     .input("g", groupId)
@@ -110,7 +111,160 @@ async function updateSummary(pool, groupId) {
 }
 
 /* ------------------------------------------------------------
-   GET /api/visitors/config — public config for the form
+   Bulk helpers
+   ------------------------------------------------------------ */
+
+/* Send emails in batches of `batchSize` with `delayMs` between batches */
+async function sendBatch(emails, batchSize = 25, delayMs = 1000) {
+  const results = { sent: 0, failed: 0, failures: [] };
+
+  for (let i = 0; i < emails.length; i += batchSize) {
+    const batch = emails.slice(i, i + batchSize);
+
+    await Promise.all(batch.map(async (e) => {
+      try {
+        await sendMail({ to: e.to, subject: e.subject, text: e.text });
+        results.sent++;
+      } catch (err) {
+        results.failed++;
+        results.failures.push({ to: e.to, subject: e.subject, error: err.message });
+      }
+    }));
+
+    if (i + batchSize < emails.length) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  return results;
+}
+
+/* Approve one group at admin stage. Never throws. */
+async function approveAdminSingle(pool, groupId, adminId) {
+  try {
+    const g = await pool.request().input("id", groupId)
+      .query("SELECT status FROM visitor_groups WHERE id = @id");
+    if (!g.recordset.length) return { ok: false, error: "Not found" };
+    if (g.recordset[0].status !== "pending_admin") {
+      return { ok: false, error: `Status is ${g.recordset[0].status}, not pending_admin` };
+    }
+
+    await pool.request()
+      .input("id", groupId)
+      .input("by", adminId)
+      .query(`
+        UPDATE visitor_groups
+        SET status = 'pending_security',
+            admin_approved_by = @by,
+            admin_approved_at = SYSUTCDATETIME(),
+            updated_at = SYSUTCDATETIME()
+        WHERE id = @id
+      `);
+
+    await logEvent(pool, groupId, "approved_admin", adminId, "admin");
+    await updateSummary(pool, groupId);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/* Approve one group at security stage. Generates code, queues emails. */
+async function approveSecuritySingle(pool, groupId, securityId) {
+  try {
+    const g = await pool.request().input("id", groupId)
+      .query(`
+        SELECT g.*,
+               CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
+               r.full_name AS resident_name,
+               r.phone     AS resident_phone,
+               r.email     AS resident_email
+        FROM visitor_groups g
+        JOIN Residents r ON r.id = g.resident_id
+        WHERE g.id = @id
+      `);
+    if (!g.recordset.length) return { ok: false, error: "Not found" };
+    const row = g.recordset[0];
+    if (row.status !== "pending_security") {
+      return { ok: false, error: `Status is ${row.status}, not pending_security` };
+    }
+
+    const code = await generateUniqueCode(pool);
+    const expiresAt = new Date(Date.now() + CODE_VALID_HOURS * 3600e3);
+
+    await pool.request()
+      .input("id", groupId)
+      .input("by", securityId)
+      .input("c",  code)
+      .input("e",  expiresAt)
+      .query(`
+        UPDATE visitor_groups
+        SET status = 'approved',
+            security_approved_by = @by,
+            security_approved_at = SYSUTCDATETIME(),
+            access_code = @c,
+            code_generated_at = SYSUTCDATETIME(),
+            expires_at = @e,
+            updated_at = SYSUTCDATETIME()
+        WHERE id = @id
+      `);
+
+    await logEvent(pool, groupId, "approved_security", securityId, "security");
+    await logEvent(pool, groupId, "code_generated", null, "system", code);
+    await updateSummary(pool, groupId);
+
+    const vs = await pool.request().input("g", groupId)
+      .query("SELECT id, name, phone, email FROM visitors WHERE group_id = @g");
+
+    const emails = [];
+
+    for (const v of vs.recordset) {
+      if (v.email) {
+        emails.push({
+          to: v.email,
+          subject: `Your visit code for ${row.house_number} on ${fmtDate(row.visit_date)}`,
+          text:
+`Hello ${v.name},
+
+You have been pre-registered by the resident of ${row.house_number} to visit
+Athi Estate Access on ${fmtDate(row.visit_date)}${row.expected_time_hhmm ? " at " + row.expected_time_hhmm : ""}.
+
+Your access code is: ${code}
+
+Show this code at the gate. The code is valid until ${fmtDate(expiresAt)}.
+
+— Athi Estate Management`,
+        });
+      }
+    }
+
+    if (row.resident_email) {
+      emails.push({
+        to: row.resident_email,
+        subject: `Visitor approved — code ${code} for ${fmtDate(row.visit_date)}`,
+        text:
+`Hi ${row.resident_name},
+
+Your visitor pre-registration was approved by security.
+
+Access code: ${code}
+Visit date:  ${fmtDate(row.visit_date)}${row.expected_time_hhmm ? " at " + row.expected_time_hhmm : ""}
+Visitors:    ${vs.recordset.map((v) => v.name).join(", ")}
+
+The visitor has been emailed the code. If they lose it, share this email with them.
+
+— Athi Estate Management`,
+      });
+    }
+
+    return { ok: true, code, expiresAt, emails, groupId };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/* ------------------------------------------------------------
+   GET /api/visitors/config — public config
    ------------------------------------------------------------ */
 router.get("/config", (req, res) => {
   res.json({
@@ -124,9 +278,6 @@ router.get("/config", (req, res) => {
    RESIDENT ENDPOINTS
    ============================================================ */
 
-/* ------------------------------------------------------------
-   POST /api/visitors — resident submits pre-registration
-   ------------------------------------------------------------ */
 router.post("/", requireAuth, requireRole("resident"), async (req, res, next) => {
   try {
     const { visitDate, expectedTime, purpose, visitors, notes } = req.body;
@@ -240,9 +391,6 @@ router.post("/", requireAuth, requireRole("resident"), async (req, res, next) =>
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   GET /api/visitors/mine
-   ------------------------------------------------------------ */
 router.get("/mine", requireAuth, requireRole("resident"), async (req, res, next) => {
   try {
     const pool = await getPool();
@@ -280,9 +428,6 @@ router.get("/mine", requireAuth, requireRole("resident"), async (req, res, next)
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   POST /api/visitors/:id/cancel
-   ------------------------------------------------------------ */
 router.post("/:id/cancel", requireAuth, requireRole("resident"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -323,94 +468,25 @@ router.post("/:id/cancel", requireAuth, requireRole("resident"), async (req, res
 });
 
 /* ============================================================
-   ADMIN + SECURITY ENDPOINTS
+   ADMIN + SECURITY — paginated pending lists
    ============================================================ */
 
-/* ------------------------------------------------------------
-   GET /api/visitors/pending-admin
-   ------------------------------------------------------------ */
 router.get("/pending-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
+    const pageNum  = Math.max(1, parseInt(req.query.page || "1", 10));
+    const limitNum = Math.min(200, Math.max(1, parseInt(req.query.limit || "50", 10)));
+    const offset   = (pageNum - 1) * limitNum;
+
     const pool = await getPool();
-    const r = await pool.request().query(`
-      SELECT g.*,
-             CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
-             r.full_name AS resident_name,
-             r.phone     AS resident_phone,
-             r.email     AS resident_email
-      FROM visitor_groups g
-      JOIN Residents r ON r.id = g.resident_id
-      WHERE g.status = 'pending_admin'
-      ORDER BY g.visit_date ASC, g.id ASC
+
+    const countRes = await pool.request().query(`
+      SELECT COUNT(*) AS total FROM visitor_groups WHERE status = 'pending_admin'
     `);
-    res.json(r.recordset);
-  } catch (err) { next(err); }
-});
+    const total = countRes.recordset[0].total || 0;
 
-/* ------------------------------------------------------------
-   GET /api/visitors/pending-security
-   ------------------------------------------------------------ */
-router.get("/pending-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
-  try {
-    const pool = await getPool();
-    const r = await pool.request().query(`
-      SELECT g.*,
-             CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
-             r.full_name AS resident_name,
-             r.phone     AS resident_phone,
-             r.email     AS resident_email
-      FROM visitor_groups g
-      JOIN Residents r ON r.id = g.resident_id
-      WHERE g.status = 'pending_security'
-      ORDER BY g.visit_date ASC, g.id ASC
-    `);
-    res.json(r.recordset);
-  } catch (err) { next(err); }
-});
-
-/* ------------------------------------------------------------
-   POST /api/visitors/:id/approve-admin — stage 1
-   ------------------------------------------------------------ */
-router.post("/:id/approve-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    const pool = await getPool();
-
-    const g = await pool.request().input("id", id)
-      .query("SELECT status FROM visitor_groups WHERE id = @id");
-    if (!g.recordset.length) return res.status(404).json({ error: "Not found." });
-    if (g.recordset[0].status !== "pending_admin") {
-      return res.status(400).json({ error: "Not in pending_admin state." });
-    }
-
-    await pool.request()
-      .input("id", id)
-      .input("by", req.user.id)
-      .query(`
-        UPDATE visitor_groups
-        SET status = 'pending_security',
-            admin_approved_by = @by,
-            admin_approved_at = SYSUTCDATETIME(),
-            updated_at = SYSUTCDATETIME()
-        WHERE id = @id
-      `);
-
-    await logEvent(pool, id, "approved_admin", req.user.id, "admin");
-    await updateSummary(pool, id);
-
-    res.json({ ok: true, status: "pending_security" });
-  } catch (err) { next(err); }
-});
-
-/* ------------------------------------------------------------
-   POST /api/visitors/:id/approve-security — stage 2 (code + emails)
-   ------------------------------------------------------------ */
-router.post("/:id/approve-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    const pool = await getPool();
-
-    const g = await pool.request().input("id", id)
+    const dataRes = await pool.request()
+      .input("offset", offset)
+      .input("limit",  limitNum)
       .query(`
         SELECT g.*,
                CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
@@ -419,124 +495,333 @@ router.post("/:id/approve-security", requireAuth, requireRole("security", "admin
                r.email     AS resident_email
         FROM visitor_groups g
         JOIN Residents r ON r.id = g.resident_id
-        WHERE g.id = @id
+        WHERE g.status = 'pending_admin'
+        ORDER BY g.visit_date ASC, g.id ASC
+        OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
       `);
-    if (!g.recordset.length) return res.status(404).json({ error: "Not found." });
-    const row = g.recordset[0];
-    if (row.status !== "pending_security") {
-      return res.status(400).json({ error: "Not in pending_security state." });
-    }
-
-    const code = await generateUniqueCode(pool);
-    const expiresAt = new Date(Date.now() + CODE_VALID_HOURS * 3600e3);
-
-    await pool.request()
-      .input("id", id)
-      .input("by", req.user.id)
-      .input("c",  code)
-      .input("e",  expiresAt)
-      .query(`
-        UPDATE visitor_groups
-        SET status = 'approved',
-            security_approved_by = @by,
-            security_approved_at = SYSUTCDATETIME(),
-            access_code = @c,
-            code_generated_at = SYSUTCDATETIME(),
-            expires_at = @e,
-            updated_at = SYSUTCDATETIME()
-        WHERE id = @id
-      `);
-
-    await logEvent(pool, id, "approved_security", req.user.id, "security");
-    await logEvent(pool, id, "code_generated", null, "system", code);
-    await updateSummary(pool, id);
-
-    const deliveryLog = [];
-
-    /* Visitors */
-    const vs = await pool.request().input("g", id)
-      .query("SELECT id, name, phone, email FROM visitors WHERE group_id = @g");
-
-    for (const v of vs.recordset) {
-      if (v.email) {
-        try {
-          await sendMail({
-            to:      v.email,
-            subject: `Your visit code for ${row.house_number} on ${fmtDate(row.visit_date)}`,
-            text:
-`Hello ${v.name},
-
-You have been pre-registered by the resident of ${row.house_number} to visit
-Athi Estate Access on ${fmtDate(row.visit_date)}${row.expected_time_hhmm ? " at " + row.expected_time_hhmm : ""}.
-
-Your access code is: ${code}
-
-Show this code at the gate. The code is valid until ${fmtDate(expiresAt)}.
-
-— Athi Estate Management`,
-          });
-          await pool.request().input("id", id)
-            .query("UPDATE visitor_groups SET sent_visitor_email = 1 WHERE id = @id");
-          await logEvent(pool, id, "code_sent_visitor_email", null, "system", v.email);
-          deliveryLog.push({ to: v.email, channel: "email", status: "sent" });
-        } catch (e) {
-          deliveryLog.push({ to: v.email, channel: "email", status: "failed", error: e.message });
-        }
-      }
-      if (v.phone) {
-        deliveryLog.push({ to: v.phone, channel: "sms", status: "skipped — no gateway" });
-      }
-    }
-
-    /* Resident */
-    if (row.resident_email) {
-      try {
-        await sendMail({
-          to:      row.resident_email,
-          subject: `Visitor approved — code ${code} for ${fmtDate(row.visit_date)}`,
-          text:
-`Hi ${row.resident_name},
-
-Your visitor pre-registration was approved by security.
-
-Access code: ${code}
-Visit date:  ${fmtDate(row.visit_date)}${row.expected_time_hhmm ? " at " + row.expected_time_hhmm : ""}
-Visitors:    ${vs.recordset.map((v) => v.name).join(", ")}
-
-The visitor has been emailed the code. If they lose it, share this email with them.
-
-— Athi Estate Management`,
-        });
-        await pool.request().input("id", id)
-          .query("UPDATE visitor_groups SET sent_resident_email = 1 WHERE id = @id");
-        await logEvent(pool, id, "code_sent_resident_email", null, "system", row.resident_email);
-        deliveryLog.push({ to: row.resident_email, channel: "email", status: "sent" });
-      } catch (e) {
-        deliveryLog.push({ to: row.resident_email, channel: "email", status: "failed", error: e.message });
-      }
-    }
-    if (row.resident_phone) {
-      deliveryLog.push({ to: row.resident_phone, channel: "sms", status: "skipped — no gateway" });
-    }
-
-    await pool.request()
-      .input("id", id)
-      .input("log", JSON.stringify(deliveryLog))
-      .query("UPDATE visitor_groups SET delivery_log = @log WHERE id = @id");
 
     res.json({
-      ok: true,
-      status: "approved",
-      code,
-      expiresAt,
-      deliveryLog,
+      data:       dataRes.recordset,
+      total,
+      page:       pageNum,
+      limit:      limitNum,
+      totalPages: Math.ceil(total / limitNum) || 1,
+    });
+  } catch (err) { next(err); }
+});
+
+router.get("/pending-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+  try {
+    const pageNum  = Math.max(1, parseInt(req.query.page || "1", 10));
+    const limitNum = Math.min(200, Math.max(1, parseInt(req.query.limit || "50", 10)));
+    const offset   = (pageNum - 1) * limitNum;
+
+    const pool = await getPool();
+
+    const countRes = await pool.request().query(`
+      SELECT COUNT(*) AS total FROM visitor_groups WHERE status = 'pending_security'
+    `);
+    const total = countRes.recordset[0].total || 0;
+
+    const dataRes = await pool.request()
+      .input("offset", offset)
+      .input("limit",  limitNum)
+      .query(`
+        SELECT g.*,
+               CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
+               r.full_name AS resident_name,
+               r.phone     AS resident_phone,
+               r.email     AS resident_email
+        FROM visitor_groups g
+        JOIN Residents r ON r.id = g.resident_id
+        WHERE g.status = 'pending_security'
+        ORDER BY g.visit_date ASC, g.id ASC
+        OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+      `);
+
+    res.json({
+      data:       dataRes.recordset,
+      total,
+      page:       pageNum,
+      limit:      limitNum,
+      totalPages: Math.ceil(total / limitNum) || 1,
     });
   } catch (err) { next(err); }
 });
 
 /* ------------------------------------------------------------
-   POST /api/visitors/:id/deny
+   GET /api/visitors/pending-counts — tile counts only
    ------------------------------------------------------------ */
+router.get("/pending-counts", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+  try {
+    const pool = await getPool();
+    const r = await pool.request().query(`
+      SELECT
+        (SELECT COUNT(*) FROM visitor_groups WHERE status = 'pending_admin')    AS pending_admin,
+        (SELECT COUNT(*) FROM visitor_groups WHERE status = 'pending_security') AS pending_security
+    `);
+    res.json(r.recordset[0]);
+  } catch (err) { next(err); }
+});
+
+/* ============================================================
+   BULK APPROVAL ENDPOINTS
+   ============================================================ */
+
+router.post("/bulk-approve-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    const raw = Array.isArray(req.body.groupIds) ? req.body.groupIds : [];
+    const ids = [...new Set(raw.map((x) => parseInt(x, 10)).filter(Number.isFinite))];
+
+    if (!ids.length) return res.status(400).json({ error: "groupIds array is required." });
+    if (ids.length > BULK_MAX) {
+      return res.status(400).json({ error: `Cannot approve more than ${BULK_MAX} at a time. You selected ${ids.length}.` });
+    }
+
+    const pool = await getPool();
+    const results = { ok: [], failed: [] };
+
+    for (const id of ids) {
+      const r = await approveAdminSingle(pool, id, req.user.id);
+      if (r.ok) results.ok.push(id);
+      else      results.failed.push({ id, error: r.error });
+    }
+
+    res.json({
+      ok:       results.ok.length,
+      failed:   results.failed.length,
+      failures: results.failed,
+    });
+  } catch (err) { next(err); }
+});
+
+router.post("/bulk-approve-all-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    const { confirm, max } = req.body;
+    if (confirm !== "APPROVE ALL") {
+      return res.status(400).json({ error: 'Type "APPROVE ALL" to confirm.' });
+    }
+
+    const capNum = Math.min(BULK_MAX, Math.max(1, parseInt(max || BULK_MAX, 10)));
+
+    const pool = await getPool();
+    const pending = await pool.request()
+      .input("cap", capNum)
+      .query(`
+        SELECT TOP (@cap) id
+        FROM visitor_groups
+        WHERE status = 'pending_admin'
+        ORDER BY visit_date ASC, id ASC
+      `);
+
+    const ids = pending.recordset.map((r) => r.id);
+    const results = { ok: [], failed: [] };
+
+    for (const id of ids) {
+      const r = await approveAdminSingle(pool, id, req.user.id);
+      if (r.ok) results.ok.push(id);
+      else      results.failed.push({ id, error: r.error });
+    }
+
+    const remainingRes = await pool.request().query(`
+      SELECT COUNT(*) AS n FROM visitor_groups WHERE status = 'pending_admin'
+    `);
+
+    res.json({
+      ok:       results.ok.length,
+      failed:   results.failed.length,
+      failures: results.failed,
+      remaining: remainingRes.recordset[0].n,
+    });
+  } catch (err) { next(err); }
+});
+
+router.post("/bulk-approve-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+  try {
+    const raw = Array.isArray(req.body.groupIds) ? req.body.groupIds : [];
+    const ids = [...new Set(raw.map((x) => parseInt(x, 10)).filter(Number.isFinite))];
+
+    if (!ids.length) return res.status(400).json({ error: "groupIds array is required." });
+    if (ids.length > BULK_MAX) {
+      return res.status(400).json({ error: `Cannot approve more than ${BULK_MAX} at a time. You selected ${ids.length}.` });
+    }
+
+    const pool = await getPool();
+    const results = { ok: [], failed: [], emailsQueued: [] };
+
+    for (const id of ids) {
+      const r = await approveSecuritySingle(pool, id, req.user.id);
+      if (r.ok) {
+        results.ok.push({ id, code: r.code });
+        results.emailsQueued.push(...(r.emails || []));
+      } else {
+        results.failed.push({ id, error: r.error });
+      }
+    }
+
+    const mailResult = await sendBatch(results.emailsQueued, 25, 1000);
+
+    res.json({
+      ok:            results.ok.length,
+      failed:        results.failed.length,
+      failures:      results.failed,
+      codes:         results.ok,
+      emailsSent:    mailResult.sent,
+      emailsFailed:  mailResult.failed,
+      emailFailures: mailResult.failures.slice(0, 20),
+    });
+  } catch (err) { next(err); }
+});
+
+router.post("/bulk-approve-all-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+  try {
+    const { confirm, max } = req.body;
+    if (confirm !== "APPROVE ALL") {
+      return res.status(400).json({ error: 'Type "APPROVE ALL" to confirm.' });
+    }
+
+    const capNum = Math.min(BULK_MAX, Math.max(1, parseInt(max || BULK_MAX, 10)));
+
+    const pool = await getPool();
+    const pending = await pool.request()
+      .input("cap", capNum)
+      .query(`
+        SELECT TOP (@cap) id
+        FROM visitor_groups
+        WHERE status = 'pending_security'
+        ORDER BY visit_date ASC, id ASC
+      `);
+
+    const ids = pending.recordset.map((r) => r.id);
+    const results = { ok: [], failed: [], emailsQueued: [] };
+
+    for (const id of ids) {
+      const r = await approveSecuritySingle(pool, id, req.user.id);
+      if (r.ok) {
+        results.ok.push({ id, code: r.code });
+        results.emailsQueued.push(...(r.emails || []));
+      } else {
+        results.failed.push({ id, error: r.error });
+      }
+    }
+
+    const mailResult = await sendBatch(results.emailsQueued, 25, 1000);
+
+    const remainingRes = await pool.request().query(`
+      SELECT COUNT(*) AS n FROM visitor_groups WHERE status = 'pending_security'
+    `);
+
+    res.json({
+      ok:            results.ok.length,
+      failed:        results.failed.length,
+      failures:      results.failed,
+      codes:         results.ok,
+      emailsSent:    mailResult.sent,
+      emailsFailed:  mailResult.failed,
+      emailFailures: mailResult.failures.slice(0, 20),
+      remaining:     remainingRes.recordset[0].n,
+    });
+  } catch (err) { next(err); }
+});
+
+router.post("/bulk-deny", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+  try {
+    const raw = Array.isArray(req.body.groupIds) ? req.body.groupIds : [];
+    const ids = [...new Set(raw.map((x) => parseInt(x, 10)).filter(Number.isFinite))];
+    const reason = req.body.reason || null;
+    const role = req.user.role;
+
+    if (!ids.length) return res.status(400).json({ error: "groupIds array is required." });
+    if (ids.length > BULK_MAX) {
+      return res.status(400).json({ error: `Cannot deny more than ${BULK_MAX} at a time.` });
+    }
+
+    const col = role === "admin"
+      ? { by: "admin_denied_by",    at: "admin_denied_at",    reason: "admin_deny_reason" }
+      : { by: "security_denied_by", at: "security_denied_at", reason: "security_deny_reason" };
+
+    const pool = await getPool();
+    const results = { ok: [], failed: [] };
+
+    for (const id of ids) {
+      try {
+        const g = await pool.request().input("id", id)
+          .query("SELECT status FROM visitor_groups WHERE id = @id");
+        if (!g.recordset.length) { results.failed.push({ id, error: "Not found" }); continue; }
+        const cur = g.recordset[0].status;
+        if (!["pending_admin", "pending_security"].includes(cur)) {
+          results.failed.push({ id, error: `Status is ${cur}` });
+          continue;
+        }
+
+        await pool.request()
+          .input("id", id)
+          .input("by", req.user.id)
+          .input("r",  reason)
+          .query(`
+            UPDATE visitor_groups
+            SET status = 'denied',
+                ${col.by} = @by,
+                ${col.at} = SYSUTCDATETIME(),
+                ${col.reason} = @r,
+                updated_at = SYSUTCDATETIME()
+            WHERE id = @id
+          `);
+
+        await logEvent(pool, id, `denied_${role}`, req.user.id, role, reason);
+        await updateSummary(pool, id);
+        results.ok.push(id);
+      } catch (err) {
+        results.failed.push({ id, error: err.message });
+      }
+    }
+
+    res.json({
+      ok:       results.ok.length,
+      failed:   results.failed.length,
+      failures: results.failed,
+    });
+  } catch (err) { next(err); }
+});
+
+/* ============================================================
+   SINGLE-ITEM APPROVAL / DENY (existing)
+   ============================================================ */
+
+router.post("/:id/approve-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const pool = await getPool();
+    const r = await approveAdminSingle(pool, id, req.user.id);
+    if (!r.ok) return res.status(400).json({ error: r.error });
+    res.json({ ok: true, status: "pending_security" });
+  } catch (err) { next(err); }
+});
+
+router.post("/:id/approve-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const pool = await getPool();
+    const r = await approveSecuritySingle(pool, id, req.user.id);
+    if (!r.ok) return res.status(400).json({ error: r.error });
+
+    /* Send emails synchronously for single approval (as before) */
+    if (r.emails && r.emails.length) {
+      for (const e of r.emails) {
+        try { await sendMail({ to: e.to, subject: e.subject, text: e.text }); }
+        catch { /* ignore individual failures */ }
+      }
+    }
+
+    res.json({
+      ok: true,
+      status: "approved",
+      code: r.code,
+      expiresAt: r.expiresAt,
+    });
+  } catch (err) { next(err); }
+});
+
 router.post("/:id/deny", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -578,9 +863,10 @@ router.post("/:id/deny", requireAuth, requireRole("admin", "security"), async (r
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   GET /api/visitors — full paginated list
-   ------------------------------------------------------------ */
+/* ============================================================
+   FULL LIST + REGISTER
+   ============================================================ */
+
 router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const { status, date, houseNumber, q, page = 1, limit = 50 } = req.query;
@@ -633,9 +919,6 @@ router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, 
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   GET /api/visitors/register?date=YYYY-MM-DD
-   ------------------------------------------------------------ */
 router.get("/register", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const { date } = req.query;
@@ -678,8 +961,9 @@ router.get("/register", requireAuth, requireRole("admin", "security"), async (re
 });
 
 /* ============================================================
-   GATE — CHECK IN
+   GATE — CHECK IN / CHECK OUT
    ============================================================ */
+
 router.post("/checkin", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
     const { groupId, visitorId, plateNumber, gateName } = req.body;
@@ -725,9 +1009,7 @@ router.post("/checkin", requireAuth, requireRole("security", "admin"), async (re
       : (await pool.request().input("gid", groupId)
            .query("SELECT id FROM visitors WHERE group_id = @gid")).recordset.map((r) => r.id);
 
-    for (const vid of targetVisitors) {
-      await updateVisitor(vid);
-    }
+    for (const vid of targetVisitors) await updateVisitor(vid);
 
     await pool.request()
       .input("id", groupId)
@@ -764,9 +1046,6 @@ router.post("/checkin", requireAuth, requireRole("security", "admin"), async (re
   } catch (err) { next(err); }
 });
 
-/* ============================================================
-   GATE — CHECK OUT
-   ============================================================ */
 router.post("/checkout", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
     const { groupId, visitorId, gateName } = req.body;
@@ -831,8 +1110,9 @@ router.post("/checkout", requireAuth, requireRole("security", "admin"), async (r
 });
 
 /* ============================================================
-   ANALYTICS
+   ANALYTICS + LIVE STATS + EXPIRY
    ============================================================ */
+
 router.get("/analytics", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const to   = req.query.to   || new Date().toISOString().slice(0, 10);
@@ -899,9 +1179,6 @@ router.get("/analytics", requireAuth, requireRole("admin", "security"), async (r
   } catch (err) { next(err); }
 });
 
-/* ============================================================
-   EXPIRY — mark stale approved visits as expired
-   ============================================================ */
 router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
@@ -923,9 +1200,6 @@ router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res,
   } catch (err) { next(err); }
 });
 
-/* ============================================================
-   LIVE STATS — real-time counts for security tiles
-   ============================================================ */
 router.get("/live-stats", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const pool = await getPool();

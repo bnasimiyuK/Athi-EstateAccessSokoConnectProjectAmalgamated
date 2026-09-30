@@ -81,9 +81,29 @@
 
   <!-- Tab: Pending admin approval -->
   <div class="tab-panel is-active" id="tab-pending">
+
+    <!-- Bulk action bar -->
+    <div id="bulk-bar"
+         style="display:none;background:#16233f;color:#fff;padding:12px 18px;border-radius:8px;margin-bottom:16px;align-items:center;gap:14px;flex-wrap:wrap;">
+      <span style="font-weight:600;"><span id="bulk-count">0</span> selected</span>
+      <button class="btn btn--accent btn--small" id="bulk-approve-btn">✓ Approve selected</button>
+      <button class="btn btn--danger btn--small" id="bulk-deny-btn">✕ Deny selected</button>
+      <button class="btn btn--ghost btn--small" id="bulk-clear-btn" style="color:#fff;border-color:#fff;">Clear</button>
+      <span style="margin-left:auto;font-size:0.85rem;color:#dcd8cd;">
+        Max 200 per click
+      </span>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+      <button class="btn btn--danger btn--small" id="btn-approve-all" type="button" style="display:none;">
+        ⚠️ Approve ALL pending
+      </button>
+    </div>
+
     <div id="pending-list">
       <div class="empty-state">Loading…</div>
     </div>
+    <div id="pending-pagination"></div>
   </div>
 
   <!-- Tab: All visits -->
@@ -111,6 +131,24 @@
   </div>
 </main>
 
+<!-- Typed confirmation modal -->
+<div id="confirm-all-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#fff;max-width:480px;width:90%;padding:24px;border-radius:8px;">
+    <h2 style="margin-top:0;color:#b0472e;">⚠️ Approve all pending?</h2>
+    <p id="confirm-all-text" style="color:var(--ink-70);">
+      This will approve every pre-registration in the pending admin list.
+    </p>
+    <p style="color:var(--ink-70);font-size:0.9rem;">
+      To confirm, type <b>APPROVE ALL</b> in the box below:
+    </p>
+    <input type="text" id="confirm-all-input" class="input" placeholder="APPROVE ALL" style="width:100%;font-family:monospace;" autocomplete="off" />
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+      <button type="button" class="btn btn--ghost" id="confirm-all-cancel">Cancel</button>
+      <button type="button" class="btn btn--danger" id="confirm-all-go" disabled>Approve all</button>
+    </div>
+  </div>
+</div>
+
 <footer class="site-footer">
   <div class="container" style="width:100%;">
     Both admin and security must approve before an access code is issued.
@@ -118,8 +156,8 @@
 </footer>
 
 <script src="js/auth.js"></script>
-<script src="js/api.js"></script>
+<script src="js/api.js?v=3"></script>
 <script src="js/main.js"></script>
-<script src="js/admin-visitors.js"></script>
+<script src="js/admin-visitors.js?v=3"></script>
 </body>
 </html>

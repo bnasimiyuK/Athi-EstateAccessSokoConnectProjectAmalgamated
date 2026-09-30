@@ -1,9 +1,26 @@
 /* ============================================================
-   security-visitors.js — security role dashboard
-   Tabs: approvals | today | check-in/out
-   Per-visitor check-in/out supported.
+   security-visitors.js — security dashboard
+   Tabs: approvals (bulk) | today (per-visitor) | check-in/out
+   - Paginated pending list with checkboxes + bulk actions
+   - Approve ALL with typed confirmation
+   - Email batching feedback on bulk approve
    ============================================================ */
 
+const SV_PER_PAGE = 50;
+const SV_MAX_BULK = 200;
+
+const svState = {
+  page:    1,
+  limit:   SV_PER_PAGE,
+  total:   0,
+  totalPages: 1,
+  selected: new Set(),
+  rows:    [],
+};
+
+/* ------------------------------------------------------------
+   Helpers
+   ------------------------------------------------------------ */
 function escapeHtml(s) {
   return String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -31,9 +48,6 @@ function statusBadge(s) {
   return map[s] || escapeHtml(s);
 }
 
-/* ------------------------------------------------------------
-   Tabs
-   ------------------------------------------------------------ */
 function setupTabs() {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -47,7 +61,7 @@ function setupTabs() {
 }
 
 /* ------------------------------------------------------------
-   Summary tiles — uses live-stats endpoint
+   Tiles
    ------------------------------------------------------------ */
 async function loadTiles() {
   try {
@@ -62,25 +76,62 @@ async function loadTiles() {
 }
 
 /* ------------------------------------------------------------
-   Approvals
+   Bulk bar
    ------------------------------------------------------------ */
-async function loadApprovals() {
+function updateBulkBar() {
+  const bar = document.getElementById("bulk-bar");
+  const countEl = document.getElementById("bulk-count");
+  if (!bar) return;
+  const n = svState.selected.size;
+
+  bar.style.display = n === 0 ? "none" : "flex";
+  if (n > 0) countEl.textContent = n;
+
+  const allChk = document.getElementById("chk-select-all");
+  if (allChk) {
+    const pageIds = svState.rows.map((r) => r.id);
+    const selectedOnPage = pageIds.filter((id) => svState.selected.has(id)).length;
+    allChk.checked = pageIds.length > 0 && selectedOnPage === pageIds.length;
+    allChk.indeterminate = selectedOnPage > 0 && selectedOnPage < pageIds.length;
+  }
+}
+
+/* ------------------------------------------------------------
+   Pending approvals — paginated
+   ------------------------------------------------------------ */
+async function loadApprovals(page) {
+  if (typeof page === "number") svState.page = page;
   const el = document.getElementById("approvals-list");
   el.innerHTML = `<div class="empty-state">Loading…</div>`;
 
-  let rows;
+  let result;
   try {
-    rows = await Api.getVisitorPendingSecurity();
+    result = await Api.getVisitorPendingSecurity({
+      page:  svState.page,
+      limit: svState.limit,
+    });
   } catch (err) {
     el.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load: ${escapeHtml(err.message)}</div>`;
     return;
   }
 
-  const countEl = document.getElementById("count-approvals");
-  if (countEl) countEl.textContent = rows.length ? `(${rows.length})` : "";
+  svState.rows       = result.data || [];
+  svState.total      = result.total || 0;
+  svState.page       = result.page || 1;
+  svState.totalPages = result.totalPages || 1;
 
-  if (!rows.length) {
+  const countEl = document.getElementById("count-approvals");
+  if (countEl) countEl.textContent = svState.total ? `(${svState.total})` : "";
+
+  const approveAllBtn = document.getElementById("btn-approve-all");
+  if (approveAllBtn) {
+    approveAllBtn.style.display = svState.total > 0 ? "inline-flex" : "none";
+  }
+
+  if (!svState.rows.length) {
     el.innerHTML = `<div class="empty-state">No pre-registrations waiting for security approval.</div>`;
+    updateBulkBar();
+    renderApprovalsPagination();
     return;
   }
 
@@ -89,13 +140,20 @@ async function loadApprovals() {
       <table>
         <thead>
           <tr>
+            <th style="width:36px;">
+              <input type="checkbox" id="chk-select-all" title="Select all on this page" />
+            </th>
             <th>Visit date</th><th>Time</th><th>House</th><th>Host</th>
             <th>Visitors</th><th>Purpose</th><th>Admin approved</th><th>Action</th>
           </tr>
         </thead>
         <tbody>
-          ${rows.map((g) => `
+          ${svState.rows.map((g) => `
             <tr data-id="${g.id}">
+              <td>
+                <input type="checkbox" class="chk-row" data-id="${g.id}"
+                       ${svState.selected.has(g.id) ? "checked" : ""} />
+              </td>
               <td><b>${escapeHtml(fmtDate(g.visit_date))}</b></td>
               <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
               <td>${escapeHtml(g.house_number)}</td>
@@ -115,18 +173,81 @@ async function loadApprovals() {
     </div>
   `;
 
+  el.querySelectorAll(".chk-row").forEach((chk) => {
+    chk.addEventListener("change", () => {
+      const id = parseInt(chk.dataset.id, 10);
+      if (chk.checked) svState.selected.add(id);
+      else svState.selected.delete(id);
+      updateBulkBar();
+    });
+  });
+
+  const allChk = document.getElementById("chk-select-all");
+  if (allChk) {
+    allChk.addEventListener("change", () => {
+      const pageIds = svState.rows.map((r) => r.id);
+      if (allChk.checked) pageIds.forEach((id) => svState.selected.add(id));
+      else                pageIds.forEach((id) => svState.selected.delete(id));
+      el.querySelectorAll(".chk-row").forEach((chk) => {
+        chk.checked = svState.selected.has(parseInt(chk.dataset.id, 10));
+      });
+      updateBulkBar();
+    });
+  }
+
   el.querySelectorAll("[data-approve]").forEach((b) =>
-    b.addEventListener("click", () => approve(b.dataset.approve, b))
+    b.addEventListener("click", () => approveOne(b.dataset.approve, b))
   );
   el.querySelectorAll("[data-deny]").forEach((b) =>
-    b.addEventListener("click", () => deny(b.dataset.deny))
+    b.addEventListener("click", () => denyOne(b.dataset.deny))
   );
   el.querySelectorAll("[data-view]").forEach((b) =>
     b.addEventListener("click", () => viewDetails(b.dataset.view))
   );
+
+  updateBulkBar();
+  renderApprovalsPagination();
 }
 
-async function approve(id, btn) {
+/* ------------------------------------------------------------
+   Approvals pagination
+   ------------------------------------------------------------ */
+function renderApprovalsPagination() {
+  const el = document.getElementById("approvals-pagination");
+  const { page, limit, total, totalPages } = svState;
+  if (!total || totalPages <= 1) { el.innerHTML = ""; return; }
+
+  const startRow = (page - 1) * limit + 1;
+  const endRow   = Math.min(page * limit, total);
+
+  el.innerHTML = `
+    <div class="pagination" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;border-top:1px solid var(--line);">
+      <div style="font-size:0.9rem;color:var(--ink-70);">
+        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        ${svState.selected.size ? `<span style="margin-left:12px;color:var(--ochre);font-weight:600;">
+          · ${svState.selected.size} selected
+        </span>` : ""}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn--ghost btn--small" data-spg="prev" ${page <= 1 ? "disabled" : ""}>« Prev</button>
+        <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">Page <b>${page}</b> of <b>${totalPages}</b></span>
+        <button class="btn btn--ghost btn--small" data-spg="next" ${page >= totalPages ? "disabled" : ""}>Next »</button>
+      </div>
+    </div>
+  `;
+
+  el.querySelectorAll("[data-spg]").forEach((b) => {
+    b.addEventListener("click", () => {
+      if (b.dataset.spg === "prev" && svState.page > 1) loadApprovals(svState.page - 1);
+      if (b.dataset.spg === "next" && svState.page < svState.totalPages) loadApprovals(svState.page + 1);
+    });
+  });
+}
+
+/* ------------------------------------------------------------
+   Single-item approve / deny
+   ------------------------------------------------------------ */
+async function approveOne(id, btn) {
   if (!confirm("Approve this visit?\n\nThe 6-digit access code will be generated and emailed to the visitor and host.")) return;
   const old = btn.textContent;
   btn.disabled = true; btn.textContent = "Approving…";
@@ -134,6 +255,7 @@ async function approve(id, btn) {
   try {
     const r = await Api.approveVisitorSecurity(id);
     toast(`✅ Approved. Code: ${r.code}`);
+    svState.selected.delete(parseInt(id, 10));
     await loadTiles();
     await loadApprovals();
   } catch (err) {
@@ -143,16 +265,145 @@ async function approve(id, btn) {
   }
 }
 
-async function deny(id) {
+async function denyOne(id) {
   const reason = prompt("Reason for denial:");
   if (reason === null) return;
   try {
     await Api.denyVisitor(id, reason);
     toast("Denied.");
+    svState.selected.delete(parseInt(id, 10));
     await loadTiles();
     await loadApprovals();
   } catch (err) {
     toast(err.message || "Could not deny.");
+  }
+}
+
+/* ------------------------------------------------------------
+   Bulk approve selected
+   ------------------------------------------------------------ */
+async function bulkApproveSelected() {
+  const ids = [...svState.selected];
+  if (!ids.length) { toast("Select at least one pre-registration."); return; }
+  if (ids.length > SV_MAX_BULK) {
+    toast(`Cannot approve more than ${SV_MAX_BULK} at once. You have ${ids.length} selected.`);
+    return;
+  }
+
+  if (!confirm(`Approve ${ids.length} pre-registration${ids.length === 1 ? "" : "s"}?\n\nEach will generate an access code and email the visitor + host. Emails are batched (25 per batch).`)) return;
+
+  const btn = document.getElementById("bulk-approve-btn");
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = "Approving & sending emails…";
+
+  try {
+    const r = await Api.bulkApproveSecurity(ids);
+    const emailsMsg = r.emailsSent !== undefined
+      ? ` · Emails: ${r.emailsSent} sent${r.emailsFailed ? ` · ${r.emailsFailed} failed` : ""}`
+      : "";
+    toast(`✅ Approved: ${r.ok}${r.failed ? ` · Failed: ${r.failed}` : ""}${emailsMsg}`);
+
+    if (r.failed > 0)     console.warn("[bulk-approve-security] failures:", r.failures);
+    if (r.emailFailures && r.emailFailures.length) {
+      console.warn("[bulk-approve-security] email failures:", r.emailFailures);
+    }
+
+    svState.selected.clear();
+    await loadTiles();
+    await loadApprovals();
+  } catch (err) {
+    toast(err.message || "Bulk approval failed.");
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+
+/* ------------------------------------------------------------
+   Bulk deny selected
+   ------------------------------------------------------------ */
+async function bulkDenySelected() {
+  const ids = [...svState.selected];
+  if (!ids.length) { toast("Select at least one pre-registration."); return; }
+  if (ids.length > SV_MAX_BULK) {
+    toast(`Cannot deny more than ${SV_MAX_BULK} at once. You have ${ids.length} selected.`);
+    return;
+  }
+
+  const reason = prompt(`Reason for denying ${ids.length} pre-registration${ids.length === 1 ? "" : "s"}:`);
+  if (reason === null) return;
+
+  const btn = document.getElementById("bulk-deny-btn");
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = "Denying…";
+
+  try {
+    const r = await Api.bulkDenyVisitors(ids, reason);
+    toast(`❌ Denied: ${r.ok}${r.failed ? ` · Failed: ${r.failed}` : ""}`);
+    if (r.failed > 0) console.warn("[bulk-deny] failures:", r.failures);
+
+    svState.selected.clear();
+    await loadTiles();
+    await loadApprovals();
+  } catch (err) {
+    toast(err.message || "Bulk denial failed.");
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+
+/* ------------------------------------------------------------
+   Approve ALL pending (typed confirmation)
+   ------------------------------------------------------------ */
+function openConfirmAllModal() {
+  const total = svState.total || 0;
+  const willDo = Math.min(SV_MAX_BULK, total);
+
+  document.getElementById("confirm-all-text").innerHTML = `
+    This will approve <b>${willDo}</b> pending pre-registration${willDo === 1 ? "" : "s"}
+    (out of ${total} total${total > SV_MAX_BULK ? `, capped at ${SV_MAX_BULK} per click` : ""}).
+    Each will generate a 6-digit code and email the visitor and host.
+  `;
+
+  const input = document.getElementById("confirm-all-input");
+  input.value = "";
+  document.getElementById("confirm-all-go").disabled = true;
+
+  input.oninput = () => {
+    document.getElementById("confirm-all-go").disabled = input.value.trim() !== "APPROVE ALL";
+  };
+
+  document.getElementById("confirm-all-modal").style.display = "flex";
+  setTimeout(() => input.focus(), 50);
+}
+
+function closeConfirmAllModal() {
+  document.getElementById("confirm-all-modal").style.display = "none";
+}
+
+async function approveAllPending() {
+  const btn = document.getElementById("confirm-all-go");
+  btn.disabled = true; btn.textContent = "Approving…";
+
+  try {
+    const r = await Api.bulkApproveAllSecurity("APPROVE ALL", SV_MAX_BULK);
+    const emailsMsg = r.emailsSent !== undefined
+      ? ` · Emails: ${r.emailsSent} sent${r.emailsFailed ? ` · ${r.emailsFailed} failed` : ""}`
+      : "";
+    toast(`✅ Approved ${r.ok}${r.failed ? ` · Failed ${r.failed}` : ""}${emailsMsg} · ${r.remaining} remaining`);
+
+    if (r.failed > 0)     console.warn("[approve-all-security] failures:", r.failures);
+    if (r.emailFailures && r.emailFailures.length) {
+      console.warn("[approve-all-security] email failures:", r.emailFailures);
+    }
+
+    closeConfirmAllModal();
+    svState.selected.clear();
+    await loadTiles();
+    await loadApprovals();
+  } catch (err) {
+    toast(err.message || "Bulk approval failed.");
+  } finally {
+    btn.disabled = false; btn.textContent = "Approve all";
   }
 }
 
@@ -223,7 +474,6 @@ async function loadToday() {
     return;
   }
 
-  /* Fetch visitor details for each group */
   const groupsWithVisitors = await Promise.all(result.data.map(async (g) => {
     try {
       const detail = await Api.getVisitorGroup(g.id);
@@ -315,7 +565,7 @@ async function loadToday() {
 }
 
 /* ------------------------------------------------------------
-   Per-visitor check-in
+   Per-visitor check-in / check-out
    ------------------------------------------------------------ */
 async function checkinOne(groupId, visitorId) {
   if (!confirm("Check in this visitor?")) return;
@@ -331,9 +581,6 @@ async function checkinOne(groupId, visitorId) {
   }
 }
 
-/* ------------------------------------------------------------
-   Per-visitor check-out
-   ------------------------------------------------------------ */
 async function checkoutOne(groupId, visitorId) {
   if (!confirm("Check out this visitor?")) return;
   try {
@@ -348,9 +595,6 @@ async function checkoutOne(groupId, visitorId) {
   }
 }
 
-/* ------------------------------------------------------------
-   Group check-out — everyone still checked-in
-   ------------------------------------------------------------ */
 async function checkoutGroup(groupId) {
   if (!confirm("Check out all visitors still on-site in this group?")) return;
   try {
@@ -363,9 +607,7 @@ async function checkoutGroup(groupId) {
   }
 }
 
-/* ------------------------------------------------------------
-   Group-level wrappers (used by the Check in/out search tab)
-   ------------------------------------------------------------ */
+/* Group-level wrappers for search tab */
 async function checkin(id) {
   if (!confirm("Check in all visitors in this group?")) return;
   try {
@@ -496,16 +738,40 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   setupTabs();
 
+  /* Today date default */
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById("today-date").value = today;
 
+  /* Bulk bar buttons */
+  const bulkApproveBtn = document.getElementById("bulk-approve-btn");
+  const bulkDenyBtn    = document.getElementById("bulk-deny-btn");
+  const bulkClearBtn   = document.getElementById("bulk-clear-btn");
+  const approveAllBtn  = document.getElementById("btn-approve-all");
+
+  if (bulkApproveBtn) bulkApproveBtn.addEventListener("click", bulkApproveSelected);
+  if (bulkDenyBtn)    bulkDenyBtn.addEventListener("click", bulkDenySelected);
+  if (bulkClearBtn)   bulkClearBtn.addEventListener("click", () => {
+    svState.selected.clear();
+    document.querySelectorAll(".chk-row").forEach((chk) => (chk.checked = false));
+    updateBulkBar();
+  });
+  if (approveAllBtn)  approveAllBtn.addEventListener("click", openConfirmAllModal);
+
+  /* Confirm-all modal */
+  document.getElementById("confirm-all-cancel").addEventListener("click", closeConfirmAllModal);
+  document.getElementById("confirm-all-go").addEventListener("click", approveAllPending);
+
+  /* Today tab */
   document.getElementById("btn-refresh-today").addEventListener("click", loadToday);
   document.getElementById("btn-print-register").addEventListener("click", printRegister);
+
+  /* Check-in / out search */
   document.getElementById("btn-ci-search").addEventListener("click", searchCheckin);
   document.getElementById("ci-search").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); searchCheckin(); }
   });
 
+  /* Load everything */
   await loadTiles();
   await loadApprovals();
   await loadToday();

@@ -276,6 +276,9 @@ const Api = {
       body: JSON.stringify({ rows }),
     }),
 
+  getAssignedHouseNumbers: () =>
+    request(`${API_BASE}/house-numbers/assigned`),
+
   /* ============================================================
      VISITORS — resident
      ============================================================ */
@@ -300,11 +303,14 @@ const Api = {
   /* ============================================================
      VISITORS — admin + security
      ============================================================ */
-  getVisitorPendingAdmin: () =>
-    request(`${API_BASE}/visitors/pending-admin`),
+  getVisitorPendingAdmin: (params = {}) =>
+    request(`${API_BASE}/visitors/pending-admin${qsOf(params)}`),
 
-  getVisitorPendingSecurity: () =>
-    request(`${API_BASE}/visitors/pending-security`),
+  getVisitorPendingSecurity: (params = {}) =>
+    request(`${API_BASE}/visitors/pending-security${qsOf(params)}`),
+
+  getVisitorPendingCounts: () =>
+    request(`${API_BASE}/visitors/pending-counts`),
 
   getVisitorGroups: (params = {}) =>
     request(`${API_BASE}/visitors${qsOf(params)}`),
@@ -324,6 +330,38 @@ const Api = {
       body: JSON.stringify({ reason }),
     }),
 
+  /* ---------- Bulk approval ---------- */
+  bulkApproveAdmin: (groupIds) =>
+    request(`${API_BASE}/visitors/bulk-approve-admin`, {
+      method: "POST",
+      body: JSON.stringify({ groupIds }),
+    }),
+
+  bulkApproveAllAdmin: (confirm, max) =>
+    request(`${API_BASE}/visitors/bulk-approve-all-admin`, {
+      method: "POST",
+      body: JSON.stringify({ confirm, max }),
+    }),
+
+  bulkApproveSecurity: (groupIds) =>
+    request(`${API_BASE}/visitors/bulk-approve-security`, {
+      method: "POST",
+      body: JSON.stringify({ groupIds }),
+    }),
+
+  bulkApproveAllSecurity: (confirm, max) =>
+    request(`${API_BASE}/visitors/bulk-approve-all-security`, {
+      method: "POST",
+      body: JSON.stringify({ confirm, max }),
+    }),
+
+  bulkDenyVisitors: (groupIds, reason) =>
+    request(`${API_BASE}/visitors/bulk-deny`, {
+      method: "POST",
+      body: JSON.stringify({ groupIds, reason }),
+    }),
+
+  /* ---------- Gate ---------- */
   getVisitorRegister: (date) =>
     request(`${API_BASE}/visitors/register${qsOf({ date })}`),
 
@@ -339,12 +377,9 @@ const Api = {
       body: JSON.stringify(payload),
     }),
 
-   getVisitorAnalytics: (params = {}) =>
+  getVisitorAnalytics: (params = {}) =>
     request(`${API_BASE}/visitors/analytics${qsOf(params)}`),
 
-  /* ---------- House numbers: assigned list ---------- */
-  getAssignedHouseNumbers: () =>
-    request(`${API_BASE}/house-numbers/assigned`),
-    getVisitorLiveStats: () =>
+  getVisitorLiveStats: () =>
     request(`${API_BASE}/visitors/live-stats`),
 };
