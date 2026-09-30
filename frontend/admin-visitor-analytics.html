@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Visitor analytics — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="billing.html" data-nav="billing.html">My billing</a>
+      <a href="visitors.html" data-nav="visitors.html">My visitors</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+          <a href="admin-house-numbers.html">House numbers</a>
+          <a href="admin-invoices.html">Invoices</a>
+          <a href="admin-payments.html">Payments</a>
+          <a href="admin-visitors.html">Visitors</a>
+          <a href="admin-providers.html">All vendors</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>Visitor analytics</h1>
+      <p>Traffic, approvals, denials and cancellations at a glance.</p>
+    </div>
+    <div class="admin-actions">
+      <input type="date" id="an-from" class="input" />
+      <input type="date" id="an-to"   class="input" />
+      <button type="button" id="an-refresh" class="btn btn--accent">Refresh</button>
+    </div>
+  </div>
+
+  <section class="stat-section">
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--info"><div class="stat-tile__value" id="an-total">—</div><div class="stat-tile__label">Total pre-registrations</div></div>
+      <div class="stat-tile stat-tile--ok"><div class="stat-tile__value" id="an-approved">—</div><div class="stat-tile__label">Approved</div></div>
+      <div class="stat-tile stat-tile--danger"><div class="stat-tile__value" id="an-denied">—</div><div class="stat-tile__label">Denied</div></div>
+      <div class="stat-tile stat-tile--warn"><div class="stat-tile__value" id="an-cancelled">—</div><div class="stat-tile__label">Cancelled</div></div>
+      <div class="stat-tile stat-tile--danger"><div class="stat-tile__value" id="an-expired">—</div><div class="stat-tile__label">Expired</div></div>
+      <div class="stat-tile stat-tile--ok"><div class="stat-tile__value" id="an-checkedin">—</div><div class="stat-tile__label">Checked in</div></div>
+    </div>
+  </section>
+
+  <section class="stat-section">
+    <h3 class="stat-section__title">Traffic</h3>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card__head">Daily visits</div>
+        <div class="chart-card__body"><canvas id="chart-daily"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card__head">Arrival hours</div>
+        <div class="chart-card__body"><canvas id="chart-hourly"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card__head">Top hosts (by house)</div>
+        <div class="chart-card__body"><canvas id="chart-hosts"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card__head">Outcomes</div>
+        <div class="chart-card__body"><canvas id="chart-outcome"></canvas></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">Data from visitor_groups + visitor_events.</div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin-visitor-analytics.js"></script>
+</body>
+</html>
