@@ -1,6 +1,6 @@
 /* ============================================================
    routes/auth.js — login, me, logout, change-password
-   Supports 3 roles: admin, resident, vendor
+      Supports 4 roles: admin, security, resident, vendor
    ============================================================ */
 
 const express = require("express");
@@ -40,7 +40,7 @@ router.post("/login", async (req, res, next) => {
       });
     }
 
-    if (!["admin", "resident", "vendor"].includes(role)) {
+    if (!["admin", "security", "resident", "vendor"].includes(role)) {
       return res.status(400).json({ error: "Invalid role." });
     }
 
@@ -48,8 +48,9 @@ router.post("/login", async (req, res, next) => {
     let user = null;
     let mustChange = false;
 
-    /* ---------- ADMIN ---------- */
-    if (role === "admin") {
+  
+        /* ---------- ADMIN & SECURITY ---------- */
+    if (role === "admin" || role === "security") {
       const result = await pool.request()
         .input("email", identifier.trim().toLowerCase())
         .query("SELECT * FROM Admins WHERE email = @email");
@@ -58,9 +59,9 @@ router.post("/login", async (req, res, next) => {
         const row = result.recordset[0];
         const ok = await bcrypt.compare(password, row.password_hash);
         if (ok) {
-          user = {
+                     user = {
             id:    row.id,
-            role:  "admin",
+            role:  row.role,        // ← reads 'admin' or 'security' from DB
             name:  row.full_name,
             email: row.email,
           };
@@ -324,7 +325,7 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
     let table = "";
     let idForUpdate = id;
 
-    if (role === "admin")    table = "Admins";
+        if (role === "admin" || role === "security") table = "Admins";
     if (role === "resident") table = "Residents";
     if (role === "vendor") {
       // Vendors change the password on their RESIDENT record

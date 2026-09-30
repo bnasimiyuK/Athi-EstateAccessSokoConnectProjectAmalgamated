@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Security — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="billing.html" data-nav="billing.html">My billing</a>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:12px;">
+        <span id="user-greeting"></span>
+        <button onclick="logout()" class="btn btn--ghost btn--small">Logout</button>
+      </span>
+    </nav>
+  </div>
+</header>
+
+<main class="container" style="padding:40px 24px;">
+  <div class="page-head">
+    <div class="page-head__text">
+      <h1>Security dashboard</h1>
+      <p>Coming soon — the visitor approval and gate check-in pages are being built.</p>
+    </div>
+  </div>
+
+  <div class="alert-card" style="max-width:640px;">
+    <div class="alert-card__head">🚧 Under construction</div>
+    <div class="alert-card__body" style="font-size:0.95rem;line-height:1.8;">
+      You're logged in as <b id="user-name">—</b> with role <b id="user-role">—</b>.
+      <br><br>
+      The security team's pages will appear here soon:
+      <ul style="margin:12px 0 0 0;">
+        <li>Pending visitor approvals (stage 2)</li>
+        <li>Today's expected visitors with codes</li>
+        <li>Gate check-in / check-out</li>
+        <li>Visitor analytics</li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    Athi Estate Access — Security
+  </div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/security-visitors.js"></script>
+</body>
+</html>

@@ -43,6 +43,7 @@ function logout() {
 function redirectByRole(role) {
   switch (role) {
     case "admin":    return window.location.href = "admin.html";
+    case "security": return window.location.href = "security-visitors.html";  // temporary
     case "resident": return window.location.href = "index.html";
     case "vendor":   return window.location.href = "dashboard.html";
     default:         return window.location.href = "index.html";

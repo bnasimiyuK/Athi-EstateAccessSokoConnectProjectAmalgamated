@@ -32,12 +32,30 @@ function applyRole(role) {
 
 /* ------------------------------------------------------------
    Redirect after login, based on role (or `?next=` param)
+
+   Priority:
+   1. Security role  → security-visitors.html  (always, no exceptions)
+   2. ?next= param   → that URL                (deep links)
+   3. Role default   → admin/resident/vendor pages
    ------------------------------------------------------------ */
 function redirectAfterLogin(user) {
+  /* 1. Security always goes to its own dashboard.
+     This takes priority over ?next= so a lingering next=dashboard.html
+     from a previous session doesn't hijack the redirect. */
+  if (user?.role === "security") {
+    window.location.href = "security-visitors.html";
+    return;
+  }
+
+  /* 2. Honor ?next= for everyone else */
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
-  if (next) { window.location.href = next; return; }
+  if (next) {
+    window.location.href = next;
+    return;
+  }
 
+  /* 3. Role-based default */
   switch (user?.role) {
     case "admin":  window.location.href = "admin.html"; break;
     case "vendor": window.location.href = "provider-dashboard.html"; break;
