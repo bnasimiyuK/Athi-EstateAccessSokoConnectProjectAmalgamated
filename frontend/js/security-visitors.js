@@ -44,23 +44,15 @@ function setupTabs() {
 }
 
 /* ------------------------------------------------------------
-   Summary tiles
+   Summary tiles — now uses live-stats endpoint
    ------------------------------------------------------------ */
 async function loadTiles() {
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const [pending, todayReg, allToday] = await Promise.all([
-      Api.getVisitorPendingSecurity(),
-      Api.getVisitorRegister(today),
-      Api.getVisitorGroups({ date: today, limit: 200 }),
-    ]);
-
-    document.getElementById("tile-pending").textContent    = pending.length;
-    document.getElementById("tile-today").textContent      = todayReg.length;
-    const checkedIn = allToday.data.filter((g) => g.status === "checked_in").length;
-    const completed = allToday.data.filter((g) => g.status === "completed").length;
-    document.getElementById("tile-checked-in").textContent = checkedIn;
-    document.getElementById("tile-completed").textContent  = completed;
+    const s = await Api.getVisitorLiveStats();
+    document.getElementById("tile-pending").textContent    = s.pending_security;
+    document.getElementById("tile-today").textContent      = s.expected_today;
+    document.getElementById("tile-checked-in").textContent = s.currently_on_site;
+    document.getElementById("tile-completed").textContent  = s.completed_today;
   } catch (err) {
     console.error("[security-visitors] tiles failed:", err);
   }

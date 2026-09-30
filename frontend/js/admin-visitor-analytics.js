@@ -33,7 +33,10 @@ async function loadAnalytics() {
   charts["chart-daily"] = new Chart(document.getElementById("chart-daily"), {
     type: "line",
     data: {
-      labels: data.daily.map((r) => r.visit_date.slice(5)),
+      labels: data.daily.map((r) => {
+  const d = new Date(r.visit_date);
+  return d.toLocaleDateString("en-KE", { day: "2-digit", month: "short" });
+}),
       datasets: [
         { label: "Registered", data: data.daily.map((r) => r.total), borderColor: "#16233f", backgroundColor: "rgba(22,35,63,0.08)", fill: true, tension: 0.3 },
         { label: "Arrived",    data: data.daily.map((r) => r.arrived), borderColor: "#2f6f5e", backgroundColor: "rgba(47,111,94,0.08)", fill: true, tension: 0.3 },

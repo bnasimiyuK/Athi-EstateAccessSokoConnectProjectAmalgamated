@@ -875,6 +875,33 @@ router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res,
   } catch (err) { next(err); }
 });
 
+/* ------------------------------------------------------------
+   GET /api/visitors/live-stats — true real-time counts
+   ------------------------------------------------------------ */
+router.get("/live-stats", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+  try {
+    const pool = await getPool();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const r = await pool.request()
+      .input("today", today)
+      .query(`
+        SELECT
+          (SELECT COUNT(*) FROM visitor_groups WHERE status = 'pending_security') AS pending_security,
+          (SELECT COUNT(*) FROM visitor_groups WHERE status = 'pending_admin')    AS pending_admin,
+          (SELECT COUNT(*) FROM visitor_groups
+             WHERE visit_date = @today
+               AND status IN ('approved','checked_in','completed'))              AS expected_today,
+          (SELECT COUNT(*) FROM visitors WHERE status = 'checked_in')            AS currently_on_site,
+          (SELECT COUNT(*) FROM visitor_groups
+             WHERE visit_date = @today
+               AND status = 'completed')                                         AS completed_today
+      `);
+
+    res.json(r.recordset[0]);
+  } catch (err) { next(err); }
+});
+
 router.get("/:id", requireAuth, requireRole("admin", "security", "resident"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);

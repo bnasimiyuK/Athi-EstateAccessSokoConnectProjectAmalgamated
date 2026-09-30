@@ -345,4 +345,6 @@ const Api = {
   /* ---------- House numbers: assigned list ---------- */
   getAssignedHouseNumbers: () =>
     request(`${API_BASE}/house-numbers/assigned`),
+    getVisitorLiveStats: () =>
+    request(`${API_BASE}/visitors/live-stats`),
 };
