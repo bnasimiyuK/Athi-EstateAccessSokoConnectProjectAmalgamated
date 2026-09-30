@@ -2,8 +2,8 @@
    routes/visitors.js — Visitor Pre-Registration
    2-stage approval: Admin → Security
    Code generated only after both approve.
-   Email delivery to visitor + resident.
-   + Bulk approval (max 200 per call, batched emails).
+   Email + SMS delivery to visitor + resident.
+   + Bulk approval (max 200 per call, batched emails + SMS).
    ============================================================ */
 
 const express = require("express");
@@ -11,6 +11,7 @@ const router  = express.Router();
 const { getPool } = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { sendMail } = require("../utils/mailer");
+const { sendSmsBatch } = require("../utils/sms");
 
 /* ------------------------------------------------------------
    Constants
@@ -114,7 +115,7 @@ async function updateSummary(pool, groupId) {
    Bulk helpers
    ------------------------------------------------------------ */
 
-/* Send emails in batches of `batchSize` with `delayMs` between batches */
+/* Send emails in batches */
 async function sendBatch(emails, batchSize = 25, delayMs = 1000) {
   const results = { sent: 0, failed: 0, failures: [] };
 
@@ -169,7 +170,7 @@ async function approveAdminSingle(pool, groupId, adminId) {
   }
 }
 
-/* Approve one group at security stage. Generates code, queues emails. */
+/* Approve one group at security stage. Generates code, queues emails + SMS. */
 async function approveSecuritySingle(pool, groupId, securityId) {
   try {
     const g = await pool.request().input("id", groupId)
@@ -217,7 +218,9 @@ async function approveSecuritySingle(pool, groupId, securityId) {
       .query("SELECT id, name, phone, email FROM visitors WHERE group_id = @g");
 
     const emails = [];
+    const smsMessages = [];
 
+    /* ---- Visitors ---- */
     for (const v of vs.recordset) {
       if (v.email) {
         emails.push({
@@ -236,8 +239,16 @@ Show this code at the gate. The code is valid until ${fmtDate(expiresAt)}.
 — Athi Estate Management`,
         });
       }
+      if (v.phone) {
+        smsMessages.push({
+          to: v.phone,
+          message:
+`Athi Estate: Your visit code is ${code} for ${row.house_number} on ${fmtDate(row.visit_date)}${row.expected_time_hhmm ? " at " + row.expected_time_hhmm : ""}. Valid until ${fmtDate(expiresAt)}. Show at gate.`,
+        });
+      }
     }
 
+    /* ---- Resident ---- */
     if (row.resident_email) {
       emails.push({
         to: row.resident_email,
@@ -256,15 +267,22 @@ The visitor has been emailed the code. If they lose it, share this email with th
 — Athi Estate Management`,
       });
     }
+    if (row.resident_phone) {
+      smsMessages.push({
+        to: row.resident_phone,
+        message:
+`Athi Estate: Visitor approved. Code ${code} for ${fmtDate(row.visit_date)}. Visitors: ${vs.recordset.map((v) => v.name).join(", ")}. Shared with visitors.`,
+      });
+    }
 
-    return { ok: true, code, expiresAt, emails, groupId };
+    return { ok: true, code, expiresAt, emails, smsMessages, groupId };
   } catch (err) {
     return { ok: false, error: err.message };
   }
 }
 
 /* ------------------------------------------------------------
-   GET /api/visitors/config — public config
+   GET /api/visitors/config
    ------------------------------------------------------------ */
 router.get("/config", (req, res) => {
   res.json({
@@ -549,9 +567,6 @@ router.get("/pending-security", requireAuth, requireRole("security", "admin"), a
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   GET /api/visitors/pending-counts — tile counts only
-   ------------------------------------------------------------ */
 router.get("/pending-counts", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const pool = await getPool();
@@ -647,19 +662,25 @@ router.post("/bulk-approve-security", requireAuth, requireRole("security", "admi
     }
 
     const pool = await getPool();
-    const results = { ok: [], failed: [], emailsQueued: [] };
+    const results = { ok: [], failed: [], emailsQueued: [], smsQueued: [] };
 
     for (const id of ids) {
       const r = await approveSecuritySingle(pool, id, req.user.id);
       if (r.ok) {
         results.ok.push({ id, code: r.code });
         results.emailsQueued.push(...(r.emails || []));
+        results.smsQueued.push(...(r.smsMessages || []));
       } else {
         results.failed.push({ id, error: r.error });
       }
     }
 
     const mailResult = await sendBatch(results.emailsQueued, 25, 1000);
+
+    let smsResult = { sent: 0, failed: 0, failures: [] };
+    if (results.smsQueued.length) {
+      smsResult = await sendSmsBatch(results.smsQueued, 25, 1000);
+    }
 
     res.json({
       ok:            results.ok.length,
@@ -669,6 +690,9 @@ router.post("/bulk-approve-security", requireAuth, requireRole("security", "admi
       emailsSent:    mailResult.sent,
       emailsFailed:  mailResult.failed,
       emailFailures: mailResult.failures.slice(0, 20),
+      smsSent:       smsResult.sent,
+      smsFailed:     smsResult.failed,
+      smsFailures:   smsResult.failures.slice(0, 20),
     });
   } catch (err) { next(err); }
 });
@@ -693,19 +717,25 @@ router.post("/bulk-approve-all-security", requireAuth, requireRole("security", "
       `);
 
     const ids = pending.recordset.map((r) => r.id);
-    const results = { ok: [], failed: [], emailsQueued: [] };
+    const results = { ok: [], failed: [], emailsQueued: [], smsQueued: [] };
 
     for (const id of ids) {
       const r = await approveSecuritySingle(pool, id, req.user.id);
       if (r.ok) {
         results.ok.push({ id, code: r.code });
         results.emailsQueued.push(...(r.emails || []));
+        results.smsQueued.push(...(r.smsMessages || []));
       } else {
         results.failed.push({ id, error: r.error });
       }
     }
 
     const mailResult = await sendBatch(results.emailsQueued, 25, 1000);
+
+    let smsResult = { sent: 0, failed: 0, failures: [] };
+    if (results.smsQueued.length) {
+      smsResult = await sendSmsBatch(results.smsQueued, 25, 1000);
+    }
 
     const remainingRes = await pool.request().query(`
       SELECT COUNT(*) AS n FROM visitor_groups WHERE status = 'pending_security'
@@ -719,6 +749,9 @@ router.post("/bulk-approve-all-security", requireAuth, requireRole("security", "
       emailsSent:    mailResult.sent,
       emailsFailed:  mailResult.failed,
       emailFailures: mailResult.failures.slice(0, 20),
+      smsSent:       smsResult.sent,
+      smsFailed:     smsResult.failed,
+      smsFailures:   smsResult.failures.slice(0, 20),
       remaining:     remainingRes.recordset[0].n,
     });
   } catch (err) { next(err); }
@@ -785,7 +818,7 @@ router.post("/bulk-deny", requireAuth, requireRole("admin", "security"), async (
 });
 
 /* ============================================================
-   SINGLE-ITEM APPROVAL / DENY (existing)
+   SINGLE-ITEM APPROVAL / DENY
    ============================================================ */
 
 router.post("/:id/approve-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
@@ -805,12 +838,18 @@ router.post("/:id/approve-security", requireAuth, requireRole("security", "admin
     const r = await approveSecuritySingle(pool, id, req.user.id);
     if (!r.ok) return res.status(400).json({ error: r.error });
 
-    /* Send emails synchronously for single approval (as before) */
+    /* Emails — synchronously for single approval */
     if (r.emails && r.emails.length) {
       for (const e of r.emails) {
         try { await sendMail({ to: e.to, subject: e.subject, text: e.text }); }
         catch { /* ignore individual failures */ }
       }
+    }
+
+    /* SMS — same */
+    if (r.smsMessages && r.smsMessages.length) {
+      try { await sendSmsBatch(r.smsMessages, 25, 1000); }
+      catch { /* ignore individual failures */ }
     }
 
     res.json({
