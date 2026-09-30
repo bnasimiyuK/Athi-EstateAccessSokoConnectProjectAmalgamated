@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Visitors — Admin — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="billing.html" data-nav="billing.html">My billing</a>
+      <a href="visitors.html" data-nav="visitors.html">My visitors</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+          <a href="admin-house-numbers.html">House numbers</a>
+          <a href="admin-invoices.html">Invoices</a>
+          <a href="admin-payments.html">Payments</a>
+          <a href="admin-visitors.html">Visitors</a>
+          <a href="admin-providers.html">All vendors</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>Visitors — Admin approval</h1>
+      <p>Stage 1 of the two-stage approval. Once approved here, security makes the final decision.</p>
+    </div>
+    <div class="admin-actions">
+      <a href="admin-visitor-analytics.html" class="btn btn--ghost">📊 Analytics</a>
+      <a href="security-visitors.html" class="btn btn--ghost">🛡️ Security view</a>
+    </div>
+  </div>
+
+  <section class="stat-section">
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="tile-pending">—</div>
+        <div class="stat-tile__label">Pending admin approval</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-pending-sec">—</div>
+        <div class="stat-tile__label">Waiting for security</div>
+      </div>
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-approved">—</div>
+        <div class="stat-tile__label">Approved (30d)</div>
+      </div>
+      <div class="stat-tile stat-tile--danger">
+        <div class="stat-tile__value" id="tile-denied">—</div>
+        <div class="stat-tile__label">Denied (30d)</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="tab-row">
+    <button class="tab-btn is-active" data-tab="pending">
+      Pending approval <span id="count-pending"></span>
+    </button>
+    <button class="tab-btn" data-tab="all">
+      All visits
+    </button>
+  </div>
+
+  <!-- Tab: Pending admin approval -->
+  <div class="tab-panel is-active" id="tab-pending">
+    <div id="pending-list">
+      <div class="empty-state">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Tab: All visits -->
+  <div class="tab-panel" id="tab-all">
+    <form id="all-filter" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+      <select id="filter-status" class="input">
+        <option value="">All statuses</option>
+        <option value="pending_admin">Pending admin</option>
+        <option value="pending_security">Pending security</option>
+        <option value="approved">Approved</option>
+        <option value="checked_in">Checked in</option>
+        <option value="completed">Completed</option>
+        <option value="denied">Denied</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="expired">Expired</option>
+      </select>
+      <input type="text" id="filter-q" class="input" placeholder="Search house, code, name…" style="min-width:240px;" />
+      <button type="submit" class="btn btn--accent">Filter</button>
+      <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
+    </form>
+    <div id="all-list">
+      <div class="empty-state">Loading…</div>
+    </div>
+    <div id="all-pagination"></div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    Both admin and security must approve before an access code is issued.
+  </div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin-visitors.js"></script>
+</body>
+</html>
