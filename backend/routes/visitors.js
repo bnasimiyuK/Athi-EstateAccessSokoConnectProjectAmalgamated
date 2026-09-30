@@ -874,9 +874,8 @@ router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res,
     res.json({ ok: true, expired: r.recordset.length });
   } catch (err) { next(err); }
 });
-
 /* ------------------------------------------------------------
-   GET /api/visitors/live-stats — true real-time counts
+   GET /api/visitors/live-stats â€” true real-time counts
    ------------------------------------------------------------ */
 router.get("/live-stats", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
@@ -901,7 +900,6 @@ router.get("/live-stats", requireAuth, requireRole("admin", "security"), async (
     res.json(r.recordset[0]);
   } catch (err) { next(err); }
 });
-
 router.get("/:id", requireAuth, requireRole("admin", "security", "resident"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
