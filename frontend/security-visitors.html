@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Security — Athi Estate Access</title>
+  <title>Security — Visitors — Athi Estate Access</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
 </head>
@@ -16,41 +16,96 @@
       <a href="index.html" data-nav="index.html">Discover</a>
       <a href="billing.html" data-nav="billing.html">My billing</a>
       <a href="visitors.html" data-nav="visitors.html">My visitors</a>
-      <span style="margin-left:auto;display:flex;align-items:center;gap:12px;">
-        <span id="user-greeting"></span>
-        <button onclick="logout()" class="btn btn--ghost btn--small">Logout</button>
-      </span>
+      <span id="user-greeting" style="margin-left:auto;color:var(--ink-70);font-size:0.9rem;"></span>
+      <button onclick="logout()" class="btn btn--ghost btn--small">Logout</button>
     </nav>
   </div>
 </header>
 
-<main class="container" style="padding:40px 24px;">
+<main class="container">
   <div class="page-head">
     <div class="page-head__text">
-      <h1>Security dashboard</h1>
-      <p>Coming soon — the visitor approval and gate check-in pages are being built.</p>
+      <h1>Security — Visitor control</h1>
+      <p>Approve pre-registrations, verify codes at the gate, and monitor traffic.</p>
     </div>
   </div>
 
-  <div class="alert-card" style="max-width:640px;">
-    <div class="alert-card__head">🚧 Under construction</div>
-    <div class="alert-card__body" style="font-size:0.95rem;line-height:1.8;">
-      You're logged in as <b id="user-name">—</b> with role <b id="user-role">—</b>.
-      <br><br>
-      The security team's pages will appear here soon:
-      <ul style="margin:12px 0 0 0;">
-        <li>Pending visitor approvals (stage 2)</li>
-        <li>Today's expected visitors with codes</li>
-        <li>Gate check-in / check-out</li>
-        <li>Visitor analytics</li>
-      </ul>
+  <section class="stat-section">
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="tile-pending">—</div>
+        <div class="stat-tile__label">Pending security approval</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-today">—</div>
+        <div class="stat-tile__label">Expected today</div>
+      </div>
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="tile-checked-in">—</div>
+        <div class="stat-tile__label">Currently on-site</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-completed">—</div>
+        <div class="stat-tile__label">Completed today</div>
+      </div>
     </div>
+  </section>
+
+  <!-- Tabs -->
+  <div class="tab-row">
+    <button class="tab-btn is-active" data-tab="approvals">
+      Pending approval <span id="count-approvals"></span>
+    </button>
+    <button class="tab-btn" data-tab="today">
+      Today's visitors
+    </button>
+    <button class="tab-btn" data-tab="checkin">
+      Check in / out
+    </button>
+    <a class="tab-btn" href="admin-visitor-analytics.html">
+      Analytics →
+    </a>
+  </div>
+
+  <!-- Tab: Approvals -->
+  <div class="tab-panel is-active" id="tab-approvals">
+    <div id="approvals-list">
+      <div class="empty-state">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Tab: Today -->
+  <div class="tab-panel" id="tab-today">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+      <input type="date" id="today-date" class="input" style="min-width:180px;" />
+      <input type="text" id="today-q" class="input" placeholder="Search by code, house, plate, name…" style="min-width:280px;" />
+      <button type="button" id="btn-refresh-today" class="btn btn--accent">Refresh</button>
+      <button type="button" id="btn-print-register" class="btn btn--ghost">🖨️ Print register</button>
+    </div>
+    <div id="today-list">
+      <div class="empty-state">Pick a date and click Refresh…</div>
+    </div>
+  </div>
+
+  <!-- Tab: Check in / out -->
+  <div class="tab-panel" id="tab-checkin">
+    <div class="alert-card" style="max-width:640px;">
+      <div class="alert-card__head">Find a visit to check in / out</div>
+      <div class="alert-card__body">
+        <p style="margin-top:0;">Enter the visitor's 6-digit code, house number, or plate number.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <input type="text" id="ci-search" class="input" placeholder="e.g. 482915 or Riverside-A01 or KDA 123X" style="flex:1;min-width:260px;" />
+          <button type="button" id="btn-ci-search" class="btn btn--accent">Find</button>
+        </div>
+      </div>
+    </div>
+    <div id="ci-result" style="margin-top:18px;"></div>
   </div>
 </main>
 
 <footer class="site-footer">
   <div class="container" style="width:100%;">
-    Athi Estate Access — Security
+    Every check-in, check-out and cancellation is logged for admin analytics.
   </div>
 </footer>
 

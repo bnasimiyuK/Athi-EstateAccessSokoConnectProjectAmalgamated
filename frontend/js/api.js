@@ -331,5 +331,47 @@ const Api = {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
+      /* ---------- Visitors (admin + security) ---------- */
+  getVisitorPendingSecurity: () =>
+    request(`${API_BASE}/visitors/pending-security`),
+
+  getVisitorPendingAdmin: () =>
+    request(`${API_BASE}/visitors/pending-admin`),
+
+  getVisitorGroups: (params = {}) =>
+    request(`${API_BASE}/visitors${qsOf(params)}`),
+
+  getVisitorGroup: (id) =>
+    request(`${API_BASE}/visitors/${id}`),
+
+  approveVisitorAdmin: (id) =>
+    request(`${API_BASE}/visitors/${id}/approve-admin`, { method: "POST" }),
+
+  approveVisitorSecurity: (id) =>
+    request(`${API_BASE}/visitors/${id}/approve-security`, { method: "POST" }),
+
+  denyVisitor: (id, reason) =>
+    request(`${API_BASE}/visitors/${id}/deny`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
+  getVisitorRegister: (date) =>
+    request(`${API_BASE}/visitors/register${qsOf({ date })}`),
+
+  checkinVisitor: (payload) =>
+    request(`${API_BASE}/visitors/checkin`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  checkoutVisitor: (payload) =>
+    request(`${API_BASE}/visitors/checkout`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getVisitorAnalytics: (params = {}) =>
+    request(`${API_BASE}/visitors/analytics${qsOf(params)}`),
     }),
 };
