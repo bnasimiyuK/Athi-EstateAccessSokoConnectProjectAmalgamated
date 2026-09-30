@@ -1,6 +1,7 @@
 /* ============================================================
    security-visitors.js — security role dashboard
    Tabs: approvals | today | check-in/out
+   Per-visitor check-in/out supported.
    ============================================================ */
 
 function escapeHtml(s) {
@@ -21,7 +22,9 @@ function statusBadge(s) {
     approved:         `<span class="badge badge--verified">Approved</span>`,
     denied:           `<span class="badge" style="background:#b0472e;color:#fff;">Denied</span>`,
     cancelled:        `<span class="badge" style="background:#666;color:#fff;">Cancelled</span>`,
+    pending:          `<span class="badge" style="background:#c8862a;color:#fff;">Pending</span>`,
     checked_in:       `<span class="badge" style="background:#2f6f5e;color:#fff;">Checked in</span>`,
+    checked_out:      `<span class="badge" style="background:#4a7ba7;color:#fff;">Checked out</span>`,
     completed:        `<span class="badge" style="background:#2f6f5e;color:#fff;">Completed</span>`,
     expired:          `<span class="badge" style="background:#b0472e;color:#fff;">Expired</span>`,
   };
@@ -44,7 +47,7 @@ function setupTabs() {
 }
 
 /* ------------------------------------------------------------
-   Summary tiles — now uses live-stats endpoint
+   Summary tiles — uses live-stats endpoint
    ------------------------------------------------------------ */
 async function loadTiles() {
   try {
@@ -113,7 +116,7 @@ async function loadApprovals() {
   `;
 
   el.querySelectorAll("[data-approve]").forEach((b) =>
-    b.addEventListener("click", () => approve(g(b), b))
+    b.addEventListener("click", () => approve(b.dataset.approve, b))
   );
   el.querySelectorAll("[data-deny]").forEach((b) =>
     b.addEventListener("click", () => deny(b.dataset.deny))
@@ -121,8 +124,6 @@ async function loadApprovals() {
   el.querySelectorAll("[data-view]").forEach((b) =>
     b.addEventListener("click", () => viewDetails(b.dataset.view))
   );
-
-  function g(btn) { return btn.dataset.approve; }
 }
 
 async function approve(id, btn) {
@@ -199,7 +200,7 @@ async function viewDetails(id) {
 }
 
 /* ------------------------------------------------------------
-   Today's list
+   Today's list — per-visitor rows
    ------------------------------------------------------------ */
 async function loadToday() {
   const el = document.getElementById("today-list");
@@ -222,56 +223,166 @@ async function loadToday() {
     return;
   }
 
+  /* Fetch visitor details for each group */
+  const groupsWithVisitors = await Promise.all(result.data.map(async (g) => {
+    try {
+      const detail = await Api.getVisitorGroup(g.id);
+      return { group: g, visitors: detail.visitors || [] };
+    } catch {
+      return { group: g, visitors: [] };
+    }
+  }));
+
   el.innerHTML = `
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Time</th><th>House</th><th>Host</th><th>Visitors</th>
-            <th>Code</th><th>Status</th><th>Action</th>
+            <th>Time</th>
+            <th>House</th>
+            <th>Visitor</th>
+            <th>Vehicle</th>
+            <th>Code</th>
+            <th>Status</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
-          ${result.data.map((g) => `
-            <tr>
-              <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
-              <td>${escapeHtml(g.house_number)}</td>
-              <td>${escapeHtml(g.resident_name)}</td>
-              <td>${g.headcount}</td>
-              <td><b style="font-family:monospace;">${escapeHtml(g.access_code || "—")}</b></td>
-              <td>${statusBadge(g.status)}</td>
-              <td>
-                ${g.status === "approved"   ? `<button class="btn btn--accent btn--small" data-in="${g.id}">Check in</button>` : ""}
-                ${g.status === "checked_in" ? `<button class="btn btn--accent btn--small" data-out="${g.id}">Check out</button>` : ""}
-                <button class="btn btn--ghost btn--small" data-view="${g.id}">View</button>
-              </td>
-            </tr>
-          `).join("")}
+          ${groupsWithVisitors.map(({ group: g, visitors }) => {
+            const onSiteCount = visitors.filter((v) => v.status === "checked_in").length;
+            const groupHeader = visitors.length > 1 ? `
+              <tr style="background:var(--paper-dim);">
+                <td colspan="7" style="font-size:0.85rem;color:var(--ink-70);padding:8px 16px;">
+                  <b>Group #${g.id}</b> · ${visitors.length} visitors ·
+                  ${onSiteCount} on-site
+                  ${onSiteCount > 0
+                    ? `<button class="btn btn--ghost btn--small" data-out-all="${g.id}" style="margin-left:8px;">
+                         Check out all remaining
+                       </button>`
+                    : ""}
+                  <button class="btn btn--ghost btn--small" data-view="${g.id}" style="margin-left:4px;">View group</button>
+                </td>
+              </tr>
+            ` : "";
+
+            const visitorRows = visitors.map((v) => {
+              const vehicles = (v.vehicles || []).map((veh) =>
+                `${escapeHtml(veh.plate)}${veh.driver ? " (" + escapeHtml(veh.driver) + ")" : ""}`
+              ).join(", ") || "—";
+
+              let actionButtons = "";
+              if (v.status === "pending" || v.status === "approved") {
+                actionButtons = `<button class="btn btn--accent btn--small" data-in="${g.id}" data-visitor="${v.id}">Check in</button>`;
+              } else if (v.status === "checked_in") {
+                actionButtons = `<button class="btn btn--accent btn--small" data-out="${g.id}" data-visitor="${v.id}">Check out</button>`;
+              }
+              if (visitors.length === 1) {
+                actionButtons += ` <button class="btn btn--ghost btn--small" data-view="${g.id}">View</button>`;
+              }
+
+              return `
+                <tr>
+                  <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
+                  <td>${escapeHtml(g.house_number)}</td>
+                  <td>${escapeHtml(v.name)}</td>
+                  <td>${vehicles}</td>
+                  <td><b style="font-family:monospace;">${escapeHtml(g.access_code || "—")}</b></td>
+                  <td>${statusBadge(v.status)}</td>
+                  <td>${actionButtons}</td>
+                </tr>
+              `;
+            }).join("");
+
+            return groupHeader + visitorRows;
+          }).join("")}
         </tbody>
       </table>
     </div>
   `;
 
-  el.querySelectorAll("[data-in]").forEach((b) => b.addEventListener("click", () => checkin(b.dataset.in)));
-  el.querySelectorAll("[data-out]").forEach((b) => b.addEventListener("click", () => checkout(b.dataset.out)));
-  el.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => viewDetails(b.dataset.view)));
+  el.querySelectorAll("[data-in]").forEach((b) =>
+    b.addEventListener("click", () => checkinOne(b.dataset.in, b.dataset.visitor))
+  );
+  el.querySelectorAll("[data-out]").forEach((b) =>
+    b.addEventListener("click", () => checkoutOne(b.dataset.out, b.dataset.visitor))
+  );
+  el.querySelectorAll("[data-out-all]").forEach((b) =>
+    b.addEventListener("click", () => checkoutGroup(b.dataset.outAll))
+  );
+  el.querySelectorAll("[data-view]").forEach((b) =>
+    b.addEventListener("click", () => viewDetails(b.dataset.view))
+  );
 }
 
-async function checkin(id) {
+/* ------------------------------------------------------------
+   Per-visitor check-in
+   ------------------------------------------------------------ */
+async function checkinOne(groupId, visitorId) {
   if (!confirm("Check in this visitor?")) return;
+  try {
+    const r = await Api.checkinVisitor({ groupId, visitorId });
+    toast(r.remainingInside > 0
+      ? `Checked in. ${r.remainingInside} visitor${r.remainingInside === 1 ? "" : "s"} on-site.`
+      : "Checked in.");
+    await loadTiles();
+    await loadToday();
+  } catch (err) {
+    toast(err.message || "Could not check in.");
+  }
+}
+
+/* ------------------------------------------------------------
+   Per-visitor check-out
+   ------------------------------------------------------------ */
+async function checkoutOne(groupId, visitorId) {
+  if (!confirm("Check out this visitor?")) return;
+  try {
+    const r = await Api.checkoutVisitor({ groupId, visitorId });
+    toast(r.remainingInside > 0
+      ? `Checked out. ${r.remainingInside} visitor${r.remainingInside === 1 ? "" : "s"} still on-site.`
+      : "Checked out. Group completed.");
+    await loadTiles();
+    await loadToday();
+  } catch (err) {
+    toast(err.message || "Could not check out.");
+  }
+}
+
+/* ------------------------------------------------------------
+   Group check-out — everyone still checked-in
+   ------------------------------------------------------------ */
+async function checkoutGroup(groupId) {
+  if (!confirm("Check out all visitors still on-site in this group?")) return;
+  try {
+    await Api.checkoutVisitor({ groupId });
+    toast("All remaining visitors checked out.");
+    await loadTiles();
+    await loadToday();
+  } catch (err) {
+    toast(err.message || "Could not check out group.");
+  }
+}
+
+/* ------------------------------------------------------------
+   Group-level wrappers (used by the Check in/out search tab)
+   ------------------------------------------------------------ */
+async function checkin(id) {
+  if (!confirm("Check in all visitors in this group?")) return;
   try {
     await Api.checkinVisitor({ groupId: id });
     toast("Checked in.");
-    await loadTiles(); await loadToday();
+    await loadTiles();
+    await loadToday();
   } catch (err) { toast(err.message || "Could not check in."); }
 }
 
 async function checkout(id) {
-  if (!confirm("Check out this visitor?")) return;
+  if (!confirm("Check out all visitors still on-site in this group?")) return;
   try {
     await Api.checkoutVisitor({ groupId: id });
     toast("Checked out.");
-    await loadTiles(); await loadToday();
+    await loadTiles();
+    await loadToday();
   } catch (err) { toast(err.message || "Could not check out."); }
 }
 
@@ -383,14 +494,11 @@ async function printRegister() {
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof requireRole === "function" && !requireRole("security", "admin")) return;
 
-  /* Tabs */
   setupTabs();
 
-  /* Today date default */
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById("today-date").value = today;
 
-  /* Wire buttons */
   document.getElementById("btn-refresh-today").addEventListener("click", loadToday);
   document.getElementById("btn-print-register").addEventListener("click", printRegister);
   document.getElementById("btn-ci-search").addEventListener("click", searchCheckin);
@@ -398,7 +506,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (e.key === "Enter") { e.preventDefault(); searchCheckin(); }
   });
 
-  /* Load everything */
   await loadTiles();
   await loadApprovals();
   await loadToday();

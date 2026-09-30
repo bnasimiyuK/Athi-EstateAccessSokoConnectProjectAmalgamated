@@ -125,7 +125,7 @@ router.get("/config", (req, res) => {
    ============================================================ */
 
 /* ------------------------------------------------------------
-   POST /api/visitors
+   POST /api/visitors — resident submits pre-registration
    ------------------------------------------------------------ */
 router.post("/", requireAuth, requireRole("resident"), async (req, res, next) => {
   try {
@@ -326,6 +326,9 @@ router.post("/:id/cancel", requireAuth, requireRole("resident"), async (req, res
    ADMIN + SECURITY ENDPOINTS
    ============================================================ */
 
+/* ------------------------------------------------------------
+   GET /api/visitors/pending-admin
+   ------------------------------------------------------------ */
 router.get("/pending-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
@@ -344,6 +347,9 @@ router.get("/pending-admin", requireAuth, requireRole("admin"), async (req, res,
   } catch (err) { next(err); }
 });
 
+/* ------------------------------------------------------------
+   GET /api/visitors/pending-security
+   ------------------------------------------------------------ */
 router.get("/pending-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
@@ -362,6 +368,9 @@ router.get("/pending-security", requireAuth, requireRole("security", "admin"), a
   } catch (err) { next(err); }
 });
 
+/* ------------------------------------------------------------
+   POST /api/visitors/:id/approve-admin — stage 1
+   ------------------------------------------------------------ */
 router.post("/:id/approve-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -394,9 +403,7 @@ router.post("/:id/approve-admin", requireAuth, requireRole("admin"), async (req,
 });
 
 /* ------------------------------------------------------------
-   POST /api/visitors/:id/approve-security
-   Generates code, sends notifications.
-   ✅ FIXED: now selects r.email AS resident_email so resident copy goes out.
+   POST /api/visitors/:id/approve-security — stage 2 (code + emails)
    ------------------------------------------------------------ */
 router.post("/:id/approve-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
@@ -527,6 +534,9 @@ The visitor has been emailed the code. If they lose it, share this email with th
   } catch (err) { next(err); }
 });
 
+/* ------------------------------------------------------------
+   POST /api/visitors/:id/deny
+   ------------------------------------------------------------ */
 router.post("/:id/deny", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -568,6 +578,9 @@ router.post("/:id/deny", requireAuth, requireRole("admin", "security"), async (r
   } catch (err) { next(err); }
 });
 
+/* ------------------------------------------------------------
+   GET /api/visitors — full paginated list
+   ------------------------------------------------------------ */
 router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const { status, date, houseNumber, q, page = 1, limit = 50 } = req.query;
@@ -620,6 +633,9 @@ router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, 
   } catch (err) { next(err); }
 });
 
+/* ------------------------------------------------------------
+   GET /api/visitors/register?date=YYYY-MM-DD
+   ------------------------------------------------------------ */
 router.get("/register", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const { date } = req.query;
@@ -662,9 +678,8 @@ router.get("/register", requireAuth, requireRole("admin", "security"), async (re
 });
 
 /* ============================================================
-   GATE — check in / check out
+   GATE — CHECK IN
    ============================================================ */
-
 router.post("/checkin", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
     const { groupId, visitorId, plateNumber, gateName } = req.body;
@@ -691,13 +706,17 @@ router.post("/checkin", requireAuth, requireRole("security", "admin"), async (re
 
     const updateVisitor = async (vid) => {
       await pool.request()
-        .input("vid", vid).input("by", req.user.id)
+        .input("vid", vid)
+        .input("gid", groupId)
+        .input("by", req.user.id)
         .query(`
           UPDATE visitors
           SET status = 'checked_in',
               checked_in_at = SYSUTCDATETIME(),
               checked_in_by = @by
-          WHERE id = @vid AND status IN ('pending','approved')
+          WHERE id = @vid
+            AND group_id = @gid
+            AND status IN ('pending','approved')
         `);
     };
 
@@ -732,10 +751,22 @@ router.post("/checkin", requireAuth, requireRole("security", "admin"), async (re
     await logEvent(pool, groupId, "checked_in", req.user.id, req.user.role, plateNumber || null);
     await updateSummary(pool, groupId);
 
-    res.json({ ok: true });
+    const remaining = await pool.request().input("gid", groupId)
+      .query("SELECT COUNT(*) AS n FROM visitors WHERE group_id = @gid AND status = 'checked_in'");
+    const finalGroup = await pool.request().input("id", groupId)
+      .query("SELECT status FROM visitor_groups WHERE id = @id");
+
+    res.json({
+      ok: true,
+      groupStatus: finalGroup.recordset[0] ? finalGroup.recordset[0].status : null,
+      remainingInside: remaining.recordset[0].n,
+    });
   } catch (err) { next(err); }
 });
 
+/* ============================================================
+   GATE — CHECK OUT
+   ============================================================ */
 router.post("/checkout", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
     const { groupId, visitorId, gateName } = req.body;
@@ -748,13 +779,17 @@ router.post("/checkout", requireAuth, requireRole("security", "admin"), async (r
 
     const updateVisitor = async (vid) => {
       await pool.request()
-        .input("vid", vid).input("by", req.user.id)
+        .input("vid", vid)
+        .input("gid", groupId)
+        .input("by", req.user.id)
         .query(`
           UPDATE visitors
           SET status = 'checked_out',
               checked_out_at = SYSUTCDATETIME(),
               checked_out_by = @by
-          WHERE id = @vid AND status = 'checked_in'
+          WHERE id = @vid
+            AND group_id = @gid
+            AND status = 'checked_in'
         `);
     };
 
@@ -784,10 +819,20 @@ router.post("/checkout", requireAuth, requireRole("security", "admin"), async (r
     await logEvent(pool, groupId, "checked_out", req.user.id, req.user.role, null);
     await updateSummary(pool, groupId);
 
-    res.json({ ok: true });
+    const finalGroup = await pool.request().input("id", groupId)
+      .query("SELECT status FROM visitor_groups WHERE id = @id");
+
+    res.json({
+      ok: true,
+      groupStatus: finalGroup.recordset[0] ? finalGroup.recordset[0].status : null,
+      remainingInside: remaining.recordset[0].n,
+    });
   } catch (err) { next(err); }
 });
 
+/* ============================================================
+   ANALYTICS
+   ============================================================ */
 router.get("/analytics", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const to   = req.query.to   || new Date().toISOString().slice(0, 10);
@@ -854,6 +899,9 @@ router.get("/analytics", requireAuth, requireRole("admin", "security"), async (r
   } catch (err) { next(err); }
 });
 
+/* ============================================================
+   EXPIRY — mark stale approved visits as expired
+   ============================================================ */
 router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
@@ -874,9 +922,10 @@ router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res,
     res.json({ ok: true, expired: r.recordset.length });
   } catch (err) { next(err); }
 });
-/* ------------------------------------------------------------
-   GET /api/visitors/live-stats — true real-time counts
-   ------------------------------------------------------------ */
+
+/* ============================================================
+   LIVE STATS — real-time counts for security tiles
+   ============================================================ */
 router.get("/live-stats", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const pool = await getPool();
@@ -900,6 +949,10 @@ router.get("/live-stats", requireAuth, requireRole("admin", "security"), async (
     res.json(r.recordset[0]);
   } catch (err) { next(err); }
 });
+
+/* ============================================================
+   SINGLE GROUP — must be the LAST route
+   ============================================================ */
 router.get("/:id", requireAuth, requireRole("admin", "security", "resident"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
