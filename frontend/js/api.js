@@ -313,5 +313,23 @@ const Api = {
     request(`${API_BASE}/house-numbers/bulk`, {
       method: "POST",
       body: JSON.stringify({ rows }),
+        /* ---------- Visitors ---------- */
+  getVisitorConfig: () =>
+    request(`${API_BASE}/visitors/config`),
+
+  createVisitorGroup: (payload) =>
+    request(`${API_BASE}/visitors`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getMyVisitorGroups: () =>
+    request(`${API_BASE}/visitors/mine`),
+
+  cancelVisitorGroup: (id, reason) =>
+    request(`${API_BASE}/visitors/${id}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
     }),
 };
