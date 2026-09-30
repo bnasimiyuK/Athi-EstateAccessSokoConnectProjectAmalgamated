@@ -99,7 +99,7 @@ async function loadPending() {
           ${rows.map((g) => `
             <tr data-id="${g.id}">
               <td>${escapeHtml(fmtDate(g.created_at))}</td>
-              <td><b>${escapeHtml(fmtDate(g.visit_date))}</b>${g.expected_time ? " " + escapeHtml(String(g.expected_time).slice(0,5)) : ""}</td>
+              <td><b>${escapeHtml(fmtDate(g.visit_date))}</b>${g.expected_time_hhmm ? " " + escapeHtml(g.expected_time_hhmm) : ""}</td>
               <td>${escapeHtml(g.house_number)}</td>
               <td>${escapeHtml(g.resident_name)}<br><small>${escapeHtml(g.resident_phone)}</small></td>
               <td>${g.headcount}</td>

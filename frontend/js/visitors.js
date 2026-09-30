@@ -145,6 +145,20 @@ function collectForm() {
 
 function validateForm(data) {
   if (!data.visitDate) return "Please choose a visit date.";
+
+  /* Enforce the 48h minimum client-side too, using expectedTime when given.
+     Falls back to end-of-day if only a date is chosen. */
+  const visit = new Date(
+    data.expectedTime
+      ? `${data.visitDate}T${data.expectedTime}`
+      : `${data.visitDate}T23:59:59`
+  );
+  const diffH = (visit - Date.now()) / 36e5;
+  const minH  = CONFIG.minLeadHours || 48;
+  if (diffH < minH) {
+    return `Visit must be at least ${minH}h from now. Pick a later date/time.`;
+  }
+
   for (const v of data.visitors) {
     if (!v.name)               return "Every visitor must have a name.";
     if (!v.phone && !v.email)  return `Visitor "${v.name}" needs a phone or email.`;
@@ -212,7 +226,7 @@ async function loadVisits() {
         ${rows.map((g) => `
           <tr data-id="${g.id}">
             <td>${escapeHtml(fmtDate(g.visit_date))}</td>
-            <td>${escapeHtml(g.expected_time ? String(g.expected_time).slice(0,5) : "—")}</td>
+            <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
             <td>${escapeHtml(g.purpose || "—")}</td>
             <td>${g.headcount} ${g.headcount === 1 ? "visitor" : "visitors"}</td>
             <td><b style="font-family:monospace;">${escapeHtml(g.access_code || "—")}</b></td>
@@ -267,7 +281,7 @@ async function showDetails(id) {
     body.innerHTML = `
       <div style="margin-bottom:12px;">
         <b>Visit date:</b> ${escapeHtml(fmtDate(g.visit_date))}
-        ${g.expected_time ? " at " + escapeHtml(String(g.expected_time).slice(0,5)) : ""}
+        ${g.expected_time_hhmm ? " at " + escapeHtml(g.expected_time_hhmm) : ""}
         <br>
         <b>Purpose:</b> ${escapeHtml(g.purpose || "—")}
         <br>

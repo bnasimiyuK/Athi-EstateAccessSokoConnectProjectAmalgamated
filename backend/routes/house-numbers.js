@@ -292,4 +292,20 @@ router.get("/proposal", requireAuth, requireRole("admin"), async (req, res, next
   } catch (err) { next(err); }
 });
 
+/* ------------------------------------------------------------
+   GET /api/house-numbers/assigned
+   List all house numbers currently in use (for dropdown greying).
+   ------------------------------------------------------------ */
+router.get("/assigned", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    const pool = await getPool();
+    const r = await pool.request().query(`
+      SELECT house_number, id AS resident_id
+      FROM Residents
+      WHERE house_number IS NOT NULL
+    `);
+    res.json(r.recordset);
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

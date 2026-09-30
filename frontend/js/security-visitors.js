@@ -102,7 +102,7 @@ async function loadApprovals() {
           ${rows.map((g) => `
             <tr data-id="${g.id}">
               <td><b>${escapeHtml(fmtDate(g.visit_date))}</b></td>
-              <td>${escapeHtml(g.expected_time ? String(g.expected_time).slice(0,5) : "—")}</td>
+              <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
               <td>${escapeHtml(g.house_number)}</td>
               <td>${escapeHtml(g.resident_name)}<br><small>${escapeHtml(g.resident_phone)}</small></td>
               <td>${g.headcount}</td>
@@ -164,7 +164,7 @@ async function deny(id) {
 }
 
 /* ------------------------------------------------------------
-   Details modal (reuse a simple overlay)
+   Details modal
    ------------------------------------------------------------ */
 async function viewDetails(id) {
   try {
@@ -173,7 +173,7 @@ async function viewDetails(id) {
 
     const html = `
       <h2>Visit #${g.id}</h2>
-      <p><b>Date:</b> ${escapeHtml(fmtDate(g.visit_date))} ${g.expected_time ? "at " + escapeHtml(String(g.expected_time).slice(0,5)) : ""}</p>
+      <p><b>Date:</b> ${escapeHtml(fmtDate(g.visit_date))} ${g.expected_time_hhmm ? "at " + escapeHtml(g.expected_time_hhmm) : ""}</p>
       <p><b>House:</b> ${escapeHtml(g.house_number)} · <b>Host:</b> ${escapeHtml(g.resident_name)} (${escapeHtml(g.resident_phone)})</p>
       <p><b>Purpose:</b> ${escapeHtml(g.purpose || "—")}</p>
       <p><b>Status:</b> ${statusBadge(g.status)}</p>
@@ -242,15 +242,15 @@ async function loadToday() {
         <tbody>
           ${result.data.map((g) => `
             <tr>
-              <td>${escapeHtml(g.expected_time ? String(g.expected_time).slice(0,5) : "—")}</td>
+              <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
               <td>${escapeHtml(g.house_number)}</td>
               <td>${escapeHtml(g.resident_name)}</td>
               <td>${g.headcount}</td>
               <td><b style="font-family:monospace;">${escapeHtml(g.access_code || "—")}</b></td>
               <td>${statusBadge(g.status)}</td>
               <td>
-                ${g.status === "approved"       ? `<button class="btn btn--accent btn--small" data-in="${g.id}">Check in</button>` : ""}
-                ${g.status === "checked_in"     ? `<button class="btn btn--accent btn--small" data-out="${g.id}">Check out</button>` : ""}
+                ${g.status === "approved"   ? `<button class="btn btn--accent btn--small" data-in="${g.id}">Check in</button>` : ""}
+                ${g.status === "checked_in" ? `<button class="btn btn--accent btn--small" data-out="${g.id}">Check out</button>` : ""}
                 <button class="btn btn--ghost btn--small" data-view="${g.id}">View</button>
               </td>
             </tr>
@@ -362,7 +362,7 @@ async function printRegister() {
             ${rows.flatMap((g) =>
               g.visitors.map((v) => `
                 <tr>
-                  <td>${escapeHtml(g.expected_time ? String(g.expected_time).slice(0,5) : "—")}</td>
+                  <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
                   <td>${escapeHtml(g.house_number)}</td>
                   <td>${escapeHtml(g.resident_name)}</td>
                   <td>${escapeHtml(v.name)}</td>
@@ -376,7 +376,7 @@ async function printRegister() {
             ).join("")}
           </tbody>
         </table>
-        <script>window.print();</script>
+        <script>window.print();<\/script>
       </body></html>
     `);
     w.document.close();
@@ -390,11 +390,6 @@ async function printRegister() {
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof requireRole === "function" && !requireRole("security", "admin")) return;
-
-  /* Greeting */
-  const u = typeof getUser === "function" ? getUser() : null;
-  const g = document.getElementById("user-greeting");
-  if (u && g) g.textContent = `Hi, ${u.name || "User"}`;
 
   /* Tabs */
   setupTabs();

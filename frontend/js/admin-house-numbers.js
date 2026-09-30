@@ -1,8 +1,11 @@
 /* ============================================================
    admin-house-numbers.js — assign {CourtName}-{A|B}{NN}
+   Dropdown-based, with 15 houses per side (A01–A15, B01–B15).
    ============================================================ */
 
 const HN_PER_PAGE = 20;
+const HN_HOUSES_PER_SIDE = 15;   // 15 right (A), 15 left (B) = 30 per court
+
 const hnState = {
   page: 1, limit: HN_PER_PAGE, total: 0, totalPages: 1,
   status: "unassigned", phase: "", courtId: "", q: "",
@@ -10,15 +13,24 @@ const hnState = {
 
 let HN_ALL_COURTS = [];
 let HN_FILTERED_COURTS = [];
-let HN_COURT_NAMES = new Map(); // courtId -> name
+let HN_COURT_NAMES = new Map();
+let HN_ASSIGNED = new Map();      // houseNumber → residentId
 
-/* ------------------------------------------------------------
-   Escape helper
-   ------------------------------------------------------------ */
 function escapeHtml(s) {
   return String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/* Generate 30 possible house numbers for a court */
+function houseOptionsFor(courtName) {
+  const out = [];
+  for (let i = 1; i <= HN_HOUSES_PER_SIDE; i++) {
+    const nn = String(i).padStart(2, "0");
+    out.push(`${courtName}-A${nn}`);
+    out.push(`${courtName}-B${nn}`);
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------
@@ -115,6 +127,20 @@ function selectHNCourt(court) {
 }
 
 /* ------------------------------------------------------------
+   Load assigned house numbers
+   ------------------------------------------------------------ */
+async function loadAssigned() {
+  try {
+    const rows = await Api.getAssignedHouseNumbers();
+    HN_ASSIGNED = new Map();
+    for (const r of rows) HN_ASSIGNED.set(r.house_number, r.resident_id);
+  } catch (err) {
+    console.error("[admin-house-numbers] assigned failed:", err);
+    HN_ASSIGNED = new Map();
+  }
+}
+
+/* ------------------------------------------------------------
    Load summary tiles
    ------------------------------------------------------------ */
 async function loadHNSummary() {
@@ -129,6 +155,33 @@ async function loadHNSummary() {
 }
 
 /* ------------------------------------------------------------
+   Build the dropdown for one resident
+   ------------------------------------------------------------ */
+function houseSelectHtml(resident) {
+  const courtName = resident.courtName || "";
+  const options = houseOptionsFor(courtName);
+  const current = resident.houseNumber || "";
+
+  const opts = options.map((hno) => {
+    const owner = HN_ASSIGNED.get(hno);
+    const taken = owner != null && owner !== resident.id;
+
+    const selected = hno === current ? " selected" : "";
+    const disabled = taken && hno !== current ? " disabled" : "";
+    const suffix = taken && hno !== current ? "  (taken)" : "";
+
+    return `<option value="${escapeHtml(hno)}"${selected}${disabled}>${escapeHtml(hno)}${suffix}</option>`;
+  }).join("");
+
+  return `
+    <select class="input hn-select" data-id="${resident.id}" style="min-width:220px;">
+      <option value="">— select —</option>
+      ${opts}
+    </select>
+  `;
+}
+
+/* ------------------------------------------------------------
    Load residents
    ------------------------------------------------------------ */
 async function loadHNResidents() {
@@ -137,6 +190,7 @@ async function loadHNResidents() {
 
   let result;
   try {
+    await loadAssigned();
     result = await Api.getHouseNumberResidents({
       q: hnState.q,
       courtId: hnState.courtId,
@@ -178,14 +232,7 @@ async function loadHNResidents() {
             <td>${escapeHtml(r.phone)}</td>
             <td>Phase ${escapeHtml(r.phase)}</td>
             <td>${escapeHtml(r.courtName)}</td>
-            <td>
-              <input type="text"
-                     class="input hn-input"
-                     data-id="${r.id}"
-                     value="${escapeHtml(r.houseNumber || "")}"
-                     placeholder="${escapeHtml(r.courtName)}-A01"
-                     style="min-width:220px;font-family:monospace;" />
-            </td>
+            <td>${houseSelectHtml(r)}</td>
             <td>
               <button class="btn btn--accent btn--small" data-save="${r.id}">Save</button>
             </td>
@@ -195,29 +242,22 @@ async function loadHNResidents() {
     </table>
   `;
 
-  /* Wire up save buttons */
   wrap.querySelectorAll("[data-save]").forEach((btn) => {
     btn.addEventListener("click", () => saveHN(btn.dataset.save, btn));
-  });
-
-  /* Enter key saves */
-  wrap.querySelectorAll(".hn-input").forEach((inp) => {
-    inp.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        const btn = wrap.querySelector(`[data-save="${inp.dataset.id}"]`);
-        if (btn) saveHN(inp.dataset.id, btn);
-      }
-    });
   });
 
   renderHNPagination();
 }
 
 async function saveHN(id, btn) {
-  const input = document.querySelector(`.hn-input[data-id="${id}"]`);
-  if (!input) return;
-  const value = input.value.trim();
+  const select = document.querySelector(`.hn-select[data-id="${id}"]`);
+  if (!select) return;
+  const value = select.value.trim();
+
+  if (!value) {
+    toast("Pick a house number first.");
+    return;
+  }
 
   const original = btn.textContent;
   btn.disabled = true;
@@ -225,7 +265,7 @@ async function saveHN(id, btn) {
 
   try {
     await Api.setResidentHouseNumber(id, value);
-    toast(value ? `House number set: ${value}` : "House number cleared.");
+    toast(`House number set: ${value}`);
     await loadHNSummary();
     await loadHNResidents();
   } catch (err) {
@@ -272,7 +312,7 @@ function renderHNPagination() {
    CSV template + upload
    ------------------------------------------------------------ */
 function downloadCSVTemplate() {
-  const csv = "phone,houseNumber\n+254720689389,Riverside-A01\n+254715408527,Riverside-A02\n";
+  const csv = "phone,houseNumber\n+254720689389,Riverside-A01\n+254715408527,Riverside-B01\n";
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -293,13 +333,9 @@ function parseCSV(text) {
   if (phoneIdx === -1 || hnIdx === -1) {
     throw new Error("CSV must have 'phone' and 'houseNumber' columns.");
   }
-
   return lines.map((line) => {
     const cols = line.split(",").map((c) => c.trim());
-    return {
-      phone: cols[phoneIdx] || "",
-      houseNumber: cols[hnIdx] || "",
-    };
+    return { phone: cols[phoneIdx] || "", houseNumber: cols[hnIdx] || "" };
   });
 }
 
@@ -314,8 +350,7 @@ async function uploadCSV(file) {
   }
 
   if (!rows.length) { toast("CSV is empty."); return; }
-
-  if (!confirm(`Upload ${rows.length} row(s)? This will set house numbers for matching phone numbers.`)) return;
+  if (!confirm(`Upload ${rows.length} row(s)?`)) return;
 
   try {
     const result = await Api.bulkAssignHouseNumbers(rows);
@@ -330,10 +365,6 @@ async function uploadCSV(file) {
     ].filter(Boolean).join(" · ");
 
     toast(summary);
-
-    if (result.notFound.length || result.invalid.length || result.duplicate.length) {
-      console.warn("[bulk] issues:", result);
-    }
   } catch (err) {
     toast(err.message || "Upload failed.");
   }

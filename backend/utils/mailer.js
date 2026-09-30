@@ -40,18 +40,24 @@ if (MODE === "smtp") {
 }
 
 /* ------------------------------------------------------------
-   Main send function
+   Main send function — now logs every attempt
    ------------------------------------------------------------ */
 async function sendMail({ to, subject, text, html }) {
   if (MODE === "smtp" && transporter) {
-    const info = await transporter.sendMail({
-      from: FROM,
-      to,
-      subject,
-      text,
-      html,
-    });
-    return { sent: true, mode: "smtp", messageId: info.messageId };
+    try {
+      const info = await transporter.sendMail({
+        from: FROM,
+        to,
+        subject,
+        text,
+        html,
+      });
+      console.log(`📧 [mailer] SENT → ${to} · "${subject}" · id=${info.messageId}`);
+      return { sent: true, mode: "smtp", messageId: info.messageId };
+    } catch (err) {
+      console.error(`❌ [mailer] FAILED → ${to} · "${subject}" · ${err.message}`);
+      throw err;
+    }
   }
 
   // Console fallback
@@ -194,6 +200,7 @@ function testEmail() {
   `);
   return { subject, text, html };
 }
+
 /* ------------------------------------------------------------
    Template: resident approved (welcome email)
    ------------------------------------------------------------ */

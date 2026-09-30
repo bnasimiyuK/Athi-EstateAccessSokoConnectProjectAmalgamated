@@ -100,7 +100,6 @@ async function updateSummary(pool, groupId) {
          DATEDIFF(MINUTE, src.first_checkin, src.last_checkout));
     `);
 
-  // Update final_status too
   await pool.request()
     .input("g", groupId)
     .query(`
@@ -127,14 +126,6 @@ router.get("/config", (req, res) => {
 
 /* ------------------------------------------------------------
    POST /api/visitors
-   Resident submits a pre-registration.
-   Body: {
-     visitDate:   'YYYY-MM-DD',
-     expectedTime:'HH:MM' (optional),
-     purpose:     string,
-     visitors: [ { name, phone?, email?, idNumber?, vehicles?:[{type,plate,driver?}] } ],
-     notes?:      string
-   }
    ------------------------------------------------------------ */
 router.post("/", requireAuth, requireRole("resident"), async (req, res, next) => {
   try {
@@ -144,15 +135,16 @@ router.post("/", requireAuth, requireRole("resident"), async (req, res, next) =>
       return res.status(400).json({ error: "visitDate and at least one visitor are required." });
     }
 
-    /* Validate visit date */
-    const vd = new Date(visitDate);
+    const vd = new Date(
+      expectedTime ? `${visitDate}T${expectedTime}` : `${visitDate}T23:59:59`
+    );
     if (isNaN(vd)) return res.status(400).json({ error: "Invalid visitDate." });
 
     const now  = new Date();
     const hours = (vd - now) / 36e5;
     if (hours < MIN_LEAD_HOURS) {
       return res.status(400).json({
-        error: `Pre-registration must be at least ${MIN_LEAD_HOURS}h in advance.`,
+        error: `Pre-registration must be at least ${MIN_LEAD_HOURS}h in advance. Please choose a later date or time.`,
       });
     }
     if (hours > MAX_LOOKAHEAD_DAYS * 24) {
@@ -161,7 +153,6 @@ router.post("/", requireAuth, requireRole("resident"), async (req, res, next) =>
       });
     }
 
-    /* Get the resident's house_number */
     const pool = await getPool();
     const me = await pool.request()
       .input("id", req.user.id)
@@ -175,7 +166,6 @@ router.post("/", requireAuth, requireRole("resident"), async (req, res, next) =>
       });
     }
 
-    /* Validate each visitor */
     for (const v of visitors) {
       if (!v.name || !String(v.name).trim()) {
         return res.status(400).json({ error: "Each visitor must have a name." });
@@ -187,16 +177,15 @@ router.post("/", requireAuth, requireRole("resident"), async (req, res, next) =>
       }
     }
 
-    /* Insert group */
     const headcount = visitors.length;
     const inserted = await pool.request()
-      .input("rid",       resident.id)
-      .input("hno",       resident.house_number)
-      .input("vd",        visitDate)
-      .input("et",        expectedTime || null)
-      .input("p",         purpose || null)
-      .input("hc",        headcount)
-      .input("n",         notes || null)
+      .input("rid", resident.id)
+      .input("hno", resident.house_number)
+      .input("vd",  visitDate)
+      .input("et",  expectedTime || null)
+      .input("p",   purpose || null)
+      .input("hc",  headcount)
+      .input("n",   notes || null)
       .query(`
         INSERT INTO visitor_groups
           (resident_id, house_number, visit_date, expected_time, purpose,
@@ -208,13 +197,12 @@ router.post("/", requireAuth, requireRole("resident"), async (req, res, next) =>
 
     const groupId = inserted.recordset[0].id;
 
-    /* Insert visitors + vehicles */
     for (const v of visitors) {
       const vi = await pool.request()
-        .input("g", groupId)
-        .input("n", String(v.name).trim())
-        .input("p", v.phone || null)
-        .input("e", v.email || null)
+        .input("g",  groupId)
+        .input("n",  String(v.name).trim())
+        .input("p",  v.phone || null)
+        .input("e",  v.email || null)
         .input("id", v.idNumber || null)
         .query(`
           INSERT INTO visitors (group_id, name, phone, email, id_number, status)
@@ -239,7 +227,6 @@ router.post("/", requireAuth, requireRole("resident"), async (req, res, next) =>
       }
     }
 
-    /* Log event + summary */
     await logEvent(pool, groupId, "submitted", resident.id, "resident");
     await updateSummary(pool, groupId);
 
@@ -254,7 +241,7 @@ router.post("/", requireAuth, requireRole("resident"), async (req, res, next) =>
 });
 
 /* ------------------------------------------------------------
-   GET /api/visitors/mine — resident's own pre-registrations
+   GET /api/visitors/mine
    ------------------------------------------------------------ */
 router.get("/mine", requireAuth, requireRole("resident"), async (req, res, next) => {
   try {
@@ -263,6 +250,7 @@ router.get("/mine", requireAuth, requireRole("resident"), async (req, res, next)
       .input("rid", req.user.id)
       .query(`
         SELECT g.*,
+               CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
                (SELECT COUNT(*) FROM visitors v WHERE v.group_id = g.id) AS visitor_count
         FROM visitor_groups g
         WHERE g.resident_id = @rid
@@ -293,8 +281,7 @@ router.get("/mine", requireAuth, requireRole("resident"), async (req, res, next)
 });
 
 /* ------------------------------------------------------------
-   POST /api/visitors/:id/cancel — resident cancels
-   Only allowed before check-in.
+   POST /api/visitors/:id/cancel
    ------------------------------------------------------------ */
 router.post("/:id/cancel", requireAuth, requireRole("resident"), async (req, res, next) => {
   try {
@@ -339,15 +326,15 @@ router.post("/:id/cancel", requireAuth, requireRole("resident"), async (req, res
    ADMIN + SECURITY ENDPOINTS
    ============================================================ */
 
-/* ------------------------------------------------------------
-   GET /api/visitors/pending-admin
-   ------------------------------------------------------------ */
 router.get("/pending-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
     const r = await pool.request().query(`
-      SELECT g.*, r.full_name AS resident_name, r.phone AS resident_phone,
-             r.email AS resident_email
+      SELECT g.*,
+             CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
+             r.full_name AS resident_name,
+             r.phone     AS resident_phone,
+             r.email     AS resident_email
       FROM visitor_groups g
       JOIN Residents r ON r.id = g.resident_id
       WHERE g.status = 'pending_admin'
@@ -357,15 +344,15 @@ router.get("/pending-admin", requireAuth, requireRole("admin"), async (req, res,
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   GET /api/visitors/pending-security
-   ------------------------------------------------------------ */
 router.get("/pending-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
     const r = await pool.request().query(`
-      SELECT g.*, r.full_name AS resident_name, r.phone AS resident_phone,
-             r.email AS resident_email
+      SELECT g.*,
+             CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
+             r.full_name AS resident_name,
+             r.phone     AS resident_phone,
+             r.email     AS resident_email
       FROM visitor_groups g
       JOIN Residents r ON r.id = g.resident_id
       WHERE g.status = 'pending_security'
@@ -375,9 +362,6 @@ router.get("/pending-security", requireAuth, requireRole("security", "admin"), a
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   POST /api/visitors/:id/approve-admin
-   ------------------------------------------------------------ */
 router.post("/:id/approve-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -412,6 +396,7 @@ router.post("/:id/approve-admin", requireAuth, requireRole("admin"), async (req,
 /* ------------------------------------------------------------
    POST /api/visitors/:id/approve-security
    Generates code, sends notifications.
+   ✅ FIXED: now selects r.email AS resident_email so resident copy goes out.
    ------------------------------------------------------------ */
 router.post("/:id/approve-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
@@ -420,8 +405,11 @@ router.post("/:id/approve-security", requireAuth, requireRole("security", "admin
 
     const g = await pool.request().input("id", id)
       .query(`
-        SELECT g.*, r.full_name AS resident_name, r.phone AS resident_phone,
-               r.email AS resident_email
+        SELECT g.*,
+               CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
+               r.full_name AS resident_name,
+               r.phone     AS resident_phone,
+               r.email     AS resident_email
         FROM visitor_groups g
         JOIN Residents r ON r.id = g.resident_id
         WHERE g.id = @id
@@ -432,13 +420,9 @@ router.post("/:id/approve-security", requireAuth, requireRole("security", "admin
       return res.status(400).json({ error: "Not in pending_security state." });
     }
 
-    /* Generate code */
     const code = await generateUniqueCode(pool);
-
-    /* Compute expiry = now + 24h */
     const expiresAt = new Date(Date.now() + CODE_VALID_HOURS * 3600e3);
 
-    /* Approve */
     await pool.request()
       .input("id", id)
       .input("by", req.user.id)
@@ -460,7 +444,6 @@ router.post("/:id/approve-security", requireAuth, requireRole("security", "admin
     await logEvent(pool, id, "code_generated", null, "system", code);
     await updateSummary(pool, id);
 
-    /* Notify: visitor + resident (email only — SMS later) */
     const deliveryLog = [];
 
     /* Visitors */
@@ -477,7 +460,7 @@ router.post("/:id/approve-security", requireAuth, requireRole("security", "admin
 `Hello ${v.name},
 
 You have been pre-registered by the resident of ${row.house_number} to visit
-Athi Estate Access on ${fmtDate(row.visit_date)}${row.expected_time ? " at " + row.expected_time : ""}.
+Athi Estate Access on ${fmtDate(row.visit_date)}${row.expected_time_hhmm ? " at " + row.expected_time_hhmm : ""}.
 
 Your access code is: ${code}
 
@@ -494,7 +477,6 @@ Show this code at the gate. The code is valid until ${fmtDate(expiresAt)}.
         }
       }
       if (v.phone) {
-        /* SMS not yet enabled (Africa's Talking credentials missing) */
         deliveryLog.push({ to: v.phone, channel: "sms", status: "skipped — no gateway" });
       }
     }
@@ -511,7 +493,7 @@ Show this code at the gate. The code is valid until ${fmtDate(expiresAt)}.
 Your visitor pre-registration was approved by security.
 
 Access code: ${code}
-Visit date:  ${fmtDate(row.visit_date)}${row.expected_time ? " at " + row.expected_time : ""}
+Visit date:  ${fmtDate(row.visit_date)}${row.expected_time_hhmm ? " at " + row.expected_time_hhmm : ""}
 Visitors:    ${vs.recordset.map((v) => v.name).join(", ")}
 
 The visitor has been emailed the code. If they lose it, share this email with them.
@@ -530,7 +512,6 @@ The visitor has been emailed the code. If they lose it, share this email with th
       deliveryLog.push({ to: row.resident_phone, channel: "sms", status: "skipped — no gateway" });
     }
 
-    /* Save delivery log */
     await pool.request()
       .input("id", id)
       .input("log", JSON.stringify(deliveryLog))
@@ -546,11 +527,6 @@ The visitor has been emailed the code. If they lose it, share this email with th
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   POST /api/visitors/:id/deny
-   Body: { reason }
-   Deny at either stage.
-   ------------------------------------------------------------ */
 router.post("/:id/deny", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -592,10 +568,6 @@ router.post("/:id/deny", requireAuth, requireRole("admin", "security"), async (r
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   GET /api/visitors — full list (admin + security)
-   Query: status, date, houseNumber, q, page, limit
-   ------------------------------------------------------------ */
 router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const { status, date, houseNumber, q, page = 1, limit = 50 } = req.query;
@@ -627,7 +599,10 @@ router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, 
     const dataReq = pool.request(); bind(dataReq);
     dataReq.input("offset", offset); dataReq.input("limit", limitNum);
     const dataRes = await dataReq.query(`
-      SELECT g.*, r.full_name AS resident_name, r.phone AS resident_phone
+      SELECT g.*,
+             CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
+             r.full_name AS resident_name,
+             r.phone     AS resident_phone
       FROM visitor_groups g
       JOIN Residents r ON r.id = g.resident_id
       ${whereSql}
@@ -645,10 +620,6 @@ router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, 
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   GET /api/visitors/register?date=YYYY-MM-DD
-   Printable register for a day.
-   ------------------------------------------------------------ */
 router.get("/register", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const { date } = req.query;
@@ -657,7 +628,10 @@ router.get("/register", requireAuth, requireRole("admin", "security"), async (re
     const pool = await getPool();
     const groups = await pool.request().input("d", date)
       .query(`
-        SELECT g.*, r.full_name AS resident_name, r.phone AS resident_phone
+        SELECT g.*,
+               CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
+               r.full_name AS resident_name,
+               r.phone     AS resident_phone
         FROM visitor_groups g
         JOIN Residents r ON r.id = g.resident_id
         WHERE g.visit_date = @d
@@ -691,11 +665,6 @@ router.get("/register", requireAuth, requireRole("admin", "security"), async (re
    GATE — check in / check out
    ============================================================ */
 
-/* ------------------------------------------------------------
-   POST /api/visitors/checkin
-   Body: { groupId, visitorId?, plateNumber?, gateName? }
-   If visitorId omitted → checks in all visitors in the group.
-   ------------------------------------------------------------ */
 router.post("/checkin", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
     const { groupId, visitorId, plateNumber, gateName } = req.body;
@@ -767,9 +736,6 @@ router.post("/checkin", requireAuth, requireRole("security", "admin"), async (re
   } catch (err) { next(err); }
 });
 
-/* ------------------------------------------------------------
-   POST /api/visitors/checkout
-   ------------------------------------------------------------ */
 router.post("/checkout", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
   try {
     const { groupId, visitorId, gateName } = req.body;
@@ -799,7 +765,6 @@ router.post("/checkout", requireAuth, requireRole("security", "admin"), async (r
 
     for (const vid of targetVisitors) await updateVisitor(vid);
 
-    /* If all visitors checked out, mark group completed */
     const remaining = await pool.request().input("gid", groupId)
       .query("SELECT COUNT(*) AS n FROM visitors WHERE group_id = @gid AND status = 'checked_in'");
     if (remaining.recordset[0].n === 0) {
@@ -823,13 +788,6 @@ router.post("/checkout", requireAuth, requireRole("security", "admin"), async (r
   } catch (err) { next(err); }
 });
 
-/* ============================================================
-   ANALYTICS
-   ============================================================ */
-
-/* ------------------------------------------------------------
-   GET /api/visitors/analytics?from=&to=
-   ------------------------------------------------------------ */
 router.get("/analytics", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
   try {
     const to   = req.query.to   || new Date().toISOString().slice(0, 10);
@@ -896,9 +854,6 @@ router.get("/analytics", requireAuth, requireRole("admin", "security"), async (r
   } catch (err) { next(err); }
 });
 
-/* ============================================================
-   EXPIRY — mark stale approved visits as expired
-   ============================================================ */
 router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
@@ -919,9 +874,7 @@ router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res,
     res.json({ ok: true, expired: r.recordset.length });
   } catch (err) { next(err); }
 });
-/* ------------------------------------------------------------
-   GET /api/visitors/:id — single group with visitors + vehicles
-   ------------------------------------------------------------ */
+
 router.get("/:id", requireAuth, requireRole("admin", "security", "resident"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -930,7 +883,11 @@ router.get("/:id", requireAuth, requireRole("admin", "security", "resident"), as
     const pool = await getPool();
     const g = await pool.request().input("id", id)
       .query(`
-        SELECT g.*, r.full_name AS resident_name, r.phone AS resident_phone, r.email AS resident_email
+        SELECT g.*,
+               CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
+               r.full_name AS resident_name,
+               r.phone     AS resident_phone,
+               r.email     AS resident_email
         FROM visitor_groups g
         JOIN Residents r ON r.id = g.resident_id
         WHERE g.id = @id
@@ -958,4 +915,5 @@ router.get("/:id", requireAuth, requireRole("admin", "security", "resident"), as
     res.json({ ...grp, visitors });
   } catch (err) { next(err); }
 });
+
 module.exports = router;

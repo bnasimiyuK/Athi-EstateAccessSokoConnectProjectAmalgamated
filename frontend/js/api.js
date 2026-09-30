@@ -339,6 +339,10 @@ const Api = {
       body: JSON.stringify(payload),
     }),
 
-  getVisitorAnalytics: (params = {}) =>
+   getVisitorAnalytics: (params = {}) =>
     request(`${API_BASE}/visitors/analytics${qsOf(params)}`),
+
+  /* ---------- House numbers: assigned list ---------- */
+  getAssignedHouseNumbers: () =>
+    request(`${API_BASE}/house-numbers/assigned`),
 };
