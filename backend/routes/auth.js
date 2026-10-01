@@ -9,6 +9,7 @@ const jwt     = require("jsonwebtoken");
 const router  = express.Router();
 const { getPool } = require("../db");
 const { requireAuth, JWT_SECRET } = require("../middleware/auth");
+const { sendMail, residentApprovedEmail } = require("../utils/mailer");
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "10", 10);
 const JWT_EXPIRES   = process.env.JWT_EXPIRES_IN || "7d";
@@ -48,8 +49,7 @@ router.post("/login", async (req, res, next) => {
     let user = null;
     let mustChange = false;
 
-  
-        /* ---------- ADMIN & SECURITY ---------- */
+    /* ---------- ADMIN & SECURITY ---------- */
     if (role === "admin" || role === "security") {
       const result = await pool.request()
         .input("email", identifier.trim().toLowerCase())
@@ -59,9 +59,9 @@ router.post("/login", async (req, res, next) => {
         const row = result.recordset[0];
         const ok = await bcrypt.compare(password, row.password_hash);
         if (ok) {
-                     user = {
+          user = {
             id:    row.id,
-            role:  row.role,        // ← reads 'admin' or 'security' from DB
+            role:  row.role,
             name:  row.full_name,
             email: row.email,
           };
@@ -96,7 +96,6 @@ router.post("/login", async (req, res, next) => {
           });
         }
 
-        // Check temp password expiry
         if (row.must_change_password && row.temp_password_expires) {
           const now     = new Date();
           const expires = new Date(row.temp_password_expires);
@@ -162,7 +161,6 @@ router.post("/login", async (req, res, next) => {
           });
         }
 
-        // Vendors share the resident's password
         const ok = await bcrypt.compare(password, row.resident_password_hash);
         if (ok) {
           user = {
@@ -189,23 +187,56 @@ router.post("/login", async (req, res, next) => {
     next(err);
   }
 });
+
 /* ------------------------------------------------------------
    POST /api/auth/register-resident
-   Public self-registration. Creates resident with verified = 0.
-   Body: { fullName, phone, email, courtId, password }
+   Public self-registration — fully transactional.
+
+   Body:
+     {
+       fullName, phone, email, courtId, password,
+       joinAHEWA: bool,
+       payments: [
+         { type: "AHE_REG",   amount: 2000, mpesaReceipt: "...", mpesaPhone?: "..." },
+         { type: "AHEWA_REG", amount: 500,  mpesaReceipt: "...", mpesaPhone?: "..." }
+       ]
+     }
+
+   Flow (all inside ONE SQL Server transaction):
+     - Insert resident (verified = 0, join_ahewa flag).
+     - Insert AHE_REG invoice (2,000)  — MANDATORY.
+     - Insert AHEWA_REG invoice (500)  — only if joinAHEWA.
+     - Insert one pending payment row per submitted receipt.
+
+   Any failure → full ROLLBACK. No partial writes.
+
+   Placeholder house number is now 'PENDING-<residentId>' so two pending
+   residents in the same month do not collide on the unique constraint
+   (house_number, billing_month, type). Admin later assigns the real
+   house number, at which point the placeholder is replaced.
+
+   NOTE: The first monthly SERVICE invoice (KSh 2,000) is NOT created here —
+         it is created in POST /api/payments/:id/verify when the admin verifies
+         the AHE_REG payment and the resident is auto-approved. That way billing
+         starts in the month of approval.
    ------------------------------------------------------------ */
 router.post("/register-resident", async (req, res, next) => {
-  try {
-    const { fullName, phone, email, courtId, password } = req.body;
+  const pool = await getPool();
+  const tx   = pool.transaction();
 
-    // Required fields
+  try {
+    const {
+      fullName, phone, email, courtId, password,
+      joinAHEWA = false,
+      payments = [],
+    } = req.body;
+
+    /* ---------- Basic validation ---------- */
     if (!fullName || !phone || !courtId || !password) {
       return res.status(400).json({
         error: "fullName, phone, courtId, and password are required.",
       });
     }
-
-    // Password rules (must match the frontend)
     if (password.length < 8) {
       return res.status(400).json({ error: "Password must be at least 8 characters." });
     }
@@ -224,9 +255,25 @@ router.post("/register-resident", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid courtId." });
     }
 
-    const pool = await getPool();
+    /* ---------- AHE_REG receipt (mandatory) ---------- */
+    const ahePay = payments.find((p) => p && p.type === "AHE_REG");
+    if (!ahePay || !ahePay.mpesaReceipt || Number(ahePay.amount) < 2000) {
+      return res.status(400).json({
+        error: "AHE registration payment (KSh 2,000) with M-Pesa receipt is required.",
+      });
+    }
 
-    // Verify court exists
+    let ahewaPay = null;
+    if (joinAHEWA) {
+      ahewaPay = payments.find((p) => p && p.type === "AHEWA_REG");
+      if (!ahewaPay || !ahewaPay.mpesaReceipt || Number(ahewaPay.amount) < 500) {
+        return res.status(400).json({
+          error: "You selected AHEWA membership, but no AHEWA payment receipt was supplied.",
+        });
+      }
+    }
+
+    /* ---------- Pre-flight checks (outside the tx — read-only) ---------- */
     const court = await pool.request()
       .input("courtId", courtIdInt)
       .query("SELECT id FROM Courts WHERE id = @courtId");
@@ -234,7 +281,6 @@ router.post("/register-resident", async (req, res, next) => {
       return res.status(400).json({ error: "Court not found." });
     }
 
-    // Check phone uniqueness
     const existing = await pool.request()
       .input("phone", phone.trim())
       .query("SELECT id FROM Residents WHERE phone = @phone");
@@ -242,55 +288,131 @@ router.post("/register-resident", async (req, res, next) => {
       return res.status(409).json({ error: "Phone number already registered." });
     }
 
-    // Hash password
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-    // Insert resident
-    const inserted = await pool.request()
-      .input("fullName", fullName.trim())
-      .input("phone",    phone.trim())
-      .input("email",    email ? email.trim() : null)
-      .input("courtId",  courtIdInt)
-      .input("hash",     passwordHash)
-      .query(`
-        INSERT INTO Residents
-          (full_name, phone, email, court_id, password_hash, verified, must_change_password)
-        OUTPUT INSERTED.id, INSERTED.full_name, INSERTED.phone,
-               INSERTED.email, INSERTED.court_id, INSERTED.verified,
-               INSERTED.created_at
-        VALUES
-          (@fullName, @phone, @email, @courtId, @hash, 0, 0)
-      `);
+    /* ---------- Compute billing month + due date once ---------- */
+    const now   = new Date();
+    const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    const [y, m]   = month.split("-").map(Number);
+    const dueDate  = new Date(Date.UTC(y, m - 1, 5));
 
-    const row = inserted.recordset[0];
+    /* ---------- BEGIN TRANSACTION ---------- */
+    await tx.begin();
 
-    // Fetch with court info
-    const full = await pool.request()
-      .input("id", row.id)
-      .query(`
-        SELECT r.id, r.full_name, r.phone, r.email, r.verified, r.created_at,
-               c.name AS court_name, c.phase
-        FROM Residents r
-        JOIN Courts c ON c.id = r.court_id
-        WHERE r.id = @id
-      `);
+    try {
+      /* ---- 1. Insert resident ---- */
+      const inserted = await tx.request()
+        .input("fullName",  fullName.trim())
+        .input("phone",     phone.trim())
+        .input("email",     email ? email.trim() : null)
+        .input("courtId",   courtIdInt)
+        .input("hash",      passwordHash)
+        .input("joinAHEWA", joinAHEWA ? 1 : 0)
+        .query(`
+          INSERT INTO Residents
+            (full_name, phone, email, court_id, password_hash,
+             verified, must_change_password, join_ahewa)
+          OUTPUT INSERTED.id
+          VALUES
+            (@fullName, @phone, @email, @courtId, @hash, 0, 0, @joinAHEWA)
+        `);
+      const residentId = inserted.recordset[0].id;
 
-    const created = full.recordset[0];
+      /* ---- 2. Per-resident placeholder house number ----
+         Prevents collisions with other pending residents in the same
+         (billing_month, type) slot until the admin assigns a real house. */
+      const placeholderHouse = `PENDING-${residentId}`;
 
-    res.status(201).json({
-      id:        created.id,
-      fullName:  created.full_name,
-      phone:     created.phone,
-      email:     created.email,
-      courtName: created.court_name,
-      phase:     created.phase,
-      verified:  !!created.verified,
-      createdAt: created.created_at,
-    });
+      /* ---- 3. Helper: insert invoice, return id ---- */
+      async function makeInvoice({ type, amount }) {
+        const r = await tx.request()
+          .input("rid",  residentId)
+          .input("h",    placeholderHouse)
+          .input("m",    month)
+          .input("amt",  amount)
+          .input("due",  dueDate)
+          .input("type", type)
+          .query(`
+            INSERT INTO invoices
+              (resident_id, house_number, billing_month, amount_due, due_date, type)
+            OUTPUT INSERTED.id
+            VALUES (@rid, @h, @m, @amt, @due, @type)
+          `);
+        return r.recordset[0].id;
+      }
+
+      /* ---- 4. Helper: insert payment ---- */
+      async function makePayment({ type, amount, receipt, phoneUsed, invoiceId }) {
+        await tx.request()
+          .input("inv",  invoiceId)
+          .input("h",    placeholderHouse)
+          .input("rid",  residentId)
+          .input("amt",  Number(amount))
+          .input("rec",  receipt.trim())
+          .input("ph",   phoneUsed ? phoneUsed.trim() : null)
+          .input("date", now)
+          .input("type", type)
+          .query(`
+            INSERT INTO payments
+              (invoice_id, house_number, resident_id, amount, method, status,
+               mpesa_receipt, mpesa_phone, payment_date, entered_by, type)
+            VALUES
+              (@inv, @h, @rid, @amt, 'mpesa', 'pending',
+               @rec, @ph, @date, @rid, @type)
+          `);
+      }
+
+      /* ---- 5. AHE_REG invoice + payment (mandatory) ---- */
+      const aheInvoiceId = await makeInvoice({ type: "AHE_REG", amount: 2000 });
+      await makePayment({
+        type: "AHE_REG",
+        amount: ahePay.amount,
+        receipt: ahePay.mpesaReceipt,
+        phoneUsed: ahePay.mpesaPhone,
+        invoiceId: aheInvoiceId,
+      });
+
+      /* ---- 6. AHEWA_REG invoice + payment (optional) ---- */
+      let ahewaInvoiceId = null;
+      if (joinAHEWA && ahewaPay) {
+        ahewaInvoiceId = await makeInvoice({ type: "AHEWA_REG", amount: 500 });
+        await makePayment({
+          type: "AHEWA_REG",
+          amount: ahewaPay.amount,
+          receipt: ahewaPay.mpesaReceipt,
+          phoneUsed: ahewaPay.mpesaPhone,
+          invoiceId: ahewaInvoiceId,
+        });
+      }
+
+      /* ---- 7. COMMIT ---- */
+      await tx.commit();
+
+      res.status(201).json({
+        id:        residentId,
+        fullName:  fullName.trim(),
+        phone:     phone.trim(),
+        email:     email ? email.trim() : null,
+        verified:  false,
+        joinAHEWA: !!joinAHEWA,
+        invoices: {
+          ahe:   aheInvoiceId,
+          ahewa: ahewaInvoiceId,
+        },
+        message:
+          "Registration submitted. Your AHE payment is pending admin verification. " +
+          "You will be approved (and your first monthly service invoice issued) " +
+          "once it is confirmed.",
+      });
+    } catch (inner) {
+      await tx.rollback();
+      throw inner;
+    }
   } catch (err) {
     next(err);
   }
 });
+
 /* ------------------------------------------------------------
    GET /api/auth/me — return current user from token
    ------------------------------------------------------------ */
@@ -321,14 +443,12 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
     const pool = await getPool();
     const { id, role } = req.user;
 
-    // Determine which table + which id to update
     let table = "";
     let idForUpdate = id;
 
-        if (role === "admin" || role === "security") table = "Admins";
+    if (role === "admin" || role === "security") table = "Admins";
     if (role === "resident") table = "Residents";
     if (role === "vendor") {
-      // Vendors change the password on their RESIDENT record
       table = "Residents";
       idForUpdate = req.user.residentId || id;
     }
@@ -337,7 +457,6 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: "Unknown role." });
     }
 
-    // Fetch current hash
     const row = await pool.request()
       .input("id", idForUpdate)
       .query(`SELECT password_hash AS hash FROM ${table} WHERE id = @id`);
@@ -372,8 +491,6 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 
 /* ------------------------------------------------------------
    POST /api/auth/logout
-   Client-side: just delete the token.
-   Server-side: no-op for now (JWTs are stateless).
    ------------------------------------------------------------ */
 router.post("/logout", (req, res) => {
   res.json({ ok: true });

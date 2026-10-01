@@ -1,12 +1,15 @@
 /* ============================================================
    routes/payments.js — Manual payment entry + verify/reject
-   (M-Pesa API integration will plug into the same table later.)
+   Now supports typed payments (AHE_REG, AHEWA_REG, SERVICE, AHEWA_EVENT).
+   On verifying an AHE_REG payment, the resident is auto-approved and
+   their first monthly SERVICE invoice is created for the current month.
    ============================================================ */
 
 const express = require("express");
 const router = express.Router();
 const { getPool } = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
+const { sendMail, residentApprovedEmail } = require("../utils/mailer");
 
 /* ------------------------------------------------------------
    Row → JSON
@@ -18,6 +21,7 @@ function paymentToJson(row) {
     houseNumber:     row.house_number,
     residentId:      row.resident_id,
     amount:          Number(row.amount),
+    type:            row.type || "SERVICE",
     method:          row.method,
     status:          row.status,
     mpesaReceipt:    row.mpesa_receipt,
@@ -72,14 +76,14 @@ async function allocateToInvoice(pool, houseNumber, amount, txReq) {
 
 /* ============================================================
    POST /api/payments/manual   (admin)
-   Body: { houseNumber, amount, mpesaReceipt?, mpesaPhone?, paymentDate?, notes? }
+   Body: { houseNumber, amount, mpesaReceipt?, mpesaPhone?, paymentDate?, notes?, type? }
    Creates payment with status=pending (admin still verifies).
    ============================================================ */
 router.post("/manual", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
     const {
       houseNumber, amount, mpesaReceipt, mpesaPhone,
-      paymentDate, notes,
+      paymentDate, notes, type,
     } = req.body;
 
     if (!houseNumber || !amount) {
@@ -110,13 +114,14 @@ router.post("/manual", requireAuth, requireRole("admin"), async (req, res, next)
       .input("date",  paymentDate ? new Date(paymentDate) : new Date())
       .input("notes", notes || null)
       .input("by",    req.user.id)
+      .input("type",  (type || "SERVICE").toUpperCase())
       .query(`
         INSERT INTO payments
           (house_number, resident_id, amount, method, status,
-           mpesa_receipt, mpesa_phone, payment_date, notes, entered_by)
+           mpesa_receipt, mpesa_phone, payment_date, notes, entered_by, type)
         OUTPUT INSERTED.*
         VALUES (@h, @rid, @amt, 'mpesa', 'pending',
-                @rec, @ph, @date, @notes, @by)
+                @rec, @ph, @date, @notes, @by, @type)
       `);
 
     res.status(201).json(paymentToJson(inserted.recordset[0]));
@@ -131,7 +136,7 @@ router.post("/manual", requireAuth, requireRole("admin"), async (req, res, next)
    ============================================================ */
 router.post("/self-report", requireAuth, async (req, res, next) => {
   try {
-    const { amount, mpesaReceipt, mpesaPhone, paymentDate, notes } = req.body;
+    const { amount, mpesaReceipt, mpesaPhone, paymentDate, notes, type } = req.body;
 
     if (!amount || !mpesaReceipt) {
       return res.status(400).json({ error: "amount and mpesaReceipt are required." });
@@ -154,13 +159,14 @@ router.post("/self-report", requireAuth, async (req, res, next) => {
       .input("ph",    mpesaPhone ? mpesaPhone.trim() : null)
       .input("date",  paymentDate ? new Date(paymentDate) : new Date())
       .input("notes", notes || null)
+      .input("type",  (type || "SERVICE").toUpperCase())
       .query(`
         INSERT INTO payments
           (house_number, resident_id, amount, method, status,
-           mpesa_receipt, mpesa_phone, payment_date, notes, entered_by)
+           mpesa_receipt, mpesa_phone, payment_date, notes, entered_by, type)
         OUTPUT INSERTED.*
         VALUES (@h, @rid, @amt, 'mpesa', 'pending',
-                @rec, @ph, @date, @notes, @rid)
+                @rec, @ph, @date, @notes, @rid, @type)
       `);
 
     res.status(201).json(paymentToJson(inserted.recordset[0]));
@@ -256,7 +262,11 @@ router.get("/mine", requireAuth, async (req, res, next) => {
 
 /* ============================================================
    POST /api/payments/:id/verify   (admin)
-   Marks payment verified + allocates it to oldest unpaid invoice.
+   - SERVICE      → allocate to oldest unpaid SERVICE invoice.
+   - AHE_REG      → mark invoice paid, mark payment verified,
+                    auto-approve resident, CREATE first SERVICE invoice
+                    for the current month, send welcome email.
+   - AHEWA_REG    → mark invoice paid, mark payment verified.
    ============================================================ */
 router.post("/:id/verify", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
@@ -268,6 +278,7 @@ router.post("/:id/verify", requireAuth, requireRole("admin"), async (req, res, n
     await tx.begin();
 
     try {
+      /* ---------- Load payment ---------- */
       const pre = await tx.request()
         .input("id", id)
         .query("SELECT * FROM payments WHERE id = @id");
@@ -281,28 +292,121 @@ router.post("/:id/verify", requireAuth, requireRole("admin"), async (req, res, n
         return res.status(400).json({ error: "Already verified." });
       }
 
-      const alloc = await allocateToInvoice(pool, p.house_number, p.amount, tx.request());
+      const payType = (p.type || "SERVICE").toUpperCase();
+      let allocInfo           = null;
+      let approvedResident    = null;
+      let newServiceInvoiceId = null;
 
-      await tx.request()
-        .input("id", id)
-        .input("inv", alloc ? alloc.invoiceId : null)
-        .input("by", req.user.id)
-        .query(`
-          UPDATE payments
-          SET status = 'verified',
-              invoice_id = @inv,
-              verified_by = @by,
-              verified_at = SYSUTCDATETIME(),
-              rejection_reason = NULL
-          WHERE id = @id
-        `);
+      /* ---------- Branch by payment type ---------- */
+      if (payType === "SERVICE") {
+        /* ---------- Existing monthly-charge flow ---------- */
+        allocInfo = await allocateToInvoice(pool, p.house_number, p.amount, tx.request());
+        await tx.request()
+          .input("id",  id)
+          .input("inv", allocInfo ? allocInfo.invoiceId : null)
+          .input("by",  req.user.id)
+          .query(`
+            UPDATE payments
+            SET status = 'verified',
+                invoice_id = @inv,
+                verified_by = @by,
+                verified_at = SYSUTCDATETIME(),
+                rejection_reason = NULL
+            WHERE id = @id
+          `);
+      } else {
+        /* ---------- Registration payment (AHE_REG / AHEWA_REG) ---------- */
+        if (p.invoice_id) {
+          await tx.request()
+            .input("inv", p.invoice_id)
+            .input("amt", p.amount)
+            .query(`
+              UPDATE invoices
+              SET amount_paid = @amt,
+                  status      = CASE WHEN @amt >= amount_due THEN 'paid' ELSE 'partial' END,
+                  paid_at     = SYSUTCDATETIME()
+              WHERE id = @inv
+            `);
+        }
+
+        await tx.request()
+          .input("id", id)
+          .input("by", req.user.id)
+          .query(`
+            UPDATE payments
+            SET status = 'verified',
+                verified_by = @by,
+                verified_at = SYSUTCDATETIME(),
+                rejection_reason = NULL
+            WHERE id = @id
+          `);
+
+        /* ---------- AHE_REG: auto-approve + create first SERVICE invoice ---------- */
+        if (payType === "AHE_REG" && p.resident_id) {
+          /* 1. Approve the resident */
+          const upd = await tx.request()
+            .input("rid", p.resident_id)
+            .query(`
+              UPDATE Residents
+              SET verified = 1
+              OUTPUT INSERTED.id, INSERTED.full_name, INSERTED.phone,
+                     INSERTED.email, INSERTED.verified, INSERTED.house_number
+              WHERE id = @rid AND verified = 0
+            `);
+          if (upd.recordset.length) {
+            approvedResident = upd.recordset[0];
+          }
+
+          /* 2. Create first SERVICE invoice — current month, due on the 5th */
+          const now   = new Date();
+          const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+          const [y, m] = month.split("-").map(Number);
+          const dueDate = new Date(Date.UTC(y, m - 1, 5));
+
+          const svc = await tx.request()
+            .input("rid", p.resident_id)
+            .input("h",   p.house_number || "PENDING")
+            .input("m",   month)
+            .input("amt", 2000)
+            .input("due", dueDate)
+            .query(`
+              INSERT INTO invoices
+                (resident_id, house_number, billing_month, amount_due, due_date, type)
+              OUTPUT INSERTED.id
+              VALUES (@rid, @h, @m, @amt, @due, 'SERVICE')
+            `);
+          newServiceInvoiceId = svc.recordset[0].id;
+        }
+      }
 
       await tx.commit();
 
+      /* ---------- Welcome email (outside the tx) ---------- */
+      if (approvedResident && approvedResident.email) {
+        try {
+          const tpl = residentApprovedEmail({
+            fullName: approvedResident.full_name,
+            phone:    approvedResident.phone,
+          });
+          await sendMail({
+            to:      approvedResident.email,
+            subject: tpl.subject,
+            text:    tpl.text,
+            html:    tpl.html,
+          });
+          console.log(`[payments] ✅ Approval email sent to ${approvedResident.email}`);
+        } catch (mailErr) {
+          console.error("[payments] ❌ Approval email failed:", mailErr.message);
+        }
+      }
+
       res.json({
-        ok: true,
-        invoiceId: alloc ? alloc.invoiceId : null,
-        invoiceStatus: alloc ? alloc.newStatus : null,
+        ok:               true,
+        paymentType:      payType,
+        invoiceId:        allocInfo ? allocInfo.invoiceId : p.invoice_id,
+        invoiceStatus:    allocInfo ? allocInfo.newStatus : "paid",
+        residentApproved: !!approvedResident,
+        serviceInvoiceId: newServiceInvoiceId,
       });
     } catch (inner) {
       await tx.rollback();

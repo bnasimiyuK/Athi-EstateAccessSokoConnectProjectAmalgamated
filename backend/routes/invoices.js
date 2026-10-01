@@ -24,6 +24,7 @@ function invoiceToJson(row) {
     residentId:    row.resident_id,
     houseNumber:   row.house_number,
     billingMonth:  row.billing_month,
+    type:          row.type || "SERVICE",
     amountDue:     Number(row.amount_due),
     amountPaid:    Number(row.amount_paid),
     balance:       Number(row.amount_due) - Number(row.amount_paid),
@@ -109,15 +110,17 @@ router.post("/generate", requireAuth, requireRole("admin"), async (req, res, nex
     for (const r of eligible.recordset) {
       try {
         const dup = await pool.request()
-          .input("h", r.house_number)
-          .input("m", month)
-          .query(`
-            SELECT 1 FROM invoices
-            WHERE house_number = @h AND billing_month = @m
-          `);
-        if (dup.recordset.length) { skipped++; continue; }
+  .input("h", r.house_number)
+  .input("m", month)
+  .query(`
+    SELECT 1 FROM invoices
+    WHERE house_number = @h
+      AND billing_month = @m
+      AND type = 'SERVICE'
+  `);
+if (dup.recordset.length) { skipped++; continue; }
 
-        await pool.request()
+          await pool.request()
           .input("rid", r.id)
           .input("h",   r.house_number)
           .input("m",   month)
@@ -125,8 +128,8 @@ router.post("/generate", requireAuth, requireRole("admin"), async (req, res, nex
           .input("due", dueDate)
           .query(`
             INSERT INTO invoices
-              (resident_id, house_number, billing_month, amount_due, due_date)
-            VALUES (@rid, @h, @m, @amt, @due)
+              (resident_id, house_number, billing_month, amount_due, due_date, type)
+            VALUES (@rid, @h, @m, @amt, @due, 'SERVICE')
           `);
         created++;
       } catch (rowErr) {
