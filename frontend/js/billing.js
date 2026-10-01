@@ -1,7 +1,7 @@
 /* ============================================================
    billing.js — resident view: invoices + payments + self-report
    Adds a "Pay via M-Pesa" button on each unpaid SERVICE / AHEWA_EVENT
-   invoice. AHE_REG and AHEWA_REG are hidden (they're one-off, at signup).
+   invoice. AHE_REG and AHEWA_REG are hidden (one-off, at signup).
    ============================================================ */
 
 function escapeHtml(s) {
@@ -35,12 +35,9 @@ function typeLabel(t) {
     AHEWA_EVENT: "AHEWA event",
     AHE_REG:     "AHE registration",
     AHEWA_REG:   "AHEWA registration",
-  }[t] || t;
+  }[t] || t || "—";
 }
 
-/* ------------------------------------------------------------
-   Load billing settings (paybill instructions)
-   ------------------------------------------------------------ */
 async function loadSettings() {
   try {
     const s = await Api.getBillingSettings();
@@ -52,9 +49,6 @@ async function loadSettings() {
   }
 }
 
-/* ------------------------------------------------------------
-   Load me (for house number)
-   ------------------------------------------------------------ */
 async function loadMe() {
   try {
     const me = await Api.me();
@@ -64,10 +58,25 @@ async function loadMe() {
     console.error("[billing] me failed:", err);
   }
 }
+async function loadOutstandingBanner() {
+  try {
+    const s  = await Api.getMyOutstanding();
+    const el = document.getElementById("billing-summary");
+    if (!el) return;
 
-/* ------------------------------------------------------------
-   Poll a CheckoutRequestID until paid / failed / timeout
-   ------------------------------------------------------------ */
+    if (!s.payable.length) {
+      el.innerHTML = `You're fully paid up. Thank you. ✅`;
+      el.style.color = "var(--teal)";
+      return;
+    }
+    const parts = s.payable.map((p) => `${p.label} (KSh ${p.amount.toLocaleString()})`);
+    el.innerHTML = `You have <b>${s.payable.length}</b> outstanding item${s.payable.length > 1 ? "s" : ""}: ` +
+                   parts.join(" · ");
+    el.style.color = s.overdueOutstanding > 0 ? "var(--clay)" : "var(--ink-70)";
+  } catch (err) {
+    console.warn("[billing] outstanding banner failed:", err);
+  }
+}
 async function pollStkStatus(checkoutRequestId, maxMs = 90_000) {
   const deadline = Date.now() + maxMs;
   while (Date.now() < deadline) {
@@ -82,16 +91,13 @@ async function pollStkStatus(checkoutRequestId, maxMs = 90_000) {
   return { status: "timeout" };
 }
 
-/* ------------------------------------------------------------
-   Pay a single invoice via STK
-   ------------------------------------------------------------ */
 async function payInvoice(invoiceId, amount, btn) {
   const originalLabel = btn.innerHTML;
   btn.disabled = true;
   btn.textContent = "Sending…";
 
   try {
-    const r = await Api.payInvoice({ invoiceId });
+        const r = await Api.payInvoice({ invoiceId });
 
     if (!r || !r.ok) {
       toast((r && r.error) || "Could not send STK push.");
@@ -124,10 +130,84 @@ async function payInvoice(invoiceId, amount, btn) {
     btn.innerHTML = originalLabel;
   }
 }
+async function openPayModal() {
+  const modal  = document.getElementById("pay-modal");
+  const list   = document.getElementById("pay-items-list");
+  const submit = document.getElementById("pay-submit");
+  modal.style.display = "flex";
+  list.innerHTML = `<div class="empty-state">Loading…</div>`;
+  document.getElementById("pay-status").hidden = true;
+  submit.disabled = false;
 
-/* ------------------------------------------------------------
-   Load invoices + compute status
-   ------------------------------------------------------------ */
+  try {
+    const [state, me] = await Promise.all([
+      Api.getMyOutstanding(),
+      Api.me(),
+    ]);
+    const user = me && me.user ? me.user : me;
+
+    const items = state.payable.map((p) => ({
+      id: p.type,
+      label: p.label,
+      amount: p.amount,
+      invoiceId: p.invoiceId,
+    }));
+
+    if (!items.length) {
+      list.innerHTML = `
+        <div class="empty-state" style="padding:20px;text-align:center;">
+          <div style="font-size:2rem;">🎉</div>
+          <p style="margin:8px 0 0 0;color:var(--ink-70);">
+            You have nothing to pay right now.
+          </p>
+        </div>`;
+      submit.disabled = true;
+      document.getElementById("pay-total").textContent = "KSh 0";
+      return;
+    }
+
+    list.innerHTML = items.map((it) => `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;cursor:pointer;">
+        <input type="checkbox" data-item="${it.id}" data-amount="${it.amount}" data-invoice="${it.invoiceId || ''}" checked />
+        <span style="flex:1;">${it.label}</span>
+        <b>KSh ${it.amount.toLocaleString()}</b>
+      </label>
+    `).join("");
+
+    const recompute = () => {
+      const total = [...list.querySelectorAll("input[type=checkbox]:checked")]
+        .reduce((s, cb) => s + Number(cb.dataset.amount), 0);
+      document.getElementById("pay-total").textContent = "KSh " + total.toLocaleString();
+      submit.disabled = total <= 0;
+    };
+    list.querySelectorAll("input[type=checkbox]").forEach((cb) =>
+      cb.addEventListener("change", recompute));
+    recompute();
+
+    document.getElementById("pay-phone").value = user.phone || "";
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load: ${escapeHtml(err.message)}</div>`;
+  }
+}
+async function loadOutstandingBanner() {
+  try {
+    const s = await Api.getMyOutstanding();
+    const el = document.getElementById("billing-summary");
+    if (!el) return;
+
+    if (!s.payable.length) {
+      el.innerHTML = `You're fully paid up. Thank you. ✅`;
+      el.style.color = "var(--teal)";
+      return;
+    }
+    const parts = s.payable.map((p) => `${p.label} (KSh ${p.amount.toLocaleString()})`);
+    el.innerHTML = `You have <b>${s.payable.length}</b> outstanding item${s.payable.length > 1 ? "s" : ""}: ` +
+                   parts.join(" · ");
+    el.style.color = s.overdueOutstanding > 0 ? "var(--clay)" : "var(--ink-70)";
+  } catch (err) {
+    console.warn("[billing] outstanding banner failed:", err);
+  }
+}
 async function loadInvoices() {
   const wrap = document.getElementById("my-invoices");
   wrap.innerHTML = `<div class="empty-state">Loading invoices…</div>`;
@@ -139,9 +219,7 @@ async function loadInvoices() {
     wrap.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load: ${escapeHtml(err.message)}</div>`;
     return;
   }
-
-  /* Aggregate status */
-  const totalDue  = invs.reduce((s, i) => s + Number(i.amountDue), 0);
+    const totalDue  = invs.reduce((s, i) => s + Number(i.amountDue), 0);
   const totalPaid = invs.reduce((s, i) => s + Number(i.amountPaid), 0);
   const balance   = totalDue - totalPaid;
   const hasOverdue = invs.some((i) => i.status === "overdue");
@@ -202,7 +280,6 @@ async function loadInvoices() {
     </table>
   `;
 
-  /* Wire up the per-row Pay buttons */
   wrap.querySelectorAll(".btn-pay-invoice").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id     = Number(btn.getAttribute("data-id"));
@@ -212,9 +289,6 @@ async function loadInvoices() {
   });
 }
 
-/* ------------------------------------------------------------
-   Load payments
-   ------------------------------------------------------------ */
 async function loadPayments() {
   const wrap = document.getElementById("my-payments");
   wrap.innerHTML = `<div class="empty-state">Loading payments…</div>`;
@@ -232,7 +306,7 @@ async function loadPayments() {
     return;
   }
 
-    wrap.innerHTML = `
+  wrap.innerHTML = `
     <table>
       <thead>
         <tr>
@@ -258,14 +332,13 @@ async function loadPayments() {
       </tbody>
     </table>
   `;
+}
 
-/* ------------------------------------------------------------
-   Init
-   ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof requireAuth === "function" && !requireAuth()) return;
 
   await Promise.all([loadSettings(), loadMe()]);
+  await loadOutstandingBanner();
   await Promise.all([loadInvoices(), loadPayments()]);
 
   const modal = document.getElementById("report-modal");
@@ -274,7 +347,59 @@ document.addEventListener("DOMContentLoaded", async () => {
     modal.style.display = "flex";
     document.getElementById("rp-date").value = new Date().toISOString().slice(0, 10);
   });
+  /* Pay via M-Pesa modal */
+  const payModal = document.getElementById("pay-modal");
+  document.getElementById("btn-pay-now").addEventListener("click", openPayModal);
 
+  document.getElementById("pay-cancel").addEventListener("click", () => {
+    payModal.style.display = "none";
+  });
+
+  document.getElementById("pay-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const statusEl = document.getElementById("pay-status");
+    const btn      = document.getElementById("pay-submit");
+
+    const checked = [...document.querySelectorAll("#pay-items-list input[type=checkbox]:checked")];
+    if (!checked.length) { toast("Select at least one item."); return; }
+
+    const items         = checked.map((cb) => cb.dataset.item);
+    const eventCheckbox = checked.find((cb) => cb.dataset.item === "AHEWA_EVENT");
+    const invoiceId     = eventCheckbox ? Number(eventCheckbox.dataset.invoice) : undefined;
+
+    btn.disabled = true;
+    statusEl.hidden = false;
+    statusEl.textContent = "Sending STK push…";
+
+    try {
+      const r = await Api.payFor({ items, invoiceId });
+      if (!r || !r.ok) {
+        statusEl.textContent = "❌ " + ((r && r.error) || "Could not send STK.");
+        btn.disabled = false;
+        return;
+      }
+
+      statusEl.textContent = "📱 Enter your PIN on your phone… (waiting up to 90s)";
+      const result = await pollStkStatus(r.checkoutRequestId);
+
+      if (result.status === "paid") {
+        statusEl.textContent = "✅ Payment received!";
+        payModal.style.display = "none";
+        await Promise.all([loadInvoices(), loadPayments()]);
+        await loadSettings();
+        return;
+      }
+      if (result.status === "failed") {
+        statusEl.textContent = "❌ Payment failed or cancelled.";
+      } else {
+        statusEl.textContent = "⌛ Still waiting. Check your phone.";
+      }
+    } catch (err) {
+      statusEl.textContent = "❌ " + (err.message || "Failed.");
+    } finally {
+      btn.disabled = false;
+    }
+  });
   document.getElementById("rp-cancel").addEventListener("click", () => {
     modal.style.display = "none";
     document.getElementById("report-form").reset();

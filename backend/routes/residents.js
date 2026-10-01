@@ -4,6 +4,7 @@
    Approval (verified: false → true) triggers a welcome email.
    + Paginated GET /
    + house_number + access_blocked support
+   + GET /outstanding (resident's smart payable list)
    ============================================================ */
 
 require("dotenv").config();
@@ -12,6 +13,7 @@ const express = require("express");
 const router = express.Router();
 const { getPool } = require("../db");
 const { sendMail, residentApprovedEmail } = require("../utils/mailer");
+const { requireAuth, requireRole } = require("../middleware/auth");
 
 /* ------------------------------------------------------------
    Helper: DB row → JSON
@@ -61,6 +63,121 @@ function applyResidentFilters(request, { phase, courtId, q, verified, houseNumbe
 
   return where.length ? "WHERE " + where.join(" AND ") : "";
 }
+
+/* ------------------------------------------------------------
+   GET /api/residents/outstanding   (resident, auth)
+   MUST be declared BEFORE GET /:id, otherwise Express treats
+   "outstanding" as an :id and this route never fires.
+   ------------------------------------------------------------ */
+router.get("/outstanding", requireAuth, async (req, res, next) => {
+  try {
+    const pool = await getPool();
+    const residentId = req.user.id;
+
+    /* ---- Resident state ---- */
+    const me = await pool.request()
+      .input("id", residentId)
+      .query(`
+        SELECT id, verified, house_number, join_ahewa, phone
+        FROM Residents WHERE id = @id
+      `);
+    if (!me.recordset.length) return res.status(404).json({ error: "Resident not found." });
+    const r = me.recordset[0];
+
+    /* ---- All outstanding invoices ---- */
+    const invs = await pool.request()
+      .input("rid", residentId)
+      .query(`
+        SELECT id, type, billing_month, amount_due, amount_paid,
+               (amount_due - amount_paid) AS balance, due_date, status
+        FROM invoices
+        WHERE resident_id = @rid
+          AND status IN ('unpaid','partial','overdue')
+          AND (amount_due - amount_paid) > 0
+        ORDER BY due_date ASC
+      `);
+
+    /* ---- Has the resident ever paid AHE_REG? ---- */
+    const ahePaid = await pool.request()
+      .input("rid", residentId)
+      .query(`
+        SELECT TOP 1 1 FROM invoices
+        WHERE resident_id = @rid AND type = 'AHE_REG' AND status = 'paid'
+      `);
+
+    /* ---- Fees from env ---- */
+    const feeAhe   = parseInt(process.env.FEE_AHE   || "1", 10);
+    const feeAhewa = parseInt(process.env.FEE_AHEWA || "1", 10);
+
+    const now   = new Date();
+    const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+
+    /* ---- Build the payable list ---- */
+    const payable = [];
+
+    /* 1. AHE_REG — only if never paid (retroactive for old residents) */
+    if (!ahePaid.recordset.length) {
+      payable.push({
+        type: "AHE_REG",
+        label: "AHE registration (one-off)",
+        amount: feeAhe,
+        invoiceId: null,
+        reason: "not_paid",
+      });
+    }
+
+    /* 2. Every outstanding invoice by type */
+    for (const inv of invs.recordset) {
+      const t = (inv.type || "SERVICE").toUpperCase();
+      if (t === "AHE_REG") continue;  // already handled above
+
+      payable.push({
+        type: t,
+        label: {
+          SERVICE:     "Monthly service charge",
+          AHEWA_REG:   "AHEWA registration (one-off)",
+          AHEWA_EVENT: "AHEWA event contribution",
+        }[t] || t,
+        amount: Number(inv.balance),
+        invoiceId: inv.id,
+        billingMonth: inv.billing_month,
+        reason: "outstanding_invoice",
+      });
+    }
+
+    /* 3. AHEWA_REG — if not a member and no invoice exists yet */
+    const isAhewaMember = !!r.join_ahewa;
+    const hasAhewaInv = payable.some((p) => p.type === "AHEWA_REG");
+    if (!isAhewaMember && !hasAhewaInv) {
+      payable.push({
+        type: "AHEWA_REG",
+        label: "AHEWA registration (one-off)",
+        amount: feeAhewa,
+        invoiceId: null,
+        reason: "not_a_member",
+      });
+    }
+
+    /* ---- Totals ---- */
+    const total   = payable.reduce((s, p) => s + Number(p.amount), 0);
+    const overdue = invs.recordset
+      .filter((i) => i.status === "overdue")
+      .reduce((s, i) => s + Number(i.balance), 0);
+
+    res.json({
+      residentId,
+      houseNumber:        r.house_number || null,
+      isAhewaMember,
+      verified:           !!r.verified,
+      payable,
+      totalOutstanding:   total,
+      overdueOutstanding: overdue,
+      billingMonth:       month,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /* ------------------------------------------------------------
    GET /api/residents?phase=&courtId=&q=&verified=&houseNumber=&page=&limit=

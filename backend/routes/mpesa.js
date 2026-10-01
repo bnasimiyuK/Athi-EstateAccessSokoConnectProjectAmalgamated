@@ -239,7 +239,128 @@ async function finalizeInvoicePayment(pool, invoiceId, mpesaReceipt, phoneUsed) 
     throw err;
   }
 }
+/* ------------------------------------------------------------
+   finalizeBillPayment — for the resident's "Pay via M-Pesa" flow
+   plan = { residentId, toCreate:[{type,amount}], toAllocate:[{invoiceId,amount,type}] }
+   ------------------------------------------------------------ */
+async function finalizeBillPayment(pool, plan, mpesaReceipt, phoneUsed) {
+  const { residentId, toCreate = [], toAllocate = [] } = plan;
 
+  const tx = pool.transaction();
+  await tx.begin();
+
+  try {
+    const now   = new Date();
+    const month = currentMonth();
+    const [y, m] = month.split("-").map(Number);
+    const dueDate = new Date(Date.UTC(y, m - 1, 5));
+
+    const meQ = await tx.request()
+      .input("id", residentId)
+      .query("SELECT house_number FROM Residents WHERE id = @id");
+    const house = (meQ.recordset[0] && meQ.recordset[0].house_number) || `PENDING-${residentId}`;
+
+    /* ---- Create new invoices (immediately marked paid) ---- */
+    for (const c of toCreate) {
+      const invR = await tx.request()
+        .input("rid", residentId)
+        .input("h",   house)
+        .input("m",   month)
+        .input("amt", c.amount)
+        .input("due", dueDate)
+        .input("type", c.type)
+        .query(`
+          INSERT INTO invoices
+            (resident_id, house_number, billing_month, amount_due, amount_paid, status, due_date, type, paid_at)
+          OUTPUT INSERTED.id
+          VALUES (@rid, @h, @m, @amt, @amt, 'paid', @due, @type, SYSUTCDATETIME())
+        `);
+      const invId = invR.recordset[0].id;
+
+      await tx.request()
+        .input("inv",  invId)
+        .input("h",    house)
+        .input("rid",  residentId)
+        .input("amt",  c.amount)
+        .input("rec",  mpesaReceipt)
+        .input("ph",   phoneUsed)
+        .input("date", now)
+        .input("type", c.type)
+        .query(`
+          INSERT INTO payments
+            (invoice_id, house_number, resident_id, amount, method, status,
+             mpesa_receipt, mpesa_phone, payment_date, entered_by, type, verified_at)
+          VALUES (@inv, @h, @rid, @amt, 'mpesa', 'verified',
+                  @rec, @ph, @date, @rid, @type, SYSUTCDATETIME())
+        `);
+    }
+
+    /* ---- Allocate to existing invoices ---- */
+    for (const a of toAllocate) {
+      const invQ = await tx.request()
+        .input("id", a.invoiceId)
+        .query("SELECT amount_due, amount_paid FROM invoices WHERE id = @id");
+      if (!invQ.recordset.length) continue;
+
+      const inv = invQ.recordset[0];
+      const newPaid = Number(inv.amount_paid) + a.amount;
+      const fullyPaid = newPaid >= Number(inv.amount_due);
+
+      await tx.request()
+        .input("id",  a.invoiceId)
+        .input("amt", newPaid)
+        .input("st",  fullyPaid ? "paid" : "partial")
+        .query(`
+          UPDATE invoices
+          SET amount_paid = @amt,
+              status      = @st,
+              paid_at     = CASE WHEN @st = 'paid' THEN SYSUTCDATETIME() ELSE paid_at END
+          WHERE id = @id
+        `);
+
+      await tx.request()
+        .input("inv",  a.invoiceId)
+        .input("h",    house)
+        .input("rid",  residentId)
+        .input("amt",  a.amount)
+        .input("rec",  mpesaReceipt)
+        .input("ph",   phoneUsed)
+        .input("date", now)
+        .input("type", a.type)
+        .query(`
+          INSERT INTO payments
+            (invoice_id, house_number, resident_id, amount, method, status,
+             mpesa_receipt, mpesa_phone, payment_date, entered_by, type, verified_at)
+          VALUES (@inv, @h, @rid, @amt, 'mpesa', 'verified',
+                  @rec, @ph, @date, @rid, @type, SYSUTCDATETIME())
+        `);
+    }
+
+    /* ---- If AHEWA_REG was in the plan, flip the resident flag ---- */
+    const hasAhewa = [...toCreate, ...toAllocate].some((x) => x.type === "AHEWA_REG");
+    if (hasAhewa) {
+      await tx.request()
+        .input("rid", residentId)
+        .query(`UPDATE Residents SET join_ahewa = 1 WHERE id = @rid`);
+    }
+
+    /* ---- Unblock if all overdue invoices are now clear ---- */
+    const overdueQ = await tx.request()
+      .input("rid", residentId)
+      .query(`SELECT COUNT(*) AS n FROM invoices WHERE resident_id = @rid AND status = 'overdue'`);
+    if (overdueQ.recordset[0].n === 0) {
+      await tx.request()
+        .input("rid", residentId)
+        .query(`UPDATE Residents SET access_blocked = 0, access_blocked_reason = NULL WHERE id = @rid`);
+    }
+
+    await tx.commit();
+    return { residentId };
+  } catch (err) {
+    await tx.rollback();
+    throw err;
+  }
+}
 /* ============================================================
    POST /api/mpesa/stkpush
    ============================================================ */
@@ -381,7 +502,131 @@ router.post("/pay-invoice", requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+/* ============================================================
+   POST /api/mpesa/pay-for   (resident, auth)
+   Body: { items: ["SERVICE","AHEWA_REG"], invoiceId?: number }
+   Fires one STK for the total. Callback creates/allocates everything.
+   ============================================================ */
+router.post("/pay-for", requireAuth, async (req, res, next) => {
+  try {
+    const { items = [], invoiceId } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "Choose at least one item to pay." });
+    }
 
+    const pool = await getPool();
+    const residentId = req.user.id;
+
+    const meQ = await pool.request()
+      .input("id", residentId)
+      .query("SELECT id, verified, join_ahewa, house_number, phone FROM Residents WHERE id = @id");
+    if (!meQ.recordset.length) return res.status(404).json({ error: "Resident not found." });
+    const me = meQ.recordset[0];
+    if (!me.verified) return res.status(403).json({ error: "Your account is not yet approved." });
+
+    const FEE_SERVICE = parseInt(process.env.FEE_SERVICE || "1", 10);
+    const FEE_AHEWA   = parseInt(process.env.FEE_AHEWA   || "1", 10);
+
+    let totalAmount = 0;
+    const toCreate   = [];
+    const toAllocate = [];
+
+    /* ---- SERVICE ---- */
+    if (items.includes("SERVICE")) {
+      const svcQ = await pool.request()
+        .input("rid", residentId)
+        .query(`
+          SELECT TOP 1 id, amount_due, amount_paid
+          FROM invoices
+          WHERE resident_id = @rid AND type = 'SERVICE'
+            AND status IN ('unpaid','partial','overdue')
+          ORDER BY billing_month ASC
+        `);
+      if (svcQ.recordset.length) {
+        const inv = svcQ.recordset[0];
+        const remaining = Number(inv.amount_due) - Number(inv.amount_paid);
+        totalAmount += remaining;
+        toAllocate.push({ invoiceId: inv.id, amount: remaining, type: "SERVICE" });
+      } else {
+        totalAmount += FEE_SERVICE;
+        toCreate.push({ type: "SERVICE", amount: FEE_SERVICE });
+      }
+    }
+
+    /* ---- AHEWA_REG ---- */
+    if (items.includes("AHEWA_REG")) {
+      if (me.join_ahewa) {
+        return res.status(400).json({ error: "You are already an AHEWA member." });
+      }
+      const ahewaQ = await pool.request()
+        .input("rid", residentId)
+        .query(`SELECT id, amount_due, amount_paid FROM invoices
+                WHERE resident_id = @rid AND type = 'AHEWA_REG'
+                  AND status IN ('unpaid','partial','overdue')`);
+      if (ahewaQ.recordset.length) {
+        const inv = ahewaQ.recordset[0];
+        const remaining = Number(inv.amount_due) - Number(inv.amount_paid);
+        totalAmount += remaining;
+        toAllocate.push({ invoiceId: inv.id, amount: remaining, type: "AHEWA_REG" });
+      } else {
+        totalAmount += FEE_AHEWA;
+        toCreate.push({ type: "AHEWA_REG", amount: FEE_AHEWA });
+      }
+    }
+
+    /* ---- AHEWA_EVENT ---- */
+    if (items.includes("AHEWA_EVENT")) {
+      if (!invoiceId) return res.status(400).json({ error: "AHEWA_EVENT requires invoiceId." });
+      const evQ = await pool.request()
+        .input("id",  invoiceId)
+        .input("rid", residentId)
+        .query(`SELECT * FROM invoices
+                WHERE id = @id AND resident_id = @rid AND type = 'AHEWA_EVENT'`);
+      if (!evQ.recordset.length) return res.status(404).json({ error: "Event invoice not found." });
+      const inv = evQ.recordset[0];
+      const remaining = Number(inv.amount_due) - Number(inv.amount_paid);
+      totalAmount += remaining;
+      toAllocate.push({ invoiceId: inv.id, amount: remaining, type: "AHEWA_EVENT" });
+    }
+
+    if (totalAmount <= 0) return res.status(400).json({ error: "Nothing to pay." });
+
+            const targetPhone = me.phone;
+    if (!targetPhone) return res.status(400).json({ error: "No phone number on file." });
+    const stk = await mpesa.stkPush({
+      phone: targetPhone,
+      amount: totalAmount,
+      accountReference: "Bill",
+      transactionDesc: items.join("+").slice(0, 100),
+    });
+
+    if (stk.ResponseCode !== "0") {
+      return res.status(400).json({ error: stk.ResponseDescription || "STK push rejected." });
+    }
+
+    await pool.request()
+      .input("crid", stk.CheckoutRequestID)
+      .input("mrid", stk.MerchantRequestID)
+      .input("phone", mpesa.normalizePhone(targetPhone))
+      .input("amt", totalAmount)
+      .input("purpose", "BILL")
+      .input("payload", JSON.stringify({ residentId, items, toCreate, toAllocate, invoiceId }))
+      .query(`
+        INSERT INTO mpesa_pending
+          (checkout_request_id, merchant_request_id, phone, amount, purpose, signup_payload, status)
+        VALUES (@crid, @mrid, @phone, @amt, @purpose, @payload, 'pending')
+      `);
+
+    res.json({
+      ok: true,
+      checkoutRequestId: stk.CheckoutRequestID,
+      amount: totalAmount,
+    });
+  } catch (err) {
+    console.error("[mpesa] pay-for error:", err.message);
+    next(err);
+  }
+});
 /* ============================================================
    POST /api/mpesa/callback
    ============================================================ */
@@ -427,7 +672,22 @@ router.post("/callback", async (req, res, next) => {
     if (row.status === "paid") {
       return res.json({ ok: true, already: true });
     }
-
+    /* ---- BILL: resident paid via "Pay via M-Pesa" modal ---- */
+    if (row.purpose === "BILL") {
+      const plan = JSON.parse(row.signup_payload || "{}");
+      const result = await finalizeBillPayment(pool, plan, receipt, row.phone);
+      await pool.request()
+        .input("crid", stk.CheckoutRequestID)
+        .input("rec",  receipt)
+        .query(`
+          UPDATE mpesa_pending
+          SET status = 'paid', mpesa_receipt = @rec, result_code = 0,
+              updated_at = SYSUTCDATETIME()
+          WHERE checkout_request_id = @crid
+        `);
+      console.log(`[mpesa] ✅ bill paid for resident ${result.residentId} via STK ${receipt}`);
+      return res.json({ ok: true, ...result });
+    }
     if (row.purpose && row.purpose.startsWith("INVOICE:")) {
       const invoiceId = parseInt(row.purpose.split(":")[1], 10);
       await finalizeInvoicePayment(pool, invoiceId, receipt, row.phone);
@@ -519,7 +779,21 @@ router.post("/simulate", async (req, res, next) => {
     if (row.status === "paid") return res.json({ ok: true, already: true });
 
     const simReceipt = (receipt || "SIM" + Date.now()).slice(0, 12);
-
+       if (row.purpose === "BILL") {
+      const plan = JSON.parse(row.signup_payload || "{}");
+      const result = await finalizeBillPayment(pool, plan, simReceipt, row.phone);
+      await pool.request()
+        .input("crid", checkoutRequestId)
+        .input("rec",  simReceipt)
+        .query(`
+          UPDATE mpesa_pending
+          SET status = 'paid', mpesa_receipt = @rec, result_code = 0,
+              updated_at = SYSUTCDATETIME()
+          WHERE checkout_request_id = @crid
+        `);
+      console.log(`[mpesa] ✅ bill paid for resident ${result.residentId} via STK ${simReceipt}`);
+      return res.json({ ok: true, ...result });
+    }
     if (row.purpose && row.purpose.startsWith("INVOICE:")) {
       const invoiceId = parseInt(row.purpose.split(":")[1], 10);
       await finalizeInvoicePayment(pool, invoiceId, simReceipt, row.phone);
@@ -555,5 +829,5 @@ router.post("/simulate", async (req, res, next) => {
     next(err);
   }
 });
-
+  
 module.exports = router;

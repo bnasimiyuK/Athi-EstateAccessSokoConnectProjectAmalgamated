@@ -276,8 +276,11 @@ router.get("/mine", requireAuth, async (req, res, next) => {
         FROM invoices i
         JOIN Residents r ON r.id = i.resident_id
         JOIN Courts c    ON c.id = r.court_id
-        WHERE i.resident_id = @rid
-          AND i.type IN ('SERVICE','AHEWA_EVENT')
+                        WHERE i.resident_id = @rid
+          AND (
+            i.type IN ('SERVICE','AHEWA_EVENT')
+            OR (i.type IN ('AHE_REG','AHEWA_REG') AND i.status != 'paid')
+          )
         ORDER BY i.billing_month DESC
       `);
 

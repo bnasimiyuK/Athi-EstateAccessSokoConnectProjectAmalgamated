@@ -257,6 +257,8 @@ const Api = {
 
   getMyInvoices: () =>
     request(`${API_BASE}/invoices/mine`),
+    getMyOutstanding: () =>
+    request(`${API_BASE}/residents/outstanding`),
 
   getMyPayments: () =>
     request(`${API_BASE}/payments/mine`),
@@ -320,7 +322,11 @@ const Api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-
+  payFor: (payload) =>
+    request(`${API_BASE}/mpesa/pay-for`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   /* ============================================================
      HOUSE NUMBERS
      ============================================================ */
@@ -347,7 +353,7 @@ const Api = {
 
   getAssignedHouseNumbers: () =>
     request(`${API_BASE}/house-numbers/assigned`),
-
+  
   /* ============================================================
      VISITORS — resident
      ============================================================ */

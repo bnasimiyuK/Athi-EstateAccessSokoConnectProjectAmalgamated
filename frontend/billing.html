@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>My billing — Athi Estate Access</title>
-  <link rel="stylesheet" href="css/styles.css" />
+   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
 </head>
 <body>
@@ -38,13 +38,16 @@
 </header>
 
 <main class="container">
-  <div class="page-head page-head--with-actions">
+   <div class="page-head page-head--with-actions">
     <div class="page-head__text">
       <h1>My billing</h1>
-      <p>Monthly service charge &amp; garbage collection. KSh 2,000 per household, due by the 5th.</p>
+      <p id="billing-summary" style="font-size:0.9rem;">
+        Monthly service charge &amp; garbage collection. KSh 2,000 per household, due by the 5th.
+      </p>
     </div>
     <div class="admin-actions">
-      <button id="btn-report-payment" class="btn btn--accent" type="button">💳 I have paid</button>
+      <button id="btn-pay-now" class="btn btn--accent" type="button">💳 Pay via M-Pesa</button>
+      <button id="btn-report-payment" class="btn btn--ghost" type="button">📄 I have paid</button>
     </div>
   </div>
 
@@ -119,7 +122,32 @@
     </form>
   </div>
 </div>
-
+<!-- Pay via M-Pesa modal -->
+<div id="pay-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:#fff;max-width:500px;width:90%;padding:24px;border-radius:8px;">
+    <h2 style="margin-top:0;">Pay via M-Pesa</h2>
+    <p style="color:var(--ink-70);font-size:0.9rem;margin-top:0;">
+      Choose what you're paying for. We'll send an STK prompt to your phone.
+    </p>
+    <form id="pay-form">
+      <div id="pay-items-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+        <div class="empty-state">Loading…</div>
+      </div>
+      <div class="notice" style="margin-bottom:16px;">
+        Total: <b id="pay-total">KSh 0</b>
+      </div>
+      <label style="display:block;">
+        M-Pesa phone number
+        <input type="tel" id="pay-phone" class="input" placeholder="07XX XXX XXX" style="width:100%;margin-top:4px;" />
+      </label>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button type="button" class="btn btn--ghost" id="pay-cancel">Cancel</button>
+        <button type="submit" class="btn btn--accent" id="pay-submit">📱 Send STK push</button>
+      </div>
+      <div id="pay-status" style="margin-top:12px;font-size:0.9rem;" hidden></div>
+    </form>
+  </div>
+</div>
 <footer class="site-footer">
   <div class="container" style="width:100%;">
     Payments are verified by estate admin. Contact management if your payment is not reflected within 24 hours.
