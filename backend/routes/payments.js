@@ -11,6 +11,7 @@ const { getPool } = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { sendMail, residentApprovedEmail } = require("../utils/mailer");
 
+const FEE_SERVICE = parseInt(process.env.FEE_SERVICE || "1", 10);
 /* ------------------------------------------------------------
    Row → JSON
    ------------------------------------------------------------ */
@@ -363,11 +364,11 @@ router.post("/:id/verify", requireAuth, requireRole("admin"), async (req, res, n
           const [y, m] = month.split("-").map(Number);
           const dueDate = new Date(Date.UTC(y, m - 1, 5));
 
-          const svc = await tx.request()
+            const svc = await tx.request()
             .input("rid", p.resident_id)
             .input("h",   p.house_number || "PENDING")
             .input("m",   month)
-            .input("amt", 2000)
+            .input("amt", FEE_SERVICE)
             .input("due", dueDate)
             .query(`
               INSERT INTO invoices

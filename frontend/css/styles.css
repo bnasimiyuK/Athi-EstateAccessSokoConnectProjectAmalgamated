@@ -1496,3 +1496,204 @@ main.container:has(.register-container) {
     color: var(--ink-70);
   }
 }
+/* ============================================================
+   RESIDENT SIGNUP PAGE — layout, court dropdown, payment block
+   ============================================================ */
+
+/* ---------- Page wrapper ---------- */
+.main--signup {
+  padding: 40px 24px;
+}
+
+/* ---------- Searchable court dropdown ---------- */
+.input-group--relative {
+  position: relative;
+}
+
+.court-list {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+}
+
+/* ============================================================
+   REGISTRATION PAYMENT
+   ============================================================ */
+
+/* ---------- Fieldset wrapper ---------- */
+.payment-fieldset {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.payment-fieldset__legend {
+  padding: 0 8px;
+  font-weight: 600;
+}
+
+/* ---------- STK push accelerator box ---------- */
+.stk-box {
+  margin: 4px 0 16px;
+  padding: 14px 16px;
+  background: #e8f7ee;
+  border: 1px solid #b6e2c8;
+  border-radius: 8px;
+}
+
+.stk-box__title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #143d24;
+  font-size: 0.95rem;
+}
+
+.stk-box__title i {
+  color: #1a7d3a;
+}
+
+.stk-box__hint {
+  font-size: 0.85rem;
+  color: var(--ink-70);
+  margin: 4px 0 10px;
+  line-height: 1.45;
+}
+
+.stk-box__row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.stk-box__phone {
+  flex: 1;
+  min-width: 180px;
+}
+
+.stk-box__btn {
+  padding: 10px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.stk-box__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.stk-box__status {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.stk-box__status.is-info  { color: #0a5a8a; }
+.stk-box__status.is-ok    { color: #1a7d3a; }
+.stk-box__status.is-error { color: #b0472e; }
+
+/* ---------- "Or pay manually" hint ---------- */
+.manual-pay-hint {
+  font-size: 0.9rem;
+  color: var(--ink-70);
+  margin: 8px 0 16px;
+  line-height: 1.5;
+}
+
+.manual-pay-hint code {
+  background: #f4f4f4;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+/* ---------- AHE / AHEWA rows ---------- */
+.pay-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: var(--paper-dim);
+  border-radius: 6px;
+  margin-bottom: 14px;
+}
+
+.pay-row__check {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.pay-row__body {
+  flex: 1;
+}
+
+.pay-row__label {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pay-row__note {
+  font-size: 0.85rem;
+  color: var(--ink-70);
+  margin-top: 2px;
+  line-height: 1.45;
+}
+
+.pay-row__inputs {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.pay-row__inputs .input {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* ---------- Monthly service charge notice ---------- */
+.notice--payment {
+  margin-top: 16px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* ---------- STK buttons — keep side-by-side on all sizes ---------- */
+.stk-box__buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.stk-box__btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 520px) {
+  .stk-box__row,
+  .pay-row__inputs {
+    flex-direction: column;
+  }
+  .stk-box__buttons {
+    flex-wrap: wrap;
+  }
+  .stk-box__btn {
+    flex: 1 1 100%;
+  }
+}

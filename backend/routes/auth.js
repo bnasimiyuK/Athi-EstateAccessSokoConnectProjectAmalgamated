@@ -10,10 +10,10 @@ const router  = express.Router();
 const { getPool } = require("../db");
 const { requireAuth, JWT_SECRET } = require("../middleware/auth");
 const { sendMail, residentApprovedEmail } = require("../utils/mailer");
-
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "10", 10);
 const JWT_EXPIRES   = process.env.JWT_EXPIRES_IN || "7d";
-
+const FEE_AHE   = parseInt(process.env.FEE_AHE   || "1", 10);
+const FEE_AHEWA = parseInt(process.env.FEE_AHEWA || "1", 10);
 /* ------------------------------------------------------------
    Helper: sign a JWT for a user object
    ------------------------------------------------------------ */
@@ -194,11 +194,13 @@ router.post("/login", async (req, res, next) => {
 
    Body:
      {
+          Body:
+     {
        fullName, phone, email, courtId, password,
        joinAHEWA: bool,
        payments: [
-         { type: "AHE_REG",   amount: 2000, mpesaReceipt: "...", mpesaPhone?: "..." },
-         { type: "AHEWA_REG", amount: 500,  mpesaReceipt: "...", mpesaPhone?: "..." }
+         { type: "AHE_REG",   amount: <FEE_AHE>,   mpesaReceipt: "...", mpesaPhone?: "..." },
+         { type: "AHEWA_REG", amount: <FEE_AHEWA>, mpesaReceipt: "...", mpesaPhone?: "..." }
        ]
      }
 
@@ -256,17 +258,17 @@ router.post("/register-resident", async (req, res, next) => {
     }
 
     /* ---------- AHE_REG receipt (mandatory) ---------- */
-    const ahePay = payments.find((p) => p && p.type === "AHE_REG");
-    if (!ahePay || !ahePay.mpesaReceipt || Number(ahePay.amount) < 2000) {
+        const ahePay = payments.find((p) => p && p.type === "AHE_REG");
+    if (!ahePay || !ahePay.mpesaReceipt || Number(ahePay.amount) < FEE_AHE) {
       return res.status(400).json({
-        error: "AHE registration payment (KSh 2,000) with M-Pesa receipt is required.",
+        error: `AHE registration payment (KSh ${FEE_AHE.toLocaleString()}) with M-Pesa receipt is required.`,
       });
     }
 
     let ahewaPay = null;
     if (joinAHEWA) {
-      ahewaPay = payments.find((p) => p && p.type === "AHEWA_REG");
-      if (!ahewaPay || !ahewaPay.mpesaReceipt || Number(ahewaPay.amount) < 500) {
+        ahewaPay = payments.find((p) => p && p.type === "AHEWA_REG");
+      if (!ahewaPay || !ahewaPay.mpesaReceipt || Number(ahewaPay.amount) < FEE_AHEWA) {
         return res.status(400).json({
           error: "You selected AHEWA membership, but no AHEWA payment receipt was supplied.",
         });
@@ -363,7 +365,7 @@ router.post("/register-resident", async (req, res, next) => {
       }
 
       /* ---- 5. AHE_REG invoice + payment (mandatory) ---- */
-      const aheInvoiceId = await makeInvoice({ type: "AHE_REG", amount: 2000 });
+            const aheInvoiceId = await makeInvoice({ type: "AHE_REG", amount: FEE_AHE });
       await makePayment({
         type: "AHE_REG",
         amount: ahePay.amount,
@@ -375,7 +377,7 @@ router.post("/register-resident", async (req, res, next) => {
       /* ---- 6. AHEWA_REG invoice + payment (optional) ---- */
       let ahewaInvoiceId = null;
       if (joinAHEWA && ahewaPay) {
-        ahewaInvoiceId = await makeInvoice({ type: "AHEWA_REG", amount: 500 });
+        ahewaInvoiceId = await makeInvoice({ type: "AHEWA_REG", amount: FEE_AHEWA });
         await makePayment({
           type: "AHEWA_REG",
           amount: ahewaPay.amount,

@@ -74,6 +74,7 @@ app.use("/api/payments", paymentsRouter);
 app.use("/api/house-numbers", houseNumbersRouter);
 app.use("/api/visitors", visitorsRouter);
 app.use("/api/events", require("./routes/events"));
+app.use("/api/mpesa", require("./routes/mpesa"));
 
 /* ---------- Static frontend ---------- */
 app.use(express.static(FRONTEND_DIR));

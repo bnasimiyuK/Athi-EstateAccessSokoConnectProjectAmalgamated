@@ -63,13 +63,15 @@ router.get("/settings", async (req, res, next) => {
   try {
     const pool = await getPool();
     const s = await getBillingSettings(pool);
-    res.json({
-      monthlyFee:      Number(s.monthly_fee),
-      dueDayOfMonth:   s.due_day_of_month,
-      paybillNumber:   s.paybill_number,
-      paybillBank:     s.paybill_bank,
+          res.json({
+      monthlyFee:       Number(s.monthly_fee),
+      dueDayOfMonth:    s.due_day_of_month,
+      paybillNumber:    s.paybill_number,
+      paybillBank:      s.paybill_bank,
       paybillShortcode: s.paybill_shortcode,
-      bankAccount:     s.bank_account,
+      bankAccount:      s.bank_account,
+      feeAhe:           parseInt(process.env.FEE_AHE   || "1", 10),
+      feeAhewa:         parseInt(process.env.FEE_AHEWA || "1", 10),
     });
   } catch (err) {
     next(err);
@@ -266,7 +268,7 @@ router.get("/mine", requireAuth, async (req, res, next) => {
     const pool = await getPool();
     const residentId = req.user.id;
 
-    const result = await pool.request()
+        const result = await pool.request()
       .input("rid", residentId)
       .query(`
         SELECT i.*, r.full_name AS resident_name, r.phone,
@@ -275,6 +277,7 @@ router.get("/mine", requireAuth, async (req, res, next) => {
         JOIN Residents r ON r.id = i.resident_id
         JOIN Courts c    ON c.id = r.court_id
         WHERE i.resident_id = @rid
+          AND i.type IN ('SERVICE','AHEWA_EVENT')
         ORDER BY i.billing_month DESC
       `);
 

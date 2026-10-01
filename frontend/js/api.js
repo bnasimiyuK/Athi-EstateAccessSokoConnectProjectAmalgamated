@@ -27,7 +27,7 @@ const API_BASE = (() => {
   // (capacitor://localhost on iOS, http://localhost on Android)
   // In this case, window.location.hostname is "localhost" but we're on a device,
   // so we must use the LAN_IP.
-    // Capacitor on Android (v3+) serves the app from https://localhost.
+  // Capacitor on Android (v3+) serves the app from https://localhost.
   // Detect: we're loaded over HTTPS on "localhost" → we're in the app.
   if (
     protocol === "capacitor:" ||
@@ -47,19 +47,6 @@ const API_BASE = (() => {
     return `http://${host}:${BACKEND_PORT}/api`;
   }
 
-  return `http://${LAN_IP}:${BACKEND_PORT}/api`;
-
-  // Browser running at localhost — use localhost backend
-  if (host === "localhost" || host === "127.0.0.1") {
-    return `http://localhost:${BACKEND_PORT}/api`;
-  }
-
-  // Browser running at a LAN IP — use the same host with backend port
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-    return `http://${host}:${BACKEND_PORT}/api`;
-  }
-
-  // Fallback (unknown host) — use LAN IP
   return `http://${LAN_IP}:${BACKEND_PORT}/api`;
 })();
 
@@ -311,6 +298,27 @@ const Api = {
     request(`${API_BASE}/payments/${id}/reject`, {
       method: "POST",
       body: JSON.stringify({ reason }),
+    }),
+
+  /* ============================================================
+     M-PESA STK
+     ============================================================ */
+  stkPush: (payload) =>
+    request(`${API_BASE}/mpesa/stkpush`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  stkQuery: (checkoutRequestId) =>
+    request(`${API_BASE}/mpesa/query`, {
+      method: "POST",
+      body: JSON.stringify({ checkoutRequestId }),
+    }),
+
+  payInvoice: (payload) =>
+    request(`${API_BASE}/mpesa/pay-invoice`, {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 
   /* ============================================================

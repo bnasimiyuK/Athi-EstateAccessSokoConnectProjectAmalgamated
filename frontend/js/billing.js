@@ -1,5 +1,7 @@
 /* ============================================================
    billing.js — resident view: invoices + payments + self-report
+   Adds a "Pay via M-Pesa" button on each unpaid SERVICE / AHEWA_EVENT
+   invoice. AHE_REG and AHEWA_REG are hidden (they're one-off, at signup).
    ============================================================ */
 
 function escapeHtml(s) {
@@ -11,20 +13,29 @@ function escapeHtml(s) {
 function invBadge(status) {
   const map = {
     paid:    `<span class="badge badge--verified">Paid</span>`,
-    unpaid:  `<span class="badge" style="background:#c8862a;color:#fff;">Unpaid</span>`,
-    partial: `<span class="badge" style="background:#4a7ba7;color:#fff;">Partial</span>`,
-    overdue: `<span class="badge" style="background:#b0472e;color:#fff;">Overdue</span>`,
+    unpaid:  `<span class="badge badge--unpaid">Unpaid</span>`,
+    partial: `<span class="badge badge--partial">Partial</span>`,
+    overdue: `<span class="badge badge--overdue">Overdue</span>`,
   };
   return map[status] || escapeHtml(status);
 }
 
 function payBadge(status) {
   const map = {
-    pending:  `<span class="badge" style="background:#c8862a;color:#fff;">Pending verification</span>`,
+    pending:  `<span class="badge badge--unpaid">Pending verification</span>`,
     verified: `<span class="badge badge--verified">Verified</span>`,
-    rejected: `<span class="badge" style="background:#b0472e;color:#fff;">Rejected</span>`,
+    rejected: `<span class="badge badge--overdue">Rejected</span>`,
   };
   return map[status] || escapeHtml(status);
+}
+
+function typeLabel(t) {
+  return {
+    SERVICE:     "Monthly service",
+    AHEWA_EVENT: "AHEWA event",
+    AHE_REG:     "AHE registration",
+    AHEWA_REG:   "AHEWA registration",
+  }[t] || t;
 }
 
 /* ------------------------------------------------------------
@@ -47,11 +58,70 @@ async function loadSettings() {
 async function loadMe() {
   try {
     const me = await Api.me();
-    const hno = me.houseNumber || "Not assigned";
-    document.getElementById("my-house").textContent = hno;
+    document.getElementById("my-house").textContent = me.houseNumber || "Not assigned";
     document.getElementById("pb-account").textContent = me.houseNumber || "(assigned by admin)";
   } catch (err) {
     console.error("[billing] me failed:", err);
+  }
+}
+
+/* ------------------------------------------------------------
+   Poll a CheckoutRequestID until paid / failed / timeout
+   ------------------------------------------------------------ */
+async function pollStkStatus(checkoutRequestId, maxMs = 90_000) {
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 3000));
+    try {
+      const q = await Api.stkQuery(checkoutRequestId);
+      if (q.status === "paid" || q.status === "failed") return q;
+    } catch (e) {
+      console.warn("[billing] stk poll failed:", e.message);
+    }
+  }
+  return { status: "timeout" };
+}
+
+/* ------------------------------------------------------------
+   Pay a single invoice via STK
+   ------------------------------------------------------------ */
+async function payInvoice(invoiceId, amount, btn) {
+  const originalLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+
+  try {
+    const r = await Api.payInvoice({ invoiceId });
+
+    if (!r || !r.ok) {
+      toast((r && r.error) || "Could not send STK push.");
+      btn.disabled = false;
+      btn.innerHTML = originalLabel;
+      return;
+    }
+
+    btn.textContent = "Enter PIN on phone…";
+    toast(`📱 STK sent for KSh ${Number(amount).toLocaleString()}. Enter your M-Pesa PIN.`);
+
+    const result = await pollStkStatus(r.checkoutRequestId);
+
+    if (result.status === "paid") {
+      toast("✅ Payment received! Refreshing invoices…");
+      await Promise.all([loadInvoices(), loadPayments()]);
+      return;
+    }
+
+    if (result.status === "failed") {
+      toast("❌ Payment failed or cancelled. Try again.");
+    } else {
+      toast("⌛ Still waiting. Check your phone — you can retry in a moment.");
+    }
+  } catch (err) {
+    console.error("[billing] payInvoice error:", err);
+    toast(err.message || "Could not pay invoice.");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
   }
 }
 
@@ -70,7 +140,7 @@ async function loadInvoices() {
     return;
   }
 
-  /* Compute aggregate status */
+  /* Aggregate status */
   const totalDue  = invs.reduce((s, i) => s + Number(i.amountDue), 0);
   const totalPaid = invs.reduce((s, i) => s + Number(i.amountPaid), 0);
   const balance   = totalDue - totalPaid;
@@ -82,7 +152,6 @@ async function loadInvoices() {
                         : balance > 0      ? "stat-tile--warn"
                         : "stat-tile--ok");
   statusEl.textContent = hasOverdue ? "Overdue" : balance > 0 ? "Outstanding" : "Paid up";
-
   document.getElementById("my-balance").textContent = balance.toLocaleString();
 
   if (!invs.length) {
@@ -94,28 +163,53 @@ async function loadInvoices() {
     <table>
       <thead>
         <tr>
+          <th>Type</th>
           <th>Month</th>
           <th>Amount due</th>
           <th>Amount paid</th>
           <th>Balance</th>
           <th>Due date</th>
           <th>Status</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
-        ${invs.map((i) => `
-          <tr>
-            <td><b>${escapeHtml(i.billingMonth)}</b></td>
-            <td>KSh ${Number(i.amountDue).toLocaleString()}</td>
-            <td>KSh ${Number(i.amountPaid).toLocaleString()}</td>
-            <td>KSh ${Number(i.balance).toLocaleString()}</td>
-            <td>${escapeHtml(String(i.dueDate).slice(0, 10))}</td>
-            <td>${invBadge(i.status)}</td>
-          </tr>
-        `).join("")}
+        ${invs.map((i) => {
+          const remaining = Number(i.balance);
+          const payable   = remaining > 0 && i.status !== "paid";
+          return `
+            <tr>
+              <td>${escapeHtml(typeLabel(i.type || "SERVICE"))}</td>
+              <td><b>${escapeHtml(i.billingMonth)}</b></td>
+              <td>KSh ${Number(i.amountDue).toLocaleString()}</td>
+              <td>KSh ${Number(i.amountPaid).toLocaleString()}</td>
+              <td>KSh ${remaining.toLocaleString()}</td>
+              <td>${escapeHtml(String(i.dueDate).slice(0, 10))}</td>
+              <td>${invBadge(i.status)}</td>
+              <td>
+                ${payable
+                  ? `<button class="btn btn--accent btn-pay-invoice"
+                             data-id="${i.id}"
+                             data-amount="${remaining}">
+                       📱 Pay KSh ${remaining.toLocaleString()}
+                     </button>`
+                  : ""}
+              </td>
+            </tr>
+          `;
+        }).join("")}
       </tbody>
     </table>
   `;
+
+  /* Wire up the per-row Pay buttons */
+  wrap.querySelectorAll(".btn-pay-invoice").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id     = Number(btn.getAttribute("data-id"));
+      const amount = Number(btn.getAttribute("data-amount"));
+      payInvoice(id, amount, btn);
+    });
+  });
 }
 
 /* ------------------------------------------------------------
