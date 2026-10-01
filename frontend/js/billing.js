@@ -232,11 +232,12 @@ async function loadPayments() {
     return;
   }
 
-  wrap.innerHTML = `
+    wrap.innerHTML = `
     <table>
       <thead>
         <tr>
           <th>Date</th>
+          <th>Purpose</th>
           <th>Amount</th>
           <th>Receipt</th>
           <th>For month</th>
@@ -247,6 +248,7 @@ async function loadPayments() {
         ${pays.map((p) => `
           <tr>
             <td>${escapeHtml(String(p.paymentDate).slice(0, 10))}</td>
+            <td>${escapeHtml(typeLabel(p.type))}</td>
             <td>KSh ${Number(p.amount).toLocaleString()}</td>
             <td>${escapeHtml(p.mpesaReceipt || "—")}</td>
             <td>${escapeHtml(p.invoiceMonth || "—")}</td>
@@ -256,7 +258,6 @@ async function loadPayments() {
       </tbody>
     </table>
   `;
-}
 
 /* ------------------------------------------------------------
    Init

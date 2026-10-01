@@ -182,7 +182,7 @@ router.post("/self-report", requireAuth, async (req, res, next) => {
    ============================================================ */
 router.get("/", requireAuth, requireRole("admin"), async (req, res, next) => {
   try {
-    const { status, houseNumber, month, q, page = 1, limit = 20 } = req.query;
+    const { status, type, houseNumber, month, q, page = 1, limit = 20 } = req.query;
 
     const pageNum  = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
@@ -191,6 +191,7 @@ router.get("/", requireAuth, requireRole("admin"), async (req, res, next) => {
     const where = [];
     const bind = (r) => {
       if (status)      { where.push("p.status = @status"); r.input("status", status); }
+      if (type)        { where.push("p.type = @type");     r.input("type", type); }
       if (houseNumber) { where.push("p.house_number = @houseNumber"); r.input("houseNumber", houseNumber); }
       if (month)       { where.push("i.billing_month = @month"); r.input("month", month); }
       if (q && q.trim()) {

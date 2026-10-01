@@ -1,17 +1,39 @@
 /* ============================================================
    admin-payments.js — pending queue + manual entry
+   Adds a "Purpose" column and a Type filter.
    ============================================================ */
 
 const PAY_PER_PAGE = 20;
 const payState = {
   page: 1, limit: PAY_PER_PAGE, total: 0, totalPages: 1,
-  status: "pending", q: "",
+  status: "pending", type: "", q: "",
 };
 
 function escapeHtml(s) {
   return String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function typeLabel(t) {
+  return {
+    AHE_REG:     "AHE registration",
+    AHEWA_REG:   "AHEWA registration",
+    SERVICE:     "Monthly service",
+    AHEWA_EVENT: "AHEWA event",
+  }[t] || (t || "—");
+}
+
+function typeBadge(t) {
+  const label = typeLabel(t);
+  const colors = {
+    AHE_REG:     "background:#e3efe9;color:#2f6f5e;",
+    AHEWA_REG:   "background:#f5ecd9;color:#a86c1c;",
+    SERVICE:     "background:#e4e8f0;color:#4a5670;",
+    AHEWA_EVENT: "background:#f7e6e0;color:#b0472e;",
+  };
+  const style = colors[t] || "background:#eee;color:#333;";
+  return `<span class="badge" style="${style}">${escapeHtml(label)}</span>`;
 }
 
 function payStatusBadge(status) {
@@ -46,6 +68,7 @@ async function loadPayPayments() {
   try {
     result = await Api.getPayments({
       status: payState.status,
+      type:   payState.type,
       q:      payState.q,
       page:   payState.page,
       limit:  payState.limit,
@@ -70,7 +93,7 @@ async function loadPayPayments() {
       <thead>
         <tr>
           <th>Date</th><th>House #</th><th>Resident</th>
-          <th>Amount</th><th>Receipt</th><th>Month</th>
+          <th>Purpose</th><th>Amount</th><th>Receipt</th><th>Month</th>
           <th>Status</th><th>Action</th>
         </tr>
       </thead>
@@ -80,6 +103,7 @@ async function loadPayPayments() {
             <td>${escapeHtml(String(p.paymentDate).slice(0, 10))}</td>
             <td>${escapeHtml(p.houseNumber)}</td>
             <td>${escapeHtml(p.residentName || "—")}</td>
+            <td>${typeBadge(p.type)}</td>
             <td>KSh ${Number(p.amount).toLocaleString()}</td>
             <td>${escapeHtml(p.mpesaReceipt || "—")}</td>
             <td>${escapeHtml(p.invoiceMonth || "—")}</td>
@@ -88,7 +112,7 @@ async function loadPayPayments() {
               ${p.status === "pending" ? `
                 <button class="btn btn--accent btn--small" data-verify="${p.id}">✓ Verify</button>
                 <button class="btn btn--danger btn--small" data-reject="${p.id}">✕ Reject</button>
-              ` : `<span class="meta">${escapeHtml(p.status)}</span>`}
+              ` : `<span class="meta" style="font-size:0.8rem;color:var(--ink-70);">${escapeHtml(p.status)}</span>`}
             </td>
           </tr>
         `).join("")}
@@ -176,6 +200,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("payments-filter").addEventListener("submit", (e) => {
     e.preventDefault();
     payState.status = document.getElementById("filter-status").value;
+    payState.type   = document.getElementById("filter-type").value;
     payState.q      = document.getElementById("filter-q").value.trim();
     payState.page   = 1;
     loadPayPayments();
@@ -183,8 +208,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("filter-clear").addEventListener("click", () => {
     document.getElementById("filter-status").value = "pending";
-    document.getElementById("filter-q").value = "";
-    payState.status = "pending"; payState.q = ""; payState.page = 1;
+    document.getElementById("filter-type").value   = "";
+    document.getElementById("filter-q").value      = "";
+    payState.status = "pending"; payState.type = ""; payState.q = ""; payState.page = 1;
     loadPayPayments();
   });
 
@@ -209,6 +235,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await Api.recordManualPayment({
         houseNumber:  document.getElementById("mp-house").value.trim(),
         amount:       Number(document.getElementById("mp-amount").value),
+        type:         document.getElementById("mp-type").value,
         mpesaReceipt: document.getElementById("mp-receipt").value.trim() || null,
         mpesaPhone:   document.getElementById("mp-phone").value.trim() || null,
         paymentDate:  document.getElementById("mp-date").value || null,

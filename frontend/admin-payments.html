@@ -68,6 +68,15 @@
       <option value="verified">Verified</option>
       <option value="rejected">Rejected</option>
     </select>
+
+    <select id="filter-type" class="input">
+      <option value="">All types</option>
+      <option value="AHE_REG">AHE registration</option>
+      <option value="AHEWA_REG">AHEWA registration</option>
+      <option value="SERVICE">Monthly service</option>
+      <option value="AHEWA_EVENT">AHEWA event</option>
+    </select>
+
     <input type="text" id="filter-q" class="input" placeholder="Search name, house #, receipt…" style="min-width:260px;" />
     <button type="submit" class="btn btn--accent">Filter</button>
     <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
@@ -80,13 +89,24 @@
   <div id="payments-pagination"></div>
 </main>
 
+<!-- Manual payment modal -->
 <div id="manual-payment-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center;">
   <div style="background:#fff;max-width:480px;width:90%;padding:24px;border-radius:8px;">
     <h2 style="margin-top:0;">Record manual payment</h2>
     <form id="manual-payment-form">
       <div style="display:flex;flex-direction:column;gap:12px;">
         <label>House number *<input type="text" id="mp-house" class="input" required placeholder="e.g. Riverside-A01" /></label>
-        <label>Amount (KSh) *<input type="number" id="mp-amount" class="input" required min="1" step="1" value="2000" /></label>
+        <label>Amount (KSh) *<input type="number" id="mp-amount" class="input" required min="1" step="1" value="1" /></label>
+
+        <label>Purpose *
+          <select id="mp-type" class="input" required>
+            <option value="SERVICE">Monthly service charge</option>
+            <option value="AHE_REG">AHE registration</option>
+            <option value="AHEWA_REG">AHEWA registration</option>
+            <option value="AHEWA_EVENT">AHEWA event contribution</option>
+          </select>
+        </label>
+
         <label>M-Pesa receipt<input type="text" id="mp-receipt" class="input" placeholder="e.g. RKT4XYZ123" /></label>
         <label>Phone<input type="text" id="mp-phone" class="input" placeholder="+254…" /></label>
         <label>Payment date<input type="date" id="mp-date" class="input" /></label>
