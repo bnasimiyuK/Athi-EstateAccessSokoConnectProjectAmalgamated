@@ -1697,3 +1697,16 @@ main.container:has(.register-container) {
     flex: 1 1 100%;
   }
 }
+/* ============================================================
+   Clickable pay tiles on the resident billing page
+   ============================================================ */
+.stat-tile[title="Click to pay via M-Pesa"] {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-tile__pay-hint {
+  font-size: 0.72rem;
+  color: var(--ink-70);
+  margin-top: 4px;
+  font-style: italic;
+}

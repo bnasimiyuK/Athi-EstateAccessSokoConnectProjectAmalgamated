@@ -86,12 +86,14 @@ async function loadOutstandingBanner() {
     if (houseEl) houseEl.textContent = s.houseNumber || "Not assigned";
 
     /* ---- 3. Billing status + Outstanding tiles ---- */
+       /* ---- 3. Billing status + Outstanding tiles ---- */
     const total   = Number(s.totalOutstanding   || 0);
     const overdue = Number(s.overdueOutstanding || 0);
 
     const statusEl   = document.getElementById("my-status");
     const statusTile = document.getElementById("my-status-tile");
     const balanceEl  = document.getElementById("my-balance");
+    const balanceTile = balanceEl ? balanceEl.closest(".stat-tile") : null;
 
     if (statusEl && statusTile) {
       statusTile.className = "stat-tile " + (
@@ -105,6 +107,47 @@ async function loadOutstandingBanner() {
                       "Paid up";
     }
     if (balanceEl) balanceEl.textContent = total.toLocaleString();
+
+    /* ---- Make the two tiles clickable when there's something to pay ---- */
+    const payTile = (tile, label) => {
+      if (!tile) return;
+
+      // Remove any previous state
+      tile.style.cursor = "";
+      tile.onclick = null;
+      const oldHint = tile.querySelector(".stat-tile__pay-hint");
+      if (oldHint) oldHint.remove();
+
+      if (total <= 0) return;                 // fully paid → not clickable
+
+      tile.style.cursor = "pointer";
+      tile.title = "Click to pay via M-Pesa";
+
+      // Add a small visual hint under the label
+      const hint = document.createElement("div");
+      hint.className = "stat-tile__pay-hint";
+      hint.style.cssText = "font-size:0.72rem;color:var(--ink-70);margin-top:4px;";
+      hint.textContent = "💳 Click to pay";
+      tile.appendChild(hint);
+
+      // Hover effect
+      tile.addEventListener("mouseenter", () => {
+        tile.style.transform = "translateY(-2px)";
+        tile.style.boxShadow = "0 6px 16px rgba(0,0,0,0.08)";
+      });
+      tile.addEventListener("mouseleave", () => {
+        tile.style.transform = "";
+        tile.style.boxShadow = "";
+      });
+
+      // Click → open the pay modal
+      tile.onclick = () => {
+        if (typeof openPayModal === "function") openPayModal();
+      };
+    };
+
+    payTile(statusTile,  "Billing status");
+    payTile(balanceTile, "Outstanding");
   } catch (err) {
     console.warn("[billing] outstanding banner failed:", err);
   }
