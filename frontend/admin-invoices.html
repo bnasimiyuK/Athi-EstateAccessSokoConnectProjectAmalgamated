@@ -73,6 +73,10 @@
         <div class="stat-tile__value" id="tile-overdue">—</div>
         <div class="stat-tile__label">Overdue</div>
       </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="tile-exempt">—</div>
+        <div class="stat-tile__label">Exempt</div>
+      </div>
     </div>
   </section>
 
@@ -84,12 +88,24 @@
       <option value="partial">Partial</option>
       <option value="paid">Paid</option>
       <option value="overdue">Overdue</option>
+      <option value="exempt">Exempt</option>
     </select>
     <input type="text" id="filter-q" class="input" placeholder="Search name, house # or phone…" style="min-width:240px;" />
     <button type="submit" class="btn btn--accent">Filter</button>
     <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
   </form>
 
+  <!-- Bulk actions bar (hidden until a row is checked) -->
+  <div id="bulk-actions" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;margin-bottom:12px;background:var(--paper-dim);border:1px solid var(--line);border-radius:8px;">
+    <b id="bulk-count">0 selected</b>
+    <span style="flex:1;"></span>
+    <button type="button" id="bulk-exempt"  class="btn btn--ghost btn--small">🔓 Exempt selected</button>
+    <button type="button" id="bulk-overdue" class="btn btn--danger btn--small">⚠️ Mark overdue</button>
+    <button type="button" id="bulk-restore" class="btn btn--ghost btn--small">↺ Restore</button>
+    <button type="button" id="bulk-clear"   class="btn btn--ghost btn--small">✕ Clear</button>
+  </div>
+
+  <!-- Table goes here — one and only one wrapper -->
   <div class="table-wrap" id="invoices-table-wrap">
     <div class="empty-state">Loading invoices…</div>
   </div>

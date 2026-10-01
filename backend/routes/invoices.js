@@ -193,7 +193,68 @@ router.post("/mark-overdue", requireAuth, requireRole("admin"), async (req, res,
     next(err);
   }
 });
+router.post("/:id/set-status", requireAuth, requireRole("admin"), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
 
+    const { status, reason } = req.body;
+    const allowed = ["unpaid", "overdue", "exempt"];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ error: `status must be one of ${allowed.join(", ")}` });
+    }
+
+    const pool = await getPool();
+    const invQ = await pool.request()
+      .input("id", id)
+      .query("SELECT * FROM invoices WHERE id = @id");
+    if (!invQ.recordset.length) {
+      return res.status(404).json({ error: "Invoice not found" });
+    }
+    const inv = invQ.recordset[0];
+    if (inv.status === "paid") {
+      return res.status(400).json({ error: "Invoice is already paid — can't change status." });
+    }
+
+    await pool.request()
+      .input("id", id)
+      .input("st", status)
+      .input("rs", reason || null)
+      .query(`
+        UPDATE invoices
+        SET status = @st,
+            notes  = COALESCE(@rs, notes)
+        WHERE id = @id
+      `);
+
+    // If exempt or unpaid, unblock the resident if this was their last overdue invoice
+    if (status !== "overdue") {
+      const overdueQ = await pool.request()
+        .input("rid", inv.resident_id)
+        .query(`
+          SELECT COUNT(*) AS n FROM invoices
+          WHERE resident_id = @rid AND status = 'overdue'
+        `);
+      if (overdueQ.recordset[0].n === 0) {
+        await pool.request()
+          .input("rid", inv.resident_id)
+          .query(`UPDATE Residents SET access_blocked = 0, access_blocked_reason = NULL WHERE id = @rid`);
+      }
+    } else if (status === "overdue") {
+      await pool.request()
+        .input("rid", inv.resident_id)
+        .query(`
+          UPDATE Residents
+          SET access_blocked = 1, access_blocked_reason = 'Overdue invoice'
+          WHERE id = @rid
+        `);
+    }
+
+    res.json({ ok: true, invoiceId: id, newStatus: status });
+  } catch (err) {
+    next(err);
+  }
+});
 /* ============================================================
    GET /api/invoices   (admin — full list with filters + pagination)
    ============================================================ */

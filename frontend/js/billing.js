@@ -2,6 +2,7 @@
    billing.js — resident view: invoices + payments + self-report
    Adds a "Pay via M-Pesa" button on each unpaid SERVICE / AHEWA_EVENT
    invoice. AHE_REG and AHEWA_REG are hidden (one-off, at signup).
+   Tiles are driven by /residents/outstanding (single source of truth).
    ============================================================ */
 
 function escapeHtml(s) {
@@ -58,25 +59,57 @@ async function loadMe() {
     console.error("[billing] me failed:", err);
   }
 }
+
+/* ------------------------------------------------------------
+   Outstanding banner + tiles — single source of truth
+   ------------------------------------------------------------ */
 async function loadOutstandingBanner() {
   try {
     const s  = await Api.getMyOutstanding();
     const el = document.getElementById("billing-summary");
-    if (!el) return;
 
-    if (!s.payable.length) {
-      el.innerHTML = `You're fully paid up. Thank you. ✅`;
-      el.style.color = "var(--teal)";
-      return;
+    /* ---- 1. Summary banner ---- */
+    if (el) {
+      if (!s.payable.length) {
+        el.innerHTML = `You're fully paid up. Thank you. ✅`;
+        el.style.color = "var(--teal)";
+      } else {
+        const parts = s.payable.map((p) => `${p.label} (KSh ${p.amount.toLocaleString()})`);
+        el.innerHTML = `You have <b>${s.payable.length}</b> outstanding item${s.payable.length > 1 ? "s" : ""}: ` +
+                       parts.join(" · ");
+        el.style.color = s.overdueOutstanding > 0 ? "var(--clay)" : "var(--ink-70)";
+      }
     }
-    const parts = s.payable.map((p) => `${p.label} (KSh ${p.amount.toLocaleString()})`);
-    el.innerHTML = `You have <b>${s.payable.length}</b> outstanding item${s.payable.length > 1 ? "s" : ""}: ` +
-                   parts.join(" · ");
-    el.style.color = s.overdueOutstanding > 0 ? "var(--clay)" : "var(--ink-70)";
+
+    /* ---- 2. House number tile ---- */
+    const houseEl = document.getElementById("my-house");
+    if (houseEl) houseEl.textContent = s.houseNumber || "Not assigned";
+
+    /* ---- 3. Billing status + Outstanding tiles ---- */
+    const total   = Number(s.totalOutstanding   || 0);
+    const overdue = Number(s.overdueOutstanding || 0);
+
+    const statusEl   = document.getElementById("my-status");
+    const statusTile = document.getElementById("my-status-tile");
+    const balanceEl  = document.getElementById("my-balance");
+
+    if (statusEl && statusTile) {
+      statusTile.className = "stat-tile " + (
+        overdue > 0 ? "stat-tile--danger" :
+        total   > 0 ? "stat-tile--warn"   :
+                      "stat-tile--ok"
+      );
+      statusEl.textContent =
+        overdue > 0 ? "Overdue"     :
+        total   > 0 ? "Outstanding" :
+                      "Paid up";
+    }
+    if (balanceEl) balanceEl.textContent = total.toLocaleString();
   } catch (err) {
     console.warn("[billing] outstanding banner failed:", err);
   }
 }
+
 async function pollStkStatus(checkoutRequestId, maxMs = 90_000) {
   const deadline = Date.now() + maxMs;
   while (Date.now() < deadline) {
@@ -97,7 +130,7 @@ async function payInvoice(invoiceId, amount, btn) {
   btn.textContent = "Sending…";
 
   try {
-        const r = await Api.payInvoice({ invoiceId });
+    const r = await Api.payInvoice({ invoiceId });
 
     if (!r || !r.ok) {
       toast((r && r.error) || "Could not send STK push.");
@@ -113,7 +146,7 @@ async function payInvoice(invoiceId, amount, btn) {
 
     if (result.status === "paid") {
       toast("✅ Payment received! Refreshing invoices…");
-      await Promise.all([loadInvoices(), loadPayments()]);
+      await Promise.all([loadInvoices(), loadPayments(), loadOutstandingBanner()]);
       return;
     }
 
@@ -130,6 +163,7 @@ async function payInvoice(invoiceId, amount, btn) {
     btn.innerHTML = originalLabel;
   }
 }
+
 async function openPayModal() {
   const modal  = document.getElementById("pay-modal");
   const list   = document.getElementById("pay-items-list");
@@ -140,16 +174,16 @@ async function openPayModal() {
   submit.disabled = false;
 
   try {
-    const [state, me] = await Promise.all([
+    const [state, meRes] = await Promise.all([
       Api.getMyOutstanding(),
       Api.me(),
     ]);
-    const user = me && me.user ? me.user : me;
+    const me = meRes && meRes.user ? meRes.user : meRes;
 
     const items = state.payable.map((p) => ({
-      id: p.type,
-      label: p.label,
-      amount: p.amount,
+      id:        p.type,
+      label:     p.label,
+      amount:    p.amount,
       invoiceId: p.invoiceId,
     }));
 
@@ -184,30 +218,12 @@ async function openPayModal() {
       cb.addEventListener("change", recompute));
     recompute();
 
-    document.getElementById("pay-phone").value = user.phone || "";
+    document.getElementById("pay-phone").value = me.phone || "";
   } catch (err) {
     list.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load: ${escapeHtml(err.message)}</div>`;
   }
 }
-async function loadOutstandingBanner() {
-  try {
-    const s = await Api.getMyOutstanding();
-    const el = document.getElementById("billing-summary");
-    if (!el) return;
 
-    if (!s.payable.length) {
-      el.innerHTML = `You're fully paid up. Thank you. ✅`;
-      el.style.color = "var(--teal)";
-      return;
-    }
-    const parts = s.payable.map((p) => `${p.label} (KSh ${p.amount.toLocaleString()})`);
-    el.innerHTML = `You have <b>${s.payable.length}</b> outstanding item${s.payable.length > 1 ? "s" : ""}: ` +
-                   parts.join(" · ");
-    el.style.color = s.overdueOutstanding > 0 ? "var(--clay)" : "var(--ink-70)";
-  } catch (err) {
-    console.warn("[billing] outstanding banner failed:", err);
-  }
-}
 async function loadInvoices() {
   const wrap = document.getElementById("my-invoices");
   wrap.innerHTML = `<div class="empty-state">Loading invoices…</div>`;
@@ -219,18 +235,6 @@ async function loadInvoices() {
     wrap.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load: ${escapeHtml(err.message)}</div>`;
     return;
   }
-    const totalDue  = invs.reduce((s, i) => s + Number(i.amountDue), 0);
-  const totalPaid = invs.reduce((s, i) => s + Number(i.amountPaid), 0);
-  const balance   = totalDue - totalPaid;
-  const hasOverdue = invs.some((i) => i.status === "overdue");
-
-  const statusEl = document.getElementById("my-status");
-  const tileEl   = document.getElementById("my-status-tile");
-  tileEl.className = "stat-tile " + (hasOverdue ? "stat-tile--danger"
-                        : balance > 0      ? "stat-tile--warn"
-                        : "stat-tile--ok");
-  statusEl.textContent = hasOverdue ? "Overdue" : balance > 0 ? "Outstanding" : "Paid up";
-  document.getElementById("my-balance").textContent = balance.toLocaleString();
 
   if (!invs.length) {
     wrap.innerHTML = `<div class="empty-state">No invoices yet. Admin will generate them.</div>`;
@@ -347,6 +351,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     modal.style.display = "flex";
     document.getElementById("rp-date").value = new Date().toISOString().slice(0, 10);
   });
+
   /* Pay via M-Pesa modal */
   const payModal = document.getElementById("pay-modal");
   document.getElementById("btn-pay-now").addEventListener("click", openPayModal);
@@ -385,7 +390,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (result.status === "paid") {
         statusEl.textContent = "✅ Payment received!";
         payModal.style.display = "none";
-        await Promise.all([loadInvoices(), loadPayments()]);
+        await Promise.all([loadInvoices(), loadPayments(), loadOutstandingBanner()]);
         await loadSettings();
         return;
       }
@@ -400,6 +405,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       btn.disabled = false;
     }
   });
+
   document.getElementById("rp-cancel").addEventListener("click", () => {
     modal.style.display = "none";
     document.getElementById("report-form").reset();

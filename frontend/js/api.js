@@ -284,6 +284,16 @@ const Api = {
   markInvoicesOverdue: () =>
     request(`${API_BASE}/invoices/mark-overdue`, { method: "POST" }),
 
+    setInvoiceStatus: (id, status, reason) =>
+    request(`${API_BASE}/invoices/${id}/set-status`, {
+      method: "POST",
+      body: JSON.stringify({ status, reason }),
+    }),
+  bulkSetInvoiceStatus: (ids, status, reason) =>
+    request(`${API_BASE}/invoices/bulk-set-status`, {
+      method: "POST",
+      body: JSON.stringify({ ids, status, reason }),
+    }),
   getPayments: (params = {}) =>
     request(`${API_BASE}/payments${qsOf(params)}`),
 
@@ -452,9 +462,14 @@ const Api = {
       body: JSON.stringify(payload),
     }),
 
-  getVisitorAnalytics: (params = {}) =>
+    getVisitorAnalytics: (params = {}) =>
     request(`${API_BASE}/visitors/analytics${qsOf(params)}`),
 
   getVisitorLiveStats: () =>
     request(`${API_BASE}/visitors/live-stats`),
+  
 };
+
+
+
+ 

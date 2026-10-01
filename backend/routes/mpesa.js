@@ -3,6 +3,7 @@
    Endpoints:
      POST /api/mpesa/stkpush       (public)   initiate STK push for a signup
      POST /api/mpesa/pay-invoice   (resident) initiate STK for an existing invoice
+     POST /api/mpesa/pay-for       (resident) initiate STK for a set of fees
      POST /api/mpesa/callback      (public)   Safaricom calls back on completion
      POST /api/mpesa/query         (public)   frontend polls this for status
      POST /api/mpesa/simulate      (dev)      fake a successful callback
@@ -239,6 +240,7 @@ async function finalizeInvoicePayment(pool, invoiceId, mpesaReceipt, phoneUsed) 
     throw err;
   }
 }
+
 /* ------------------------------------------------------------
    finalizeBillPayment — for the resident's "Pay via M-Pesa" flow
    plan = { residentId, toCreate:[{type,amount}], toAllocate:[{invoiceId,amount,type}] }
@@ -361,6 +363,7 @@ async function finalizeBillPayment(pool, plan, mpesaReceipt, phoneUsed) {
     throw err;
   }
 }
+
 /* ============================================================
    POST /api/mpesa/stkpush
    ============================================================ */
@@ -502,9 +505,10 @@ router.post("/pay-invoice", requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+
 /* ============================================================
    POST /api/mpesa/pay-for   (resident, auth)
-   Body: { items: ["SERVICE","AHEWA_REG"], invoiceId?: number }
+   Body: { items: ["SERVICE","AHE_REG","AHEWA_REG"], invoiceId?: number }
    Fires one STK for the total. Callback creates/allocates everything.
    ============================================================ */
 router.post("/pay-for", requireAuth, async (req, res, next) => {
@@ -524,12 +528,42 @@ router.post("/pay-for", requireAuth, async (req, res, next) => {
     const me = meQ.recordset[0];
     if (!me.verified) return res.status(403).json({ error: "Your account is not yet approved." });
 
-    const FEE_SERVICE = parseInt(process.env.FEE_SERVICE || "1", 10);
-    const FEE_AHEWA   = parseInt(process.env.FEE_AHEWA   || "1", 10);
+    const feeAhe     = parseInt(process.env.FEE_AHE     || "1", 10);
+    const feeAhewa   = parseInt(process.env.FEE_AHEWA   || "1", 10);
+    const feeService = parseInt(process.env.FEE_SERVICE || "1", 10);
 
     let totalAmount = 0;
     const toCreate   = [];
     const toAllocate = [];
+
+    /* ---- AHE_REG ---- */
+    if (items.includes("AHE_REG")) {
+      const ahePaid = await pool.request()
+        .input("rid", residentId)
+        .query(`
+          SELECT TOP 1 1 FROM invoices
+          WHERE resident_id = @rid AND type = 'AHE_REG' AND status = 'paid'
+        `);
+      if (ahePaid.recordset.length) {
+        return res.status(400).json({ error: "AHE registration is already paid." });
+      }
+      const aheUnpaid = await pool.request()
+        .input("rid", residentId)
+        .query(`
+          SELECT id, amount_due, amount_paid FROM invoices
+          WHERE resident_id = @rid AND type = 'AHE_REG'
+            AND status IN ('unpaid','partial','overdue')
+        `);
+      if (aheUnpaid.recordset.length) {
+        const inv = aheUnpaid.recordset[0];
+        const remaining = Number(inv.amount_due) - Number(inv.amount_paid);
+        totalAmount += remaining;
+        toAllocate.push({ invoiceId: inv.id, amount: remaining, type: "AHE_REG" });
+      } else {
+        totalAmount += feeAhe;
+        toCreate.push({ type: "AHE_REG", amount: feeAhe });
+      }
+    }
 
     /* ---- SERVICE ---- */
     if (items.includes("SERVICE")) {
@@ -548,8 +582,8 @@ router.post("/pay-for", requireAuth, async (req, res, next) => {
         totalAmount += remaining;
         toAllocate.push({ invoiceId: inv.id, amount: remaining, type: "SERVICE" });
       } else {
-        totalAmount += FEE_SERVICE;
-        toCreate.push({ type: "SERVICE", amount: FEE_SERVICE });
+        totalAmount += feeService;
+        toCreate.push({ type: "SERVICE", amount: feeService });
       }
     }
 
@@ -569,8 +603,8 @@ router.post("/pay-for", requireAuth, async (req, res, next) => {
         totalAmount += remaining;
         toAllocate.push({ invoiceId: inv.id, amount: remaining, type: "AHEWA_REG" });
       } else {
-        totalAmount += FEE_AHEWA;
-        toCreate.push({ type: "AHEWA_REG", amount: FEE_AHEWA });
+        totalAmount += feeAhewa;
+        toCreate.push({ type: "AHEWA_REG", amount: feeAhewa });
       }
     }
 
@@ -591,8 +625,9 @@ router.post("/pay-for", requireAuth, async (req, res, next) => {
 
     if (totalAmount <= 0) return res.status(400).json({ error: "Nothing to pay." });
 
-            const targetPhone = me.phone;
+    const targetPhone = me.phone;
     if (!targetPhone) return res.status(400).json({ error: "No phone number on file." });
+
     const stk = await mpesa.stkPush({
       phone: targetPhone,
       amount: totalAmount,
@@ -627,6 +662,7 @@ router.post("/pay-for", requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+
 /* ============================================================
    POST /api/mpesa/callback
    ============================================================ */
@@ -665,13 +701,14 @@ router.post("/callback", async (req, res, next) => {
       return res.json({ ok: true });
     }
 
-    const items   = (stk.CallbackMetadata && stk.CallbackMetadata.Item) || [];
-    const getItem = (n) => (items.find((i) => i.Name === n) || {}).Value;
+    const cbItems = (stk.CallbackMetadata && stk.CallbackMetadata.Item) || [];
+    const getItem = (n) => (cbItems.find((i) => i.Name === n) || {}).Value;
     const receipt = getItem("MpesaReceiptNumber") || "UNKNOWN";
 
     if (row.status === "paid") {
       return res.json({ ok: true, already: true });
     }
+
     /* ---- BILL: resident paid via "Pay via M-Pesa" modal ---- */
     if (row.purpose === "BILL") {
       const plan = JSON.parse(row.signup_payload || "{}");
@@ -688,6 +725,8 @@ router.post("/callback", async (req, res, next) => {
       console.log(`[mpesa] ✅ bill paid for resident ${result.residentId} via STK ${receipt}`);
       return res.json({ ok: true, ...result });
     }
+
+    /* ---- INVOICE:<id>: single invoice payment ---- */
     if (row.purpose && row.purpose.startsWith("INVOICE:")) {
       const invoiceId = parseInt(row.purpose.split(":")[1], 10);
       await finalizeInvoicePayment(pool, invoiceId, receipt, row.phone);
@@ -704,6 +743,7 @@ router.post("/callback", async (req, res, next) => {
       return res.json({ ok: true, invoiceId });
     }
 
+    /* ---- Signup ---- */
     const includeAHEWA = row.purpose === "AHE_REG+AHEWA_REG";
     const payload = JSON.parse(row.signup_payload || "{}");
     const result  = await finalizeSignupFromPayload(pool, payload, receipt, row.phone, includeAHEWA);
@@ -779,7 +819,8 @@ router.post("/simulate", async (req, res, next) => {
     if (row.status === "paid") return res.json({ ok: true, already: true });
 
     const simReceipt = (receipt || "SIM" + Date.now()).slice(0, 12);
-       if (row.purpose === "BILL") {
+
+    if (row.purpose === "BILL") {
       const plan = JSON.parse(row.signup_payload || "{}");
       const result = await finalizeBillPayment(pool, plan, simReceipt, row.phone);
       await pool.request()
@@ -829,5 +870,5 @@ router.post("/simulate", async (req, res, next) => {
     next(err);
   }
 });
-  
+
 module.exports = router;

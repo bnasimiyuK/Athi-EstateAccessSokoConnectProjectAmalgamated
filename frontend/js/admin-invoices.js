@@ -1,5 +1,6 @@
 /* ============================================================
-   admin-invoices.js — list, generate, mark overdue
+   admin-invoices.js — list, generate, mark overdue,
+                       per-row actions + bulk select (hybrid)
    ============================================================ */
 
 const INV_PER_PAGE = 20;
@@ -17,13 +18,121 @@ function escapeHtml(s) {
 function statusBadge(status) {
   const map = {
     paid:    `<span class="badge badge--verified">Paid</span>`,
-    unpaid:  `<span class="badge" style="background:#c8862a;color:#fff;">Unpaid</span>`,
-    partial: `<span class="badge" style="background:#4a7ba7;color:#fff;">Partial</span>`,
-    overdue: `<span class="badge" style="background:#b0472e;color:#fff;">Overdue</span>`,
+    unpaid:  `<span class="badge badge--unpaid">Unpaid</span>`,
+    partial: `<span class="badge badge--partial">Partial</span>`,
+    overdue: `<span class="badge badge--overdue">Overdue</span>`,
+    exempt:  `<span class="badge" style="background:#4a5670;color:#fff;">Exempt</span>`,
   };
   return map[status] || escapeHtml(status);
 }
 
+/* ------------------------------------------------------------
+   Per-row action buttons (unchanged)
+   ------------------------------------------------------------ */
+function renderInvoiceActions(inv) {
+  if (inv.status === "paid") {
+    return `<span style="font-size:0.8rem;color:var(--ink-70);">—</span>`;
+  }
+
+  const btns = [];
+
+  if (inv.status !== "exempt") {
+    btns.push(`<button class="btn btn--ghost btn--small"
+                       data-inv-exempt="${inv.id}"
+                       title="Exempt this invoice (valid reason)">🔓</button>`);
+  } else {
+    btns.push(`<button class="btn btn--ghost btn--small"
+                       data-inv-restore="${inv.id}"
+                       title="Restore to unpaid">↺</button>`);
+  }
+
+  if (inv.status !== "overdue") {
+    btns.push(`<button class="btn btn--danger btn--small"
+                       data-inv-overdue="${inv.id}"
+                       title="Mark this invoice overdue">⚠️</button>`);
+  } else {
+    btns.push(`<button class="btn btn--ghost btn--small"
+                       data-inv-restore="${inv.id}"
+                       title="Restore to unpaid">↺</button>`);
+  }
+
+  return btns.join(" ");
+}
+
+async function setInvoiceStatus(id, status) {
+  let reason = null;
+  if (status === "exempt") {
+    reason = prompt("Reason for exemption (optional):");
+    if (reason === null) return;
+  }
+
+  try {
+    await Api.setInvoiceStatus(id, status, reason);
+    toast(
+      status === "exempt"  ? "🔓 Marked as exempt."  :
+      status === "overdue" ? "⚠️ Marked as overdue." :
+                             "↺ Restored to unpaid."
+    );
+    await loadINVSummary();
+    await loadINVInvoices();
+  } catch (err) {
+    toast(err.message || "Could not update invoice.");
+  }
+}
+
+/* ------------------------------------------------------------
+   Bulk selection helpers
+   ------------------------------------------------------------ */
+function getSelectedInvoiceIds() {
+  return [...document.querySelectorAll(".inv-row-check:checked")]
+    .map((cb) => Number(cb.dataset.id));
+}
+
+function updateBulkBar() {
+  const bar   = document.getElementById("bulk-actions");
+  const count = document.getElementById("bulk-count");
+  if (!bar) return;
+
+  const n = getSelectedInvoiceIds().length;
+  if (n === 0) {
+    bar.style.display = "none";
+    return;
+  }
+  bar.style.display = "flex";
+  if (count) count.textContent = `${n} selected`;
+}
+
+async function bulkApplyStatus(status) {
+  const ids = getSelectedInvoiceIds();
+  if (!ids.length) { toast("Select at least one invoice."); return; }
+
+  let reason = null;
+  if (status === "exempt") {
+    reason = prompt(`Reason for exempting ${ids.length} invoice(s) (optional):`);
+    if (reason === null) return;
+  } else if (status === "overdue") {
+    if (!confirm(`Mark ${ids.length} invoice(s) as overdue?\n\nThis blocks the affected residents.`)) return;
+  } else {
+    if (!confirm(`Restore ${ids.length} invoice(s) to unpaid?`)) return;
+  }
+
+  try {
+    const r = await Api.bulkSetInvoiceStatus(ids, status, reason);
+    toast(
+      status === "exempt"  ? `🔓 ${r.updated} invoice(s) marked exempt.`  :
+      status === "overdue" ? `⚠️ ${r.updated} invoice(s) marked overdue.` :
+                             `↺ ${r.updated} invoice(s) restored.`
+    );
+    await loadINVSummary();
+    await loadINVInvoices();
+  } catch (err) {
+    toast(err.message || "Bulk action failed.");
+  }
+}
+
+/* ------------------------------------------------------------
+   Summary tiles
+   ------------------------------------------------------------ */
 async function loadINVSummary() {
   try {
     const r = await Api.getInvoices({ limit: 500 });
@@ -35,11 +144,16 @@ async function loadINVSummary() {
       all.filter((i) => i.status === "paid").length;
     document.getElementById("tile-overdue").textContent =
       all.filter((i) => i.status === "overdue").length;
+    const exEl = document.getElementById("tile-exempt");
+    if (exEl) exEl.textContent = all.filter((i) => i.status === "exempt").length;
   } catch (err) {
     console.error("[admin-invoices] summary failed:", err);
   }
 }
 
+/* ------------------------------------------------------------
+   Invoices table
+   ------------------------------------------------------------ */
 async function loadINVInvoices() {
   const wrap = document.getElementById("invoices-table-wrap");
   wrap.innerHTML = `<div class="empty-state">Loading invoices…</div>`;
@@ -65,21 +179,37 @@ async function loadINVInvoices() {
   if (!result.data.length) {
     wrap.innerHTML = `<div class="empty-state">No invoices match your filter.</div>`;
     renderINVPagination();
+    updateBulkBar();
     return;
   }
+
+  const selectable = result.data.filter((i) => i.status !== "paid");
 
   wrap.innerHTML = `
     <table>
       <thead>
         <tr>
+          <th style="width:36px;">
+            ${selectable.length
+              ? `<input type="checkbox" id="inv-select-all" style="cursor:pointer;" />`
+              : ""}
+          </th>
           <th>Month</th><th>House #</th><th>Resident</th>
           <th>Due</th><th>Paid</th><th>Balance</th>
-          <th>Due date</th><th>Status</th>
+          <th>Due date</th><th>Status</th><th>Actions</th>
         </tr>
       </thead>
       <tbody>
         ${result.data.map((i) => `
           <tr>
+            <td>
+              ${i.status === "paid"
+                ? ""
+                : `<input type="checkbox" class="inv-row-check"
+                          data-id="${i.id}"
+                          data-status="${escapeHtml(i.status)}"
+                          style="cursor:pointer;" />`}
+            </td>
             <td><b>${escapeHtml(i.billingMonth)}</b></td>
             <td>${escapeHtml(i.houseNumber)}</td>
             <td>${escapeHtml(i.residentName || "—")}<br><small style="color:var(--ink-70);">${escapeHtml(i.phone || "")}</small></td>
@@ -88,12 +218,34 @@ async function loadINVInvoices() {
             <td>${Number(i.balance).toLocaleString()}</td>
             <td>${escapeHtml(String(i.dueDate).slice(0, 10))}</td>
             <td>${statusBadge(i.status)}</td>
+            <td>${renderInvoiceActions(i)}</td>
           </tr>
         `).join("")}
       </tbody>
     </table>
   `;
 
+  /* --- Per-row action buttons --- */
+  wrap.querySelectorAll("[data-inv-exempt]").forEach((b) =>
+    b.addEventListener("click", () => setInvoiceStatus(Number(b.dataset.invExempt), "exempt")));
+  wrap.querySelectorAll("[data-inv-overdue]").forEach((b) =>
+    b.addEventListener("click", () => setInvoiceStatus(Number(b.dataset.invOverdue), "overdue")));
+  wrap.querySelectorAll("[data-inv-restore]").forEach((b) =>
+    b.addEventListener("click", () => setInvoiceStatus(Number(b.dataset.invRestore), "unpaid")));
+
+  /* --- Checkbox behavior --- */
+  const selectAll = document.getElementById("inv-select-all");
+  const rowChecks = wrap.querySelectorAll(".inv-row-check");
+
+  if (selectAll) {
+    selectAll.addEventListener("change", (e) => {
+      rowChecks.forEach((cb) => { cb.checked = e.target.checked; });
+      updateBulkBar();
+    });
+  }
+  rowChecks.forEach((cb) => cb.addEventListener("change", updateBulkBar));
+
+  updateBulkBar();
   renderINVPagination();
 }
 
@@ -127,6 +279,9 @@ function renderINVPagination() {
   });
 }
 
+/* ------------------------------------------------------------
+   Init
+   ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof requireRole === "function" && !requireRole("admin")) return;
 
@@ -185,5 +340,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (err) {
       toast(err.message || "Failed.");
     }
+  });
+
+  /* --- Bulk actions --- */
+  document.getElementById("bulk-exempt").addEventListener("click",  () => bulkApplyStatus("exempt"));
+  document.getElementById("bulk-overdue").addEventListener("click", () => bulkApplyStatus("overdue"));
+  document.getElementById("bulk-restore").addEventListener("click", () => bulkApplyStatus("unpaid"));
+  document.getElementById("bulk-clear").addEventListener("click",   () => {
+    document.querySelectorAll(".inv-row-check").forEach((cb) => { cb.checked = false; });
+    const sa = document.getElementById("inv-select-all");
+    if (sa) sa.checked = false;
+    updateBulkBar();
   });
 });
