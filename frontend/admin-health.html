@@ -4,26 +4,60 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Billing Health — Admin</title>
+  <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/admin-health.css">
   <link rel="icon" href="data:,">
 </head>
-<body class="admin-health-page">
-  <button class="refresh" onclick="load()">↻ Refresh</button>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+      <nav class="main-nav">
+        <a href="index.html" data-nav="index.html">Discover</a>
+        <a href="register.html" data-nav="register.html">Become a provider</a>
+        <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+        <a href="billing.html" data-nav="billing.html">My billing</a>
+        <a href="visitors.html" data-nav="visitors.html">My visitors</a>
 
-  <h1>Billing Health</h1>
-  <div class="sub" id="checkedAt">Loading…</div>
+        <div class="nav-dropdown">
+          <a href="#">Admin ▾</a>
+          <div class="dropdown-menu">
+            <a href="admin.html">Dashboard</a>
+            <a href="admin-health.html">Billing Health</a>
+            <a href="pending.html">Pending approvals</a>
+            <a href="admin-reviews.html">All Reviews</a>
+            <a href="admin-residents.html">Approved residents</a>
+            <a href="admin-house-numbers.html">House numbers</a>
+            <a href="admin-invoices.html">Invoices</a>
+            <a href="admin-payments.html">Payments</a>
+            <a href="admin-visitors.html">Visitors</a>
+          </div>
+        </div>
+      </nav>
+    </div>
+  </header>
 
-  <div class="card" id="overallCard">
-    <div class="headline" id="overall">Checking…</div>
-  </div>
+  <main class="admin-health-page">
+    <button class="refresh" onclick="load()">↻ Refresh</button>
 
-  <div class="card">
-    <h3>Summary</h3>
-    <div class="grid" id="summary"></div>
-  </div>
+    <h1>Billing Health</h1>
+    <div class="sub" id="checkedAt">Loading…</div>
 
-  <div id="issues"></div>
+    <div class="card" id="overallCard">
+      <div class="headline" id="overall">Checking…</div>
+    </div>
 
+    <div class="card">
+      <h3>Summary</h3>
+      <div class="grid" id="summary"></div>
+    </div>
+
+    <div id="issues"></div>
+  </main>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
   <script src="js/admin-health.js"></script>
 </body>
 </html>

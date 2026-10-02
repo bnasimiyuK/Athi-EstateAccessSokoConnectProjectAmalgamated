@@ -1,9 +1,9 @@
-const API_BASE = "http://localhost:4050";
+
 
 async function load() {
   const token = localStorage.getItem("asc_token");
   try {
-    const res = await fetch(API_BASE + "/api/admin/health/billing", {
+    const res = await fetch(API_BASE + "/admin/health/billing", {
       headers: { Authorization: "Bearer " + (token || "") }
     });
     if (!res.ok) {
