@@ -1,0 +1,141 @@
+/* ============================================================
+   Admin Billing Health Dashboard — styles
+   Scoped to /admin-health.html only.
+   ============================================================ */
+
+.admin-health-page * { box-sizing: border-box; }
+
+.admin-health-page {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 0 20px;
+  color: #222;
+  background: #fafafa;
+  line-height: 1.5;
+}
+
+.admin-health-page h1 { margin: 0 0 4px; font-size: 1.8em; }
+
+.admin-health-page h3 {
+  margin: 0 0 12px;
+  font-size: 1em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #555;
+}
+
+.admin-health-page .sub {
+  color: #666;
+  font-size: 0.9em;
+  margin-bottom: 24px;
+}
+
+.admin-health-page .card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.admin-health-page .ok {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.admin-health-page .bad {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.admin-health-page .headline {
+  font-size: 1.3em;
+  font-weight: 600;
+}
+
+.admin-health-page .count {
+  font-size: 2em;
+  font-weight: 700;
+  line-height: 1;
+  color: #111;
+}
+
+.admin-health-page .label {
+  color: #666;
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.admin-health-page .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.admin-health-page .grid > div {
+  padding: 12px;
+  background: #f8f8f8;
+  border-radius: 6px;
+}
+
+.admin-health-page table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 0.85em;
+}
+
+.admin-health-page th,
+.admin-health-page td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.admin-health-page th {
+  background: #f4f4f4;
+  font-weight: 600;
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admin-health-page tr:hover td { background: #fafafa; }
+
+.admin-health-page .refresh {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85em;
+}
+
+.admin-health-page .refresh:hover { background: #f0f0f0; }
+
+.admin-health-page .empty {
+  color: #888;
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .admin-health-page { margin: 20px auto; padding: 0 14px; }
+  .admin-health-page h1 { font-size: 1.5em; }
+  .admin-health-page .count { font-size: 1.6em; }
+  .admin-health-page .refresh {
+    position: static;
+    display: block;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+  .admin-health-page table { font-size: 0.78em; }
+  .admin-health-page th,
+  .admin-health-page td { padding: 6px 8px; }
+}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Billing Health — Admin</title>
+  <link rel="stylesheet" href="css/admin-health.css">
+  <link rel="icon" href="data:,">
+</head>
+<body class="admin-health-page">
+  <button class="refresh" onclick="load()">↻ Refresh</button>
+
+  <h1>Billing Health</h1>
+  <div class="sub" id="checkedAt">Loading…</div>
+
+  <div class="card" id="overallCard">
+    <div class="headline" id="overall">Checking…</div>
+  </div>
+
+  <div class="card">
+    <h3>Summary</h3>
+    <div class="grid" id="summary"></div>
+  </div>
+
+  <div id="issues"></div>
+
+  <script src="js/admin-health.js"></script>
+</body>
+</html>
