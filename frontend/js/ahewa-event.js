@@ -1,6 +1,7 @@
 /* ============================================================
    ahewa-event.js — Event detail page
-   Shows contribution matrix, signatory approvals, exports.
+   Renders full matrix for admins + signatories,
+   limited view for regular residents.
    ============================================================ */
 
 const API = API_BASE;
@@ -47,19 +48,40 @@ function getEventId() {
   return isNaN(id) ? null : id;
 }
 
+function currentUserId() {
+  try {
+    const token = localStorage.getItem("asc_token");
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.id || null;
+  } catch { return null; }
+}
+
+function currentUserRole() {
+  try {
+    const token = localStorage.getItem("asc_token");
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.role || null;
+  } catch { return null; }
+}
+
 /* ============================================================
-   RENDER — Event header
+   RENDER — Event header (both modes)
    ============================================================ */
 function renderHeader(d) {
   const e = d.event;
   const el = document.getElementById("event-header");
   const typeLabel = e.event_type === "PRINCIPAL" ? "Deceased principal" : "Deceased dependant";
 
-  const statusBadge = e.is_disbursed
-    ? `<span class="badge" style="background:#d1fae5;color:#065f46;">Disbursed</span>`
-    : (d.is_fully_approved
-      ? `<span class="badge" style="background:#fef3c7;color:#92400e;">Approved — pending disbursement</span>`
-      : `<span class="badge badge--pending">Open</span>`);
+  let statusBadge = "";
+  if (d.access === "full") {
+    statusBadge = e.is_disbursed
+      ? `<span class="badge" style="background:#d1fae5;color:#065f46;">Disbursed</span>`
+      : (d.is_fully_approved
+        ? `<span class="badge" style="background:#fef3c7;color:#92400e;">Approved — pending disbursement</span>`
+        : `<span class="badge badge--pending">Open</span>`);
+  }
 
   el.innerHTML = `
     <div class="page-head page-head--with-actions" style="padding-top:0;">
@@ -81,9 +103,106 @@ function renderHeader(d) {
 }
 
 /* ============================================================
-   RENDER — Contribution stats tiles
+   RENDER — Limited view (regular resident)
    ============================================================ */
-function renderContribStats(d) {
+function renderLimitedView(d) {
+  const container = document.getElementById("contrib-stats");
+  const tableWrap = document.getElementById("contrib-table");
+  const approvals = document.getElementById("approvals-panel");
+  const exportsSection = document.getElementById("exports-section");
+
+  // Hide admin-only sections
+  approvals.parentElement.style.display = "none";
+  if (exportsSection) exportsSection.style.display = "none";
+
+  const me = d.my_contribution;
+
+  // If resident isn't billed (e.g. they're the affected member), show a message
+  if (!me) {
+    document.getElementById("contrib-stats").innerHTML = "";
+    document.getElementById("contrib-table").innerHTML = `
+      <div class="empty-state" style="padding: 40px;">
+        <b>You are not required to contribute to this event.</b>
+        <br><br>
+        ${d.is_affected_member
+          ? "This event was created for you — you are the affected member."
+          : "You are not currently an AHEWA member or were not part of AHEWA when this event was created."}
+      </div>
+    `;
+    return;
+  }
+
+  // Show their own contribution tile row
+  const statusBadge = me.status === "paid"
+    ? `<span class="badge badge--verified">Paid</span>`
+    : (me.status === "partial"
+      ? `<span class="badge badge--pending">Partial</span>`
+      : `<span class="badge badge--declined">Unpaid</span>`);
+
+  const remaining = Number(me.amount_due) - Number(me.amount_paid);
+
+  document.getElementById("contrib-stats").innerHTML = `
+    <div class="stat-tile stat-tile--info">
+      <div class="stat-tile__value">${fmtMoney(me.amount_due)}</div>
+      <div class="stat-tile__label">Your contribution</div>
+    </div>
+    <div class="stat-tile ${me.status === "paid" ? "stat-tile--ok" : "stat-tile--warn"}">
+      <div class="stat-tile__value">${fmtMoney(me.amount_paid)}</div>
+      <div class="stat-tile__label">Amount paid</div>
+    </div>
+    <div class="stat-tile ${remaining > 0 ? "stat-tile--danger" : "stat-tile--ok"}">
+      <div class="stat-tile__value">${fmtMoney(remaining)}</div>
+      <div class="stat-tile__label">Outstanding</div>
+    </div>
+  `;
+
+  // Replace table with a single-row confirmation
+  document.getElementById("contrib-table").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Your share</th>
+          <th>Paid</th>
+          <th>Status</th>
+          <th>Paid on</th>
+          <th>Receipt</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${escapeHtml(d.event.event_title)}</td>
+          <td>${fmtMoney(me.amount_due)}</td>
+          <td>${fmtMoney(me.amount_paid)}</td>
+          <td>${statusBadge}</td>
+          <td>${me.paid_at ? fmtDate(me.paid_at) : "—"}</td>
+          <td>${escapeHtml(me.last_receipt || "—")}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+
+  // Add "Pay" button if owing
+  if (remaining > 0) {
+    const payRow = document.createElement("div");
+    payRow.style.marginTop = "20px";
+    payRow.innerHTML = `
+      <a href="billing.html" class="btn btn--accent" style="display:inline-flex; gap:8px;">
+        💳 Pay ${fmtMoney(remaining)} via M-Pesa →
+      </a>
+      <p style="color:var(--ink-70); font-size:0.85rem; margin-top:8px;">
+        You'll be redirected to your billing page to complete the payment.
+      </p>
+    `;
+    document.getElementById("contrib-table").insertAdjacentElement("afterend", payRow);
+  }
+}
+
+/* ============================================================
+   RENDER — Full view (admin or signatory)
+   ============================================================ */
+function renderFullView(d) {
+  // Contribution stats
   const billed = d.contributions.length;
   const paid = d.contributions.filter(c => c.status === "paid").length;
   const collected = d.contributions.reduce((s, c) => s + Number(c.amount_paid || 0), 0);
@@ -108,20 +227,9 @@ function renderContribStats(d) {
       <div class="stat-tile__label">Outstanding (KSh)</div>
     </div>
   `;
-}
 
-/* ============================================================
-   RENDER — Contribution matrix table
-   ============================================================ */
-function renderContribTable(d) {
-  const el = document.getElementById("contrib-table");
-
-  if (!d.contributions.length) {
-    el.innerHTML = `<div class="empty-state">No members were billed for this event.</div>`;
-    return;
-  }
-
-  el.innerHTML = `
+  // Contribution matrix
+  document.getElementById("contrib-table").innerHTML = `
     <table>
       <thead>
         <tr>
@@ -142,7 +250,6 @@ function renderContribTable(d) {
             : (c.status === "partial"
               ? `<span class="badge badge--pending">Partial</span>`
               : `<span class="badge badge--declined">Unpaid</span>`);
-
           return `
             <tr>
               <td>${i + 1}</td>
@@ -159,10 +266,13 @@ function renderContribTable(d) {
       </tbody>
     </table>
   `;
+
+  // Approvals panel
+  renderApprovals(d);
 }
 
 /* ============================================================
-   RENDER — Signatory approvals panel
+   RENDER — Signatory approvals panel (admin + signatory only)
    ============================================================ */
 function renderApprovals(d) {
   const el = document.getElementById("approvals-panel");
@@ -172,31 +282,15 @@ function renderApprovals(d) {
     return;
   }
 
-  // Current user is one of the signatories?
-    // Current user — read from JWT (source of truth)
-  // Only residents can be signatories; admins have a different id space.
-  let currentUserId = null;
-  let currentUserRole = null;
-  try {
-    const token = localStorage.getItem("asc_token");
-    if (token) {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      currentUserId = payload.id || null;
-      currentUserRole = payload.role || null;
-    }
-  } catch (e) {
-    console.warn("[ahewa] could not decode token:", e.message);
-  }
+  const uid = currentUserId();
+  const userRole = currentUserRole();
+  const isResidentUser = userRole === "resident";
+  const iAmSignatory = isResidentUser && d.all_signatories.some(s => s.resident_id === uid);
+  const iAlreadyApproved = isResidentUser && d.approvals.some(a => a.signatory_id === uid);
 
-  const isResidentUser = currentUserRole === "resident";
-  const iAmSignatory = isResidentUser && d.all_signatories.some(s => s.resident_id === currentUserId);
-  const iAlreadyApproved = isResidentUser && d.approvals.some(a => a.signatory_id === currentUserId);
-
-  // Signatories list
   const sigRows = d.all_signatories.map(s => {
     const approval = d.approvals.find(a => a.signatory_id === s.resident_id);
-    const isMe = isResidentUser && s.resident_id === currentUserId;
-
+    const isMe = isResidentUser && s.resident_id === uid;
     return `
       <div class="signatory-pill" style="border-left-color: ${approval ? 'var(--teal)' : 'var(--ochre)'};">
         <div class="signatory-pill__role">${escapeHtml(s.role)}${isMe ? " (you)" : ""}</div>
@@ -210,7 +304,6 @@ function renderApprovals(d) {
     `;
   }).join("");
 
-  // Action buttons
   const canApprove = iAmSignatory && !iAlreadyApproved && !d.event.is_disbursed;
   const canMarkDisbursed = d.is_fully_approved && !d.event.is_disbursed;
 
@@ -221,7 +314,7 @@ function renderApprovals(d) {
 
     <div style="display:flex; gap:12px; flex-wrap:wrap;">
       ${canApprove
-        ? `<button class="btn btn--accent" id="btn-approve">✍️ Approve disbursement (as ${escapeHtml(currentRoleFor(d, currentUserId))})</button>`
+        ? `<button class="btn btn--accent" id="btn-approve">✍️ Approve disbursement (as ${escapeHtml(currentRoleFor(d, uid))})</button>`
         : (iAlreadyApproved && !d.event.is_disbursed
           ? `<div class="notice" style="display:inline-block; padding:10px 16px;">You have already approved. Waiting on the other signatories.</div>`
           : "")}
@@ -282,12 +375,13 @@ async function markDisbursed(d) {
 }
 
 /* ============================================================
-   EXPORTS (Excel + PDF)
+   EXPORTS (Excel + PDF) — admin + signatory only
    ============================================================ */
 function setupExports() {
   const xlsx = document.getElementById("btn-export-xlsx");
   const pdf = document.getElementById("btn-export-pdf");
   const id = getEventId();
+  if (!xlsx || !pdf) return;
 
   xlsx.addEventListener("click", async () => {
     try {
@@ -351,9 +445,12 @@ async function load() {
   try {
     const d = await authFetch(`/ahewa/events/${id}`);
     renderHeader(d);
-    renderContribStats(d);
-    renderContribTable(d);
-    renderApprovals(d);
+
+    if (d.access === "full") {
+      renderFullView(d);
+    } else {
+      renderLimitedView(d);
+    }
   } catch (err) {
     console.error("[ahewa-event] load failed:", err);
     document.getElementById("event-header").innerHTML =

@@ -88,7 +88,9 @@ router.get("/events", requireAuth, async (req, res, next) => {
 
 /* ============================================================
    GET /api/ahewa/events/:id
-   Single event with full contribution matrix + approvals.
+   Returns:
+     - Admins & Signatories: full event + contribution matrix + approvals
+     - Regular Residents    : event header + their own contribution only
    ============================================================ */
 router.get("/events/:id", requireAuth, async (req, res, next) => {
   try {
@@ -96,8 +98,23 @@ router.get("/events/:id", requireAuth, async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ error: "Invalid event id" });
 
     const pool = await getPool();
+    const userId = req.user.id;
+    const userRole = req.user.role;
 
-    // Event header
+    /* ---- Determine access level ---- */
+    const isAdmin = userRole === "admin";
+
+    let isSignatory = false;
+    if (userRole === "resident") {
+      const sigQ = await pool.request()
+        .input("rid", userId)
+        .query("SELECT 1 FROM AhewaSignatories WHERE resident_id = @rid AND is_active = 1");
+      isSignatory = sigQ.recordset.length > 0;
+    }
+
+    const fullAccess = isAdmin || isSignatory;
+
+    /* ---- Event header (always returned) ---- */
     const evQ = await pool.request()
       .input("id", id)
       .query(`
@@ -113,12 +130,71 @@ router.get("/events/:id", requireAuth, async (req, res, next) => {
       `);
     if (!evQ.recordset.length) return res.status(404).json({ error: "Event not found" });
 
-    // Contributions matrix
-    const contribQ = await pool.request()
+    /* ---- If full access: return the entire matrix ---- */
+    if (fullAccess) {
+      const contribQ = await pool.request()
+        .input("id", id)
+        .query(`
+          SELECT
+            c.id, c.resident_id, r.full_name, r.house_number,
+            c.amount_due, c.amount_paid, c.status, c.paid_at,
+            c.invoice_id,
+            (SELECT TOP 1 mpesa_receipt FROM payments p
+             WHERE p.resident_id = c.resident_id
+               AND p.type = 'AHEWA_EVENT'
+             ORDER BY p.id DESC) AS last_receipt
+          FROM AhewaContributions c
+          JOIN Residents r ON r.id = c.resident_id
+          WHERE c.event_id = @id
+          ORDER BY r.full_name ASC
+        `);
+
+      const apprQ = await pool.request()
+        .input("id", id)
+        .query(`
+          SELECT
+            a.id, a.signatory_id, r.full_name AS signatory_name,
+            s.role AS signatory_role, a.approved_at, a.notes
+          FROM AhewaDisbursementApprovals a
+          JOIN Residents r ON r.id = a.signatory_id
+          LEFT JOIN AhewaSignatories s ON s.resident_id = a.signatory_id
+          WHERE a.event_id = @id
+          ORDER BY a.approved_at ASC
+        `);
+
+      const sigQ = await pool.request().query(`
+        SELECT s.id, s.resident_id, r.full_name, s.role
+        FROM AhewaSignatories s
+        JOIN Residents r ON r.id = s.resident_id
+        WHERE s.is_active = 1
+        ORDER BY s.id
+      `);
+
+      const approvals = apprQ.recordset;
+      const allSigs = sigQ.recordset;
+      const approvedIds = new Set(approvals.map(a => a.signatory_id));
+      const pendingSigs = allSigs.filter(s => !approvedIds.has(s.resident_id));
+
+      return res.json({
+        access: "full",
+        is_admin: isAdmin,
+        is_signatory: isSignatory,
+        event: evQ.recordset[0],
+        contributions: contribQ.recordset,
+        approvals,
+        all_signatories: allSigs,
+        pending_signatories: pendingSigs,
+        is_fully_approved: pendingSigs.length === 0 && allSigs.length > 0,
+      });
+    }
+
+    /* ---- Limited access: resident who is not a signatory ---- */
+    const ownQ = await pool.request()
       .input("id", id)
+      .input("rid", userId)
       .query(`
         SELECT
-          c.id, c.resident_id, r.full_name, r.house_number,
+          c.id, c.resident_id,
           c.amount_due, c.amount_paid, c.status, c.paid_at,
           c.invoice_id,
           (SELECT TOP 1 mpesa_receipt FROM payments p
@@ -126,46 +202,20 @@ router.get("/events/:id", requireAuth, async (req, res, next) => {
              AND p.type = 'AHEWA_EVENT'
            ORDER BY p.id DESC) AS last_receipt
         FROM AhewaContributions c
-        JOIN Residents r ON r.id = c.resident_id
-        WHERE c.event_id = @id
-        ORDER BY r.full_name ASC
+        WHERE c.event_id = @id AND c.resident_id = @rid
       `);
 
-    // Approvals
-    const apprQ = await pool.request()
-      .input("id", id)
-      .query(`
-        SELECT
-          a.id, a.signatory_id, r.full_name AS signatory_name,
-          s.role AS signatory_role, a.approved_at, a.notes
-        FROM AhewaDisbursementApprovals a
-        JOIN Residents r ON r.id = a.signatory_id
-        LEFT JOIN AhewaSignatories s ON s.resident_id = a.signatory_id
-        WHERE a.event_id = @id
-        ORDER BY a.approved_at ASC
-      `);
+    // Did this resident even get billed? (i.e. they're an AHEWA member and not the affected member)
+    const ownContribution = ownQ.recordset.length ? ownQ.recordset[0] : null;
 
-    // All active signatories (to compute who's still needed)
-    const sigQ = await pool.request().query(`
-      SELECT s.id, s.resident_id, r.full_name, s.role
-      FROM AhewaSignatories s
-      JOIN Residents r ON r.id = s.resident_id
-      WHERE s.is_active = 1
-      ORDER BY s.id
-    `);
+    // Is this resident the affected member?
+    const isAffectedMember = evQ.recordset[0].affected_member_id === userId;
 
-    const approvals = apprQ.recordset;
-    const allSigs = sigQ.recordset;
-    const approvedIds = new Set(approvals.map(a => a.signatory_id));
-    const pendingSigs = allSigs.filter(s => !approvedIds.has(s.resident_id));
-
-    res.json({
+    return res.json({
+      access: "limited",
+      is_affected_member: isAffectedMember,
       event: evQ.recordset[0],
-      contributions: contribQ.recordset,
-      approvals,
-      all_signatories: allSigs,
-      pending_signatories: pendingSigs,
-      is_fully_approved: pendingSigs.length === 0 && allSigs.length > 0,
+      my_contribution: ownContribution,
     });
   } catch (err) {
     next(err);
