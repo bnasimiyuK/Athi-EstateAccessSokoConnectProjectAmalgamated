@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AHEWA — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="billing.html" data-nav="billing.html">My billing</a>
+      <a href="visitors.html" data-nav="visitors.html">My visitors</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="admin-ahewa.html">AHEWA Portal</a>
+          <a href="admin-health.html">Billing Health</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+          <a href="admin-house-numbers.html">House numbers</a>
+          <a href="admin-invoices.html">Invoices</a>
+          <a href="admin-payments.html">Payments</a>
+          <a href="admin-visitors.html">Visitors</a>
+          <a href="admin-providers.html">All vendors</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>AHEWA</h1>
+      <p>
+        Track welfare contributions from AHEWA members, generate event invoices, and co-authorize disbursements with the three signatories.
+        <br><small style="color:var(--ink-70);">
+          Only verified AHEWA members are billed. The affected member is excluded from contributing to their own event.
+        </small>
+      </p>
+    </div>
+
+    <div class="admin-actions">
+      <button id="btn-new-event" class="btn btn--accent" type="button">➕ Create welfare event</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       Signatories strip
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">Signatories (co-authorize disbursements)</h3>
+    <div id="signatories-strip" class="signatories-strip">
+      <div class="empty-state">Loading signatories…</div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Members roster
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">AHEWA members</h3>
+    <div class="stat-tiles" id="member-stats">
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="stat-members">—</div>
+        <div class="stat-tile__label">Total members</div>
+      </div>
+      <div class="stat-tile stat-tile--ok">
+        <div class="stat-tile__value" id="stat-collected">—</div>
+        <div class="stat-tile__label">Total collected (KSh)</div>
+      </div>
+      <div class="stat-tile stat-tile--warn">
+        <div class="stat-tile__value" id="stat-outstanding">—</div>
+        <div class="stat-tile__label">Total outstanding (KSh)</div>
+      </div>
+      <div class="stat-tile stat-tile--info">
+        <div class="stat-tile__value" id="stat-events">—</div>
+        <div class="stat-tile__label">Active events</div>
+      </div>
+    </div>
+
+    <div class="table-wrap" id="members-table-wrap">
+      <div class="empty-state">Loading members…</div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Events list
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">Welfare events</h3>
+    <div class="table-wrap" id="events-table-wrap">
+      <div class="empty-state">Loading events…</div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    AHEWA — managed by the three elected signatories. Disbursement requires all three approvals.
+  </div>
+</footer>
+
+<!-- ============================================================
+     Modal — Create welfare event
+     ============================================================ -->
+<div class="modal-backdrop" id="modal-new-event">
+  <div class="modal" style="max-width: 520px;">
+    <h2 style="margin-top:0;">Create welfare event</h2>
+    <p style="color:var(--ink-70); margin-top:-8px;">
+      Generates a contribution invoice for every AHEWA member (excluding the affected member).
+    </p>
+
+    <form id="form-new-event" style="display:flex; flex-direction:column; gap:14px; margin-top:16px;">
+      <label class="field">
+        <span>Affected member</span>
+        <select id="ev-affected" class="input" required>
+          <option value="">Select AHEWA member…</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Event type</span>
+        <select id="ev-type" class="input" required>
+          <option value="">Select…</option>
+          <option value="PRINCIPAL">Deceased principal — KSh 1,200</option>
+          <option value="DEPENDANT">Deceased dependant — KSh 700</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Event title</span>
+        <input type="text" id="ev-title" class="input" placeholder="e.g. AHEWA Welfare contributions update for Beverlyne Kong'ani" required />
+      </label>
+
+      <label class="field">
+        <span>Description <small style="color:var(--ink-70);">(optional)</small></span>
+        <textarea id="ev-description" class="input" rows="2" placeholder="Brief context about the event…"></textarea>
+      </label>
+
+      <label class="field">
+        <span>Event date</span>
+        <input type="date" id="ev-date" class="input" required />
+      </label>
+
+      <div id="ev-preview" class="notice" style="display:none;"></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn--ghost" id="btn-cancel-event">Cancel</button>
+        <button type="submit" class="btn btn--accent" id="btn-submit-event">Create &amp; invoice members</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin-ahewa.js"></script>
+</body>
+</html>

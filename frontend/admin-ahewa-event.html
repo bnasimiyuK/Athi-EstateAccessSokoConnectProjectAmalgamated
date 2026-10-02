@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AHEWA Events</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
+    <nav class="main-nav">
+      <a href="index.html" data-nav="index.html">Discover</a>
+      <a href="register.html" data-nav="register.html">Become a provider</a>
+      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
+      <a href="billing.html" data-nav="billing.html">My billing</a>
+      <a href="visitors.html" data-nav="visitors.html">My visitors</a>
+
+      <div class="nav-dropdown">
+        <a href="#">Admin ▾</a>
+        <div class="dropdown-menu">
+          <a href="admin.html">Dashboard</a>
+          <a href="admin-ahewa.html">AHEWA Portal</a>
+          <a href="admin-health.html">Billing Health</a>
+          <a href="pending.html">Pending approvals</a>
+          <a href="admin-reviews.html">All Reviews</a>
+          <a href="admin-residents.html">Approved residents</a>
+          <a href="admin-house-numbers.html">House numbers</a>
+          <a href="admin-invoices.html">Invoices</a>
+          <a href="admin-payments.html">Payments</a>
+          <a href="admin-visitors.html">Visitors</a>
+          <a href="admin-providers.html">All vendors</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div style="margin-bottom: 16px;">
+    <a href="admin-ahewa.html" class="btn btn--ghost btn--small">← Back to AHEWA Portal</a>
+  </div>
+
+  <div id="event-header"></div>
+
+  <!-- ============================================================
+       Contribution matrix
+       ============================================================ -->
+  <section class="stat-section" style="margin-top: 32px;">
+    <h3 class="stat-section__title">Contribution status</h3>
+    <div class="stat-tiles" id="contrib-stats"></div>
+    <div class="table-wrap" id="contrib-table">
+      <div class="empty-state">Loading contributions…</div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Signatory approvals
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">Disbursement co-authorization</h3>
+    <div id="approvals-panel">
+      <div class="empty-state">Loading approvals…</div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Action buttons
+       ============================================================ -->
+  <section class="stat-section">
+    <h3 class="stat-section__title">Exports</h3>
+    <div class="admin-actions" style="padding-top:0;">
+      <button id="btn-export-xlsx" class="btn btn-export" type="button">📥 Excel</button>
+      <button id="btn-export-pdf"  class="btn btn-export" type="button">📄 PDF</button>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    Disbursement requires all three signatory approvals. Payment is collected via Paybill to the estate account.
+  </div>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin-ahewa-event.js"></script>
+</body>
+</html>
