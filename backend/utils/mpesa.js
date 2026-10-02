@@ -129,7 +129,7 @@ async function stkPush({ phone, amount, accountReference, transactionDesc }) {
         Authorization:  `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      timeout: 20000,
+      timeout: 45000,
     }
   );
 

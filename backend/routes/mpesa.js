@@ -30,6 +30,25 @@ function currentMonth() {
 }
 
 /* ------------------------------------------------------------
+   Helper: sync an AHEWA_EVENT invoice payment into the
+   AhewaContributions table so the welfare portal stays in sync.
+   ------------------------------------------------------------ */
+async function syncAhewaContribution(tx, invoiceId, newPaid, fullyPaid) {
+  await tx.request()
+    .input("invoiceId", invoiceId)
+    .input("amt",       newPaid)
+    .input("status",    fullyPaid ? "paid" : "partial")
+    .input("paidAt",    fullyPaid ? new Date() : null)
+    .query(`
+      UPDATE AhewaContributions
+      SET amount_paid = @amt,
+          status      = @status,
+          paid_at     = COALESCE(@paidAt, paid_at)
+      WHERE invoice_id = @invoiceId
+    `);
+}
+
+/* ------------------------------------------------------------
    finalizeSignupFromPayload
    ------------------------------------------------------------ */
 async function finalizeSignupFromPayload(pool, payload, mpesaReceipt, phoneUsed, includeAHEWA) {
@@ -224,6 +243,11 @@ async function finalizeInvoicePayment(pool, invoiceId, mpesaReceipt, phoneUsed) 
            @rec, @ph, @date, @rid, @type, SYSUTCDATETIME())
       `);
 
+    /* ---- If AHEWA event invoice, sync the contribution record ---- */
+    if ((inv.type || "").toUpperCase() === "AHEWA_EVENT") {
+      await syncAhewaContribution(tx, invoiceId, newPaid, fullyPaid);
+    }
+
     const overdueQ = await tx.request()
       .input("rid", inv.resident_id)
       .query(`SELECT COUNT(*) AS n FROM invoices WHERE resident_id = @rid AND status = 'overdue'`);
@@ -262,8 +286,7 @@ async function finalizeBillPayment(pool, plan, mpesaReceipt, phoneUsed) {
       .query("SELECT house_number FROM Residents WHERE id = @id");
     const house = (meQ.recordset[0] && meQ.recordset[0].house_number) || `PENDING-${residentId}`;
 
-    /* ---- Create new invoices (immediately marked paid) ---- */
-        /* ---- Create new invoices OR allocate to existing unpaid invoice ---- */
+    /* ---- Create new invoices OR allocate to existing unpaid invoice ---- */
     for (const c of toCreate) {
       /* Does an unpaid invoice for this (resident, type) already exist? */
       const dup = await tx.request()
@@ -312,6 +335,11 @@ async function finalizeBillPayment(pool, plan, mpesaReceipt, phoneUsed) {
                     @rec, @ph, @date, @rid, @type, SYSUTCDATETIME())
           `);
 
+        /* Sync AHEWA_EVENT contribution if applicable */
+        if ((c.type || "").toUpperCase() === "AHEWA_EVENT") {
+          await syncAhewaContribution(tx, inv.id, newPaid, fullyPaid);
+        }
+
         continue;   // done — do NOT create a new invoice below
       }
 
@@ -347,13 +375,18 @@ async function finalizeBillPayment(pool, plan, mpesaReceipt, phoneUsed) {
           VALUES (@inv, @h, @rid, @amt, 'mpesa', 'verified',
                   @rec, @ph, @date, @rid, @type, SYSUTCDATETIME())
         `);
+
+      /* Sync AHEWA_EVENT contribution if applicable */
+      if ((c.type || "").toUpperCase() === "AHEWA_EVENT") {
+        await syncAhewaContribution(tx, invId, Number(c.amount), true);
+      }
     }
 
     /* ---- Allocate to existing invoices ---- */
     for (const a of toAllocate) {
       const invQ = await tx.request()
         .input("id", a.invoiceId)
-        .query("SELECT amount_due, amount_paid FROM invoices WHERE id = @id");
+        .query("SELECT amount_due, amount_paid, type FROM invoices WHERE id = @id");
       if (!invQ.recordset.length) continue;
 
       const inv = invQ.recordset[0];
@@ -388,6 +421,11 @@ async function finalizeBillPayment(pool, plan, mpesaReceipt, phoneUsed) {
           VALUES (@inv, @h, @rid, @amt, 'mpesa', 'verified',
                   @rec, @ph, @date, @rid, @type, SYSUTCDATETIME())
         `);
+
+      /* Sync AHEWA_EVENT contribution if applicable */
+      if ((inv.type || "").toUpperCase() === "AHEWA_EVENT") {
+        await syncAhewaContribution(tx, a.invoiceId, newPaid, fullyPaid);
+      }
     }
 
     /* ---- If AHEWA_REG was in the plan, flip the resident flag ---- */
@@ -504,7 +542,7 @@ router.post("/pay-invoice", requireAuth, async (req, res, next) => {
     if (!invQ.recordset.length) {
       return res.status(404).json({ error: "Invoice not found for this resident." });
     }
-        const inv = invQ.recordset[0];
+    const inv = invQ.recordset[0];
     if (inv.status === "paid") {
       return res.status(400).json({ error: "Invoice already paid." });
     }
@@ -571,7 +609,7 @@ router.post("/pay-invoice", requireAuth, async (req, res, next) => {
 
 /* ============================================================
    POST /api/mpesa/pay-for   (resident, auth)
-   Body: { items: ["SERVICE","AHE_REG","AHEWA_REG"], invoiceId?: number }
+   Body: { items: ["SERVICE","AHE_REG","AHEWA_REG","AHEWA_EVENT"], invoiceId?: number }
    Fires one STK for the total. Callback creates/allocates everything.
    ============================================================ */
 router.post("/pay-for", requireAuth, async (req, res, next) => {
@@ -600,7 +638,6 @@ router.post("/pay-for", requireAuth, async (req, res, next) => {
     const toAllocate = [];
 
     /* ---- AHE_REG ---- */
-        /* ---- AHE_REG ---- */
     if (items.includes("AHE_REG")) {
       const ahePaid = await pool.request()
         .input("rid", residentId)
@@ -652,7 +689,6 @@ router.post("/pay-for", requireAuth, async (req, res, next) => {
     }
 
     /* ---- AHEWA_REG ---- */
-        /* ---- AHEWA_REG ---- */
     if (items.includes("AHEWA_REG")) {
       const ahewaPaidChk = await pool.request()
         .input("rid", residentId)
@@ -941,6 +977,7 @@ router.post("/simulate", async (req, res, next) => {
     next(err);
   }
 });
+
 /* Expose internal finalizers so jobs/reconcilePending.js can reuse them */
 router._finalizeBillPayment       = finalizeBillPayment;
 router._finalizeInvoicePayment    = finalizeInvoicePayment;

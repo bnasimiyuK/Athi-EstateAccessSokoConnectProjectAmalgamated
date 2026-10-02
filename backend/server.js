@@ -76,7 +76,7 @@ app.use("/api/house-numbers", houseNumbersRouter);
 app.use("/api/visitors", visitorsRouter);
 app.use("/api/events", require("./routes/events"));
 app.use("/api/mpesa", require("./routes/mpesa"));
-
+app.use("/api/ahewa", require("./routes/ahewa"));
 
 /* ---------- Static frontend ---------- */
 app.use(express.static(FRONTEND_DIR));

@@ -164,11 +164,12 @@ router.get("/outstanding", requireAuth, async (req, res, next) => {
 
       payable.push({
         type: t,
-        label: {
-          SERVICE:     "Monthly service charge",
-          AHEWA_REG:   "AHEWA registration (one-off)",
-          AHEWA_EVENT: "AHEWA event contribution",
-        }[t] || t,
+            label: t === "AHEWA_EVENT" 
+          ? `AHEWA event: ${inv.notes || "Contribution"}`
+          : ({
+              SERVICE:     "Monthly service charge",
+              AHEWA_REG:   "AHEWA registration (one-off)",
+            }[t] || t),
         amount: Number(inv.balance),
         invoiceId: inv.id,
         billingMonth: inv.billing_month,

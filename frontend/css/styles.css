@@ -1778,3 +1778,42 @@ main.container:has(.register-container) {
     width: 100%;
   }
 }
+/* ============================================================
+   AHEWA
+   ============================================================ */
+
+.signatories-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.signatory-pill {
+  padding: 16px 18px;
+  background: var(--paper-dim);
+  border-left: 4px solid var(--ochre);
+  border-radius: 6px;
+}
+
+.signatory-pill__role {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ochre-dark);
+  margin-bottom: 4px;
+}
+
+.signatory-pill__name {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.signatory-pill__house {
+  font-size: 0.82rem;
+  color: var(--ink-70);
+}
