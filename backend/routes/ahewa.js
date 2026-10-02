@@ -549,8 +549,10 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
         SELECT r.full_name, r.house_number, c2.name AS court_name,
                c.amount_due, c.amount_paid, c.status, c.paid_at,
                (SELECT TOP 1 mpesa_receipt FROM payments p
-                WHERE p.resident_id = c.resident_id AND p.type = 'AHEWA_EVENT'
-                ORDER BY p.id DESC) AS receipt
+ WHERE p.invoice_id = c.invoice_id
+   AND p.type = 'AHEWA_EVENT'
+   AND p.status = 'verified'
+ ORDER BY p.id DESC) AS last_receipt
         FROM AhewaContributions c
         JOIN Residents r ON r.id = c.resident_id
         LEFT JOIN Courts c2 ON c2.id = r.court_id
