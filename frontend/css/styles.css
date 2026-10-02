@@ -1711,4 +1711,70 @@ main.container:has(.register-container) {
   font-style: italic;
 }
 
-    
+    /* ============================================================
+   RESIDENT SIGNUP — two-column layout
+   Identity on the left, payment panel on the right.
+   Collapses to single column on narrow screens.
+   ============================================================ */
+
+.register-container--wide {
+  max-width: 1100px;
+}
+
+.signup-two-col {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.signup-two-col__left,
+.signup-two-col__right {
+  min-width: 0;   /* prevents grid blowout from long content */
+}
+
+.signup-two-col__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+/* Right column fieldset — tighter top margin since it's beside the form */
+.signup-two-col__right .payment-fieldset {
+  margin-top: 0;
+}
+
+/* The terms checkbox spans the left column only */
+.signup-two-col__left .checkbox-group {
+  margin-top: 18px;
+}
+
+/* Stack on tablet and mobile */
+@media (max-width: 900px) {
+  .signup-two-col {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .signup-two-col__actions {
+    justify-content: stretch;
+  }
+  .signup-two-col__actions .btn-primary,
+  .signup-two-col__actions .btn-secondary {
+    flex: 1 1 auto;
+  }
+}
+
+/* Very small screens — stack the buttons too */
+@media (max-width: 520px) {
+  .signup-two-col__actions {
+    flex-direction: column-reverse;
+  }
+  .signup-two-col__actions .btn-primary,
+  .signup-two-col__actions .btn-secondary {
+    width: 100%;
+  }
+}

@@ -40,7 +40,7 @@
 </header>
 
 <main class="container main--signup">
-  <div class="register-container" id="residentRegisterApp">
+  <div class="register-container register-container--wide" id="residentRegisterApp">
     <div class="register-header">
       <span class="role-badge"><i class="fas fa-home"></i> RESIDENT SIGN-UP</span>
       <h1>
@@ -51,177 +51,190 @@
     </div>
 
     <form id="residentForm" action="#" method="post" novalidate>
-      <div class="form-grid">
+      <div class="signup-two-col">
 
-        <div class="input-group">
-          <label for="firstName"><i class="fas fa-user"></i> First name</label>
-          <input type="text" id="firstName" name="firstName" placeholder="e.g. Maria" autocomplete="given-name" required>
-        </div>
+        <!-- ============================================================
+             LEFT COLUMN — identity & account
+             ============================================================ -->
+        <div class="signup-two-col__left">
+          <div class="form-grid">
 
-        <div class="input-group">
-          <label for="lastName"><i class="fas fa-user"></i> Last name</label>
-          <input type="text" id="lastName" name="lastName" placeholder="e.g. Santos" autocomplete="family-name" required>
-        </div>
-
-        <div class="input-group full-width">
-          <label for="email"><i class="fas fa-envelope"></i> Email address</label>
-          <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email">
-        </div>
-
-        <div class="input-group full-width">
-          <label for="phone"><i class="fas fa-phone-alt"></i> Phone number</label>
-          <input type="tel" id="phone" name="phone" placeholder="07XX XXX XXX" autocomplete="tel" required>
-        </div>
-
-        <div class="input-group">
-          <label for="password"><i class="fas fa-lock"></i> Password</label>
-          <input type="password" id="password" name="password" placeholder="Create a password" autocomplete="new-password" required>
-          <div class="password-hint">
-            Min 8 characters · at least 1 uppercase, 1 lowercase, 1 number
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label for="confirmPassword"><i class="fas fa-check-circle"></i> Confirm password</label>
-          <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Re-enter password" autocomplete="new-password" required>
-        </div>
-
-        <div class="input-group">
-          <label for="phase"><i class="fas fa-layer-group"></i> Phase</label>
-          <select id="phase" name="phase" required>
-            <option value="">Select phase…</option>
-            <option value="1">Phase 1</option>
-            <option value="2">Phase 2</option>
-          </select>
-        </div>
-
-        <div class="input-group input-group--relative">
-          <label for="courtSearch"><i class="fas fa-map-marker-alt"></i> Court</label>
-
-          <input type="text"
-                 id="courtSearch"
-                 placeholder="Select a phase first…"
-                 autocomplete="off"
-                 disabled
-                 required />
-
-          <div id="courtList" class="court-list"></div>
-
-          <select id="court" name="court" required hidden>
-            <option value=""></option>
-          </select>
-        </div>
-
-        <input type="hidden" id="userRole" name="role" value="resident">
-      </div>
-
-      <div class="checkbox-group">
-        <input type="checkbox" id="terms" name="terms" required>
-        <label for="terms">
-          I agree to the <a href="#" onclick="return false;">Terms of Service</a>
-          and <a href="#" onclick="return false;">Privacy Policy</a>.
-          I confirm I'm registering as a resident.
-        </label>
-      </div>
-
-      <!-- ============================================================
-           REGISTRATION PAYMENT — two STK buttons
-           ============================================================ -->
-      <fieldset class="payment-fieldset">
-        <legend class="payment-fieldset__legend">
-          <i class="fas fa-credit-card"></i> Registration Payment
-        </legend>
-
-        <p class="pay-hint">
-          The AHE registration fee is a <b>one-off</b> charge, payable at signup.
-          Monthly service charge and AHEWA event contributions appear on your
-          <a href="billing.html">billing page</a> after you're approved.
-        </p>
-
-        <div class="stk-box">
-          <div class="stk-box__title">
-            <i class="fas fa-mobile-alt"></i> Pay via M-Pesa (fast)
-          </div>
-
-          <p class="stk-box__hint">
-            Enter your Safaricom number below, then click the amount that matches your choice.
-            Your registration is auto-approved the moment payment lands.
-          </p>
-
-          <div class="stk-box__row">
-            <input type="tel"
-                   id="stk-phone"
-                   class="input stk-box__phone"
-                   placeholder="07XX XXX XXX"
-                   autocomplete="tel" />
-          </div>
-
-          <div class="stk-box__buttons">
-            <button type="button"
-                    id="btn-stk-pay-ahe"
-                    class="btn btn--accent stk-box__btn">
-              <i class="fas fa-bolt"></i> Pay AHE only
-            </button>
-
-            <button type="button"
-                    id="btn-stk-pay-both"
-                    class="btn btn--accent stk-box__btn stk-box__btn--alt">
-              <i class="fas fa-bolt"></i> Pay AHE + AHEWA
-            </button>
-          </div>
-
-          <div id="stk-status" class="stk-box__status" hidden></div>
-        </div>
-
-        <p class="manual-pay-hint">
-          <b>Or</b> — pay manually via Paybill <code id="reg-paybill">—</code>
-          (Account number: your phone number), then paste the receipts below.
-        </p>
-
-        <div class="pay-row">
-          <input type="checkbox" checked disabled class="pay-row__check" />
-          <div class="pay-row__body">
-            <b>Athi Highway Estate (AHE) Registration — one-off</b>
-            <div class="pay-row__note">
-              Required for all residents. Your account is approved once this payment is confirmed.
+            <div class="input-group">
+              <label for="firstName"><i class="fas fa-user"></i> First name</label>
+              <input type="text" id="firstName" name="firstName" placeholder="e.g. Maria" autocomplete="given-name" required>
             </div>
-            <div class="pay-row__inputs">
-              <input type="text" id="ahe-receipt" class="input"
-                     placeholder="AHE M-Pesa receipt (e.g. RKT4XYZ123)" />
-              <input type="text" id="ahe-phone" class="input"
-                     placeholder="Phone used (optional)" />
-            </div>
-          </div>
-        </div>
 
-        <div class="pay-row">
-          <input type="checkbox" id="join-ahewa" class="pay-row__check" />
-          <div class="pay-row__body">
-            <label for="join-ahewa" class="pay-row__label">
-              Join Athi Highway Estate Welfare Association (AHEWA) — one-off
+            <div class="input-group">
+              <label for="lastName"><i class="fas fa-user"></i> Last name</label>
+              <input type="text" id="lastName" name="lastName" placeholder="e.g. Santos" autocomplete="family-name" required>
+            </div>
+
+            <div class="input-group full-width">
+              <label for="email"><i class="fas fa-envelope"></i> Email address</label>
+              <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email">
+            </div>
+
+            <div class="input-group full-width">
+              <label for="phone"><i class="fas fa-phone-alt"></i> Phone number</label>
+              <input type="tel" id="phone" name="phone" placeholder="07XX XXX XXX" autocomplete="tel" required>
+            </div>
+
+            <div class="input-group">
+              <label for="password"><i class="fas fa-lock"></i> Password</label>
+              <input type="password" id="password" name="password" placeholder="Create a password" autocomplete="new-password" required>
+              <div class="password-hint">
+                Min 8 characters · at least 1 uppercase, 1 lowercase, 1 number
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="confirmPassword"><i class="fas fa-check-circle"></i> Confirm password</label>
+              <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Re-enter password" autocomplete="new-password" required>
+            </div>
+
+            <div class="input-group">
+              <label for="phase"><i class="fas fa-layer-group"></i> Phase</label>
+              <select id="phase" name="phase" required>
+                <option value="">Select phase…</option>
+                <option value="1">Phase 1</option>
+                <option value="2">Phase 2</option>
+              </select>
+            </div>
+
+            <div class="input-group input-group--relative">
+              <label for="courtSearch"><i class="fas fa-map-marker-alt"></i> Court</label>
+
+              <input type="text"
+                     id="courtSearch"
+                     placeholder="Select a phase first…"
+                     autocomplete="off"
+                     disabled
+                     required />
+
+              <div id="courtList" class="court-list"></div>
+
+              <select id="court" name="court" required hidden>
+                <option value=""></option>
+              </select>
+            </div>
+
+            <input type="hidden" id="userRole" name="role" value="resident">
+          </div>
+
+          <div class="checkbox-group">
+            <input type="checkbox" id="terms" name="terms" required>
+            <label for="terms">
+              I agree to the <a href="#" onclick="return false;">Terms of Service</a>
+              and <a href="#" onclick="return false;">Privacy Policy</a>.
+              I confirm I'm registering as a resident.
             </label>
-            <div class="pay-row__note">
-              Optional. AHEWA runs ~3 welfare events per month; members pay per event on the billing page.
-              Non-members are not billed for these events.
-            </div>
-
-            <div id="ahewa-fields" class="pay-row__inputs" hidden>
-              <input type="text" id="ahewa-receipt" class="input"
-                     placeholder="AHEWA M-Pesa receipt (e.g. RKT4XYZ124)" />
-              <input type="text" id="ahewa-phone" class="input"
-                     placeholder="Phone used (optional)" />
-            </div>
           </div>
         </div>
-      </fieldset>
 
-      <div class="actions">
-        <button type="submit" class="btn-primary" id="registerBtn">
-          <i class="fas fa-user-check"></i> Submit for approval
-        </button>
-        <button type="button" class="btn-secondary" id="clearBtn">
-          <i class="fas fa-undo-alt"></i> Clear
-        </button>
+        <!-- ============================================================
+             RIGHT COLUMN — payment
+             ============================================================ -->
+        <div class="signup-two-col__right">
+          <fieldset class="payment-fieldset">
+            <legend class="payment-fieldset__legend">
+              <i class="fas fa-credit-card"></i> Registration Payment
+            </legend>
+
+            <p class="pay-hint">
+              The AHE registration fee is a <b>one-off</b> charge, payable at signup.
+              Monthly service charge and AHEWA event contributions appear on your
+              <a href="billing.html">billing page</a> after you're approved.
+            </p>
+
+            <div class="stk-box">
+              <div class="stk-box__title">
+                <i class="fas fa-mobile-alt"></i> Pay via M-Pesa (fast)
+              </div>
+
+              <p class="stk-box__hint">
+                Enter your Safaricom number below, then click the amount that matches your choice.
+                Your registration is auto-approved the moment payment lands.
+              </p>
+
+              <div class="stk-box__row">
+                <input type="tel"
+                       id="stk-phone"
+                       class="input stk-box__phone"
+                       placeholder="07XX XXX XXX"
+                       autocomplete="tel" />
+              </div>
+
+              <div class="stk-box__buttons">
+                <button type="button"
+                        id="btn-stk-pay-ahe"
+                        class="btn btn--accent stk-box__btn">
+                  <i class="fas fa-bolt"></i> Pay AHE only
+                </button>
+
+                <button type="button"
+                        id="btn-stk-pay-both"
+                        class="btn btn--accent stk-box__btn stk-box__btn--alt">
+                  <i class="fas fa-bolt"></i> Pay AHE + AHEWA
+                </button>
+              </div>
+
+              <div id="stk-status" class="stk-box__status" hidden></div>
+            </div>
+
+            <p class="manual-pay-hint">
+              <b>Or</b> — pay manually via Paybill <code id="reg-paybill">—</code>
+              (Account number: your phone number), then paste the receipts below.
+            </p>
+
+            <div class="pay-row">
+              <input type="checkbox" checked disabled class="pay-row__check" />
+              <div class="pay-row__body">
+                <b>Athi Highway Estate (AHE) Registration — one-off</b>
+                <div class="pay-row__note">
+                  Required for all residents. Your account is approved once this payment is confirmed.
+                </div>
+                <div class="pay-row__inputs">
+                  <input type="text" id="ahe-receipt" class="input"
+                         placeholder="AHE M-Pesa receipt (e.g. RKT4XYZ123)" />
+                  <input type="text" id="ahe-phone" class="input"
+                         placeholder="Phone used (optional)" />
+                </div>
+              </div>
+            </div>
+
+            <div class="pay-row">
+              <input type="checkbox" id="join-ahewa" class="pay-row__check" />
+              <div class="pay-row__body">
+                <label for="join-ahewa" class="pay-row__label">
+                  Join Athi Highway Estate Welfare Association (AHEWA) — one-off
+                </label>
+                <div class="pay-row__note">
+                  Optional. AHEWA runs ~3 welfare events per month; members pay per event on the billing page.
+                  Non-members are not billed for these events.
+                </div>
+
+                <div id="ahewa-fields" class="pay-row__inputs" hidden>
+                  <input type="text" id="ahewa-receipt" class="input"
+                         placeholder="AHEWA M-Pesa receipt (e.g. RKT4XYZ124)" />
+                  <input type="text" id="ahewa-phone" class="input"
+                         placeholder="Phone used (optional)" />
+                </div>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- ============================================================
+             FULL-WIDTH ACTIONS
+             ============================================================ -->
+        <div class="signup-two-col__actions">
+          <button type="submit" class="btn-primary" id="registerBtn">
+            <i class="fas fa-user-check"></i> Submit for approval
+          </button>
+          <button type="button" class="btn-secondary" id="clearBtn">
+            <i class="fas fa-undo-alt"></i> Clear
+          </button>
+        </div>
       </div>
     </form>
 
@@ -232,6 +245,7 @@
   </div>
   
 </main>
+
 <script src="js/auth.js"></script>
 <script src="js/api.js"></script>
 <script src="js/main.js"></script>
