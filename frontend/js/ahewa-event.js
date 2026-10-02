@@ -1,5 +1,5 @@
 /* ============================================================
-   admin-ahewa-event.js — Event detail page
+   ahewa-event.js — Event detail page
    Shows contribution matrix, signatory approvals, exports.
    ============================================================ */
 

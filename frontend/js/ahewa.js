@@ -1,5 +1,5 @@
 /* ============================================================
-   admin-ahewa.js — Welfare Portal home
+   ahewa.js — Welfare Portal home
    Renders: signatories strip, member roster, events list,
             and the "Create event" modal.
    ============================================================ */
@@ -163,7 +163,7 @@ function renderEvents(events) {
               <td>${e.members_paid} / ${e.members_billed}</td>
               <td>${fmtMoney(collected)} <span class="meta">of ${fmtMoney(expected)} (${pct}%)</span></td>
               <td>${statusBadge}</td>
-              <td><a class="btn btn--ghost btn--small" href="admin-ahewa-event.html?id=${e.id}">View →</a></td>
+              <td><a class="btn btn--ghost btn--small" href="ahewa-event.html?id=${e.id}">View →</a></td>
             </tr>
           `;
         }).join("")}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AHEWA — Athi Estate Access</title>
+  <title>AHEWA Events — Athi Estate Access</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
 </head>
@@ -12,7 +12,7 @@
 <header class="site-header">
   <div class="container">
     <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
-        <nav class="main-nav">
+    <nav class="main-nav">
       <a href="index.html" data-nav="index.html">Discover</a>
       <a href="register.html" data-nav="register.html">Become a provider</a>
       <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
@@ -25,8 +25,8 @@
           <a href="ahewa.html">Dashboard</a>
           <a href="ahewa-events.html">Events</a>
         </div>
-      </div>   
-
+      </div>
+  
       <div class="nav-dropdown">
         <a href="#">Admin ▾</a>
         <div class="dropdown-menu">
@@ -49,11 +49,11 @@
 <main class="container">
   <div class="page-head page-head--with-actions">
     <div class="page-head__text">
-      <h1>AHEWA</h1>
+      <h1>AHEWA Welfare Events</h1>
       <p>
-        Track welfare contributions from AHEWA members, generate event invoices, and co-authorize disbursements with the three signatories.
+        All welfare contribution events. Click any row to view contributions, approvals, and export reports.
         <br><small style="color:var(--ink-70);">
-          Only verified AHEWA members are billed. The affected member is excluded from contributing to their own event.
+          Only admins can create new events. Approvals are co-authorized by the three signatories.
         </small>
       </p>
     </div>
@@ -63,54 +63,26 @@
     </div>
   </div>
 
-  <!-- ============================================================
-       Signatories strip
-       ============================================================ -->
-  <section class="stat-section">
-    <h3 class="stat-section__title">Signatories (co-authorize disbursements)</h3>
-    <div id="signatories-strip" class="signatories-strip">
-      <div class="empty-state">Loading signatories…</div>
-    </div>
-  </section>
+  <form id="events-filter"
+        style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+    <select id="filter-status" class="input" style="min-width:160px;">
+      <option value="">All statuses</option>
+      <option value="open">Open</option>
+      <option value="approved">Approved — pending disbursement</option>
+      <option value="disbursed">Disbursed</option>
+    </select>
 
-  <!-- ============================================================
-       Members roster
-       ============================================================ -->
-  <section class="stat-section">
-    <h3 class="stat-section__title">AHEWA members</h3>
-    <div class="stat-tiles" id="member-stats">
-      <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="stat-members">—</div>
-        <div class="stat-tile__label">Total members</div>
-      </div>
-      <div class="stat-tile stat-tile--ok">
-        <div class="stat-tile__value" id="stat-collected">—</div>
-        <div class="stat-tile__label">Total collected (KSh)</div>
-      </div>
-      <div class="stat-tile stat-tile--warn">
-        <div class="stat-tile__value" id="stat-outstanding">—</div>
-        <div class="stat-tile__label">Total outstanding (KSh)</div>
-      </div>
-      <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="stat-events">—</div>
-        <div class="stat-tile__label">Active events</div>
-      </div>
-    </div>
+    <input type="text" id="filter-search" class="input"
+           placeholder="Search event title or affected member…"
+           style="min-width:280px;" />
 
-    <div class="table-wrap" id="members-table-wrap">
-      <div class="empty-state">Loading members…</div>
-    </div>
-  </section>
+    <button type="submit" class="btn btn--accent">Filter</button>
+    <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
+  </form>
 
-  <!-- ============================================================
-       Events list
-       ============================================================ -->
-  <section class="stat-section">
-    <h3 class="stat-section__title">Welfare events</h3>
-    <div class="table-wrap" id="events-table-wrap">
-      <div class="empty-state">Loading events…</div>
-    </div>
-  </section>
+  <div class="table-wrap" id="events-table-wrap">
+    <div class="empty-state">Loading welfare events…</div>
+  </div>
 </main>
 
 <footer class="site-footer">
@@ -119,9 +91,7 @@
   </div>
 </footer>
 
-<!-- ============================================================
-     Modal — Create welfare event
-     ============================================================ -->
+<!-- Modal — Create welfare event -->
 <div class="modal-backdrop" id="modal-new-event">
   <div class="modal" style="max-width: 520px;">
     <h2 style="margin-top:0;">Create welfare event</h2>
@@ -148,12 +118,12 @@
 
       <label class="field">
         <span>Event title</span>
-        <input type="text" id="ev-title" class="input" placeholder="e.g. AHEWA Welfare contributions update for Beverlyne Kong'ani" required />
+        <input type="text" id="ev-title" class="input" placeholder="e.g. AHEWA Welfare contributions update for …" required />
       </label>
 
       <label class="field">
         <span>Description <small style="color:var(--ink-70);">(optional)</small></span>
-        <textarea id="ev-description" class="input" rows="2" placeholder="Brief context about the event…"></textarea>
+        <textarea id="ev-description" class="input" rows="2" placeholder="Brief context…"></textarea>
       </label>
 
       <label class="field">
@@ -174,6 +144,6 @@
 <script src="js/auth.js"></script>
 <script src="js/api.js"></script>
 <script src="js/main.js"></script>
-<script src="js/ahewa.js"></script>
+<script src="js/ahewa-events.js"></script>
 </body>
 </html>

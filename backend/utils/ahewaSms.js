@@ -22,7 +22,7 @@ const BASE_URL = (process.env.PUBLIC_BASE_URL || "http://localhost:3000").replac
    Build the event detail URL
    ------------------------------------------------------------ */
 function eventUrl(eventId) {
-  return `${BASE_URL}/admin-ahewa-event.html?id=${eventId}`;
+  return `${BASE_URL}/ahewa-event.html?id=${eventId}`;
 }
 
 /* ============================================================
