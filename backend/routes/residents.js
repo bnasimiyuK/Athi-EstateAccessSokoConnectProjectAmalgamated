@@ -69,6 +69,9 @@ function applyResidentFilters(request, { phase, courtId, q, verified, houseNumbe
    MUST be declared BEFORE GET /:id, otherwise Express treats
    "outstanding" as an :id and this route never fires.
    ------------------------------------------------------------ */
+/* ------------------------------------------------------------
+   GET /api/residents/outstanding   (resident, auth)
+   ------------------------------------------------------------ */
 router.get("/outstanding", requireAuth, async (req, res, next) => {
   try {
     const pool = await getPool();
@@ -84,7 +87,26 @@ router.get("/outstanding", requireAuth, async (req, res, next) => {
     if (!me.recordset.length) return res.status(404).json({ error: "Resident not found." });
     const r = me.recordset[0];
 
-    /* ---- All outstanding invoices ---- */
+    /* ---- SELF-HEAL: flip any unpaid invoice to paid if a verified payment exists ---- */
+    await pool.request()
+      .input("rid", residentId)
+      .query(`
+        UPDATE inv
+        SET inv.amount_paid = inv.amount_due,
+            inv.status      = 'paid',
+            inv.paid_at     = COALESCE(inv.paid_at, SYSUTCDATETIME())
+        FROM invoices inv
+        WHERE inv.resident_id = @rid
+          AND inv.status != 'paid'
+          AND EXISTS (
+            SELECT 1 FROM payments p
+            WHERE p.resident_id = inv.resident_id
+              AND p.type        = inv.type
+              AND p.status      = 'verified'
+          )
+      `);
+
+    /* ---- All outstanding invoices (post self-heal) ---- */
     const invs = await pool.request()
       .input("rid", residentId)
       .query(`
@@ -97,12 +119,20 @@ router.get("/outstanding", requireAuth, async (req, res, next) => {
         ORDER BY due_date ASC
       `);
 
-    /* ---- Has the resident ever paid AHE_REG? ---- */
+    /* ---- Has the resident ever paid AHE_REG? (payments is source of truth) ---- */
     const ahePaid = await pool.request()
       .input("rid", residentId)
       .query(`
-        SELECT TOP 1 1 FROM invoices
-        WHERE resident_id = @rid AND type = 'AHE_REG' AND status = 'paid'
+        SELECT TOP 1 1 FROM payments
+        WHERE resident_id = @rid AND type = 'AHE_REG' AND status = 'verified'
+      `);
+
+    /* ---- Has the resident ever paid AHEWA_REG? ---- */
+    const ahewaPaid = await pool.request()
+      .input("rid", residentId)
+      .query(`
+        SELECT TOP 1 1 FROM payments
+        WHERE resident_id = @rid AND type = 'AHEWA_REG' AND status = 'verified'
       `);
 
     /* ---- Fees from env ---- */
@@ -115,7 +145,7 @@ router.get("/outstanding", requireAuth, async (req, res, next) => {
     /* ---- Build the payable list ---- */
     const payable = [];
 
-    /* 1. AHE_REG — only if never paid (retroactive for old residents) */
+    /* 1. AHE_REG — only if never paid */
     if (!ahePaid.recordset.length) {
       payable.push({
         type: "AHE_REG",
@@ -129,7 +159,8 @@ router.get("/outstanding", requireAuth, async (req, res, next) => {
     /* 2. Every outstanding invoice by type */
     for (const inv of invs.recordset) {
       const t = (inv.type || "SERVICE").toUpperCase();
-      if (t === "AHE_REG") continue;  // already handled above
+      if (t === "AHE_REG") continue;                                  // handled above
+      if (t === "AHEWA_REG" && ahewaPaid.recordset.length) continue;  // already paid
 
       payable.push({
         type: t,
@@ -145,8 +176,8 @@ router.get("/outstanding", requireAuth, async (req, res, next) => {
       });
     }
 
-    /* 3. AHEWA_REG — if not a member and no invoice exists yet */
-    const isAhewaMember = !!r.join_ahewa;
+    /* 3. AHEWA_REG — if not a member and no verified payment exists */
+    const isAhewaMember = !!r.join_ahewa || ahewaPaid.recordset.length > 0;
     const hasAhewaInv = payable.some((p) => p.type === "AHEWA_REG");
     if (!isAhewaMember && !hasAhewaInv) {
       payable.push({

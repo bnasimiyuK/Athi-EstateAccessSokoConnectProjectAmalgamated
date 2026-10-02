@@ -263,7 +263,59 @@ async function finalizeBillPayment(pool, plan, mpesaReceipt, phoneUsed) {
     const house = (meQ.recordset[0] && meQ.recordset[0].house_number) || `PENDING-${residentId}`;
 
     /* ---- Create new invoices (immediately marked paid) ---- */
+        /* ---- Create new invoices OR allocate to existing unpaid invoice ---- */
     for (const c of toCreate) {
+      /* Does an unpaid invoice for this (resident, type) already exist? */
+      const dup = await tx.request()
+        .input("rid",  residentId)
+        .input("type", c.type)
+        .query(`
+          SELECT TOP 1 id, amount_due, amount_paid
+          FROM invoices
+          WHERE resident_id = @rid AND type = @type
+            AND status IN ('unpaid','partial','overdue')
+          ORDER BY id ASC
+        `);
+
+      if (dup.recordset.length) {
+        /* Allocate to existing invoice — do NOT create a duplicate */
+        const inv = dup.recordset[0];
+        const newPaid   = Number(inv.amount_paid) + Number(c.amount);
+        const fullyPaid = newPaid >= Number(inv.amount_due);
+
+        await tx.request()
+          .input("id",  inv.id)
+          .input("amt", newPaid)
+          .input("st",  fullyPaid ? "paid" : "partial")
+          .query(`
+            UPDATE invoices
+            SET amount_paid = @amt,
+                status      = @st,
+                paid_at     = CASE WHEN @st = 'paid' THEN SYSUTCDATETIME() ELSE paid_at END
+            WHERE id = @id
+          `);
+
+        await tx.request()
+          .input("inv",  inv.id)
+          .input("h",    house)
+          .input("rid",  residentId)
+          .input("amt",  c.amount)
+          .input("rec",  mpesaReceipt)
+          .input("ph",   phoneUsed)
+          .input("date", now)
+          .input("type", c.type)
+          .query(`
+            INSERT INTO payments
+              (invoice_id, house_number, resident_id, amount, method, status,
+               mpesa_receipt, mpesa_phone, payment_date, entered_by, type, verified_at)
+            VALUES (@inv, @h, @rid, @amt, 'mpesa', 'verified',
+                    @rec, @ph, @date, @rid, @type, SYSUTCDATETIME())
+          `);
+
+        continue;   // done — do NOT create a new invoice below
+      }
+
+      /* Otherwise: create a new paid invoice as before */
       const invR = await tx.request()
         .input("rid", residentId)
         .input("h",   house)
@@ -452,9 +504,20 @@ router.post("/pay-invoice", requireAuth, async (req, res, next) => {
     if (!invQ.recordset.length) {
       return res.status(404).json({ error: "Invoice not found for this resident." });
     }
-    const inv = invQ.recordset[0];
+        const inv = invQ.recordset[0];
     if (inv.status === "paid") {
       return res.status(400).json({ error: "Invoice already paid." });
+    }
+
+    /* Also guard: has a verified payment already been recorded for this invoice? */
+    const alreadyPaidQ = await pool.request()
+      .input("invId", invoiceId)
+      .query(`
+        SELECT TOP 1 1 FROM payments
+        WHERE invoice_id = @invId AND status = 'verified'
+      `);
+    if (alreadyPaidQ.recordset.length) {
+      return res.status(400).json({ error: "A verified payment already exists for this invoice." });
     }
 
     const remaining = Number(inv.amount_due) - Number(inv.amount_paid);
@@ -537,12 +600,13 @@ router.post("/pay-for", requireAuth, async (req, res, next) => {
     const toAllocate = [];
 
     /* ---- AHE_REG ---- */
+        /* ---- AHE_REG ---- */
     if (items.includes("AHE_REG")) {
       const ahePaid = await pool.request()
         .input("rid", residentId)
         .query(`
-          SELECT TOP 1 1 FROM invoices
-          WHERE resident_id = @rid AND type = 'AHE_REG' AND status = 'paid'
+          SELECT TOP 1 1 FROM payments
+          WHERE resident_id = @rid AND type = 'AHE_REG' AND status = 'verified'
         `);
       if (ahePaid.recordset.length) {
         return res.status(400).json({ error: "AHE registration is already paid." });
@@ -588,8 +652,15 @@ router.post("/pay-for", requireAuth, async (req, res, next) => {
     }
 
     /* ---- AHEWA_REG ---- */
+        /* ---- AHEWA_REG ---- */
     if (items.includes("AHEWA_REG")) {
-      if (me.join_ahewa) {
+      const ahewaPaidChk = await pool.request()
+        .input("rid", residentId)
+        .query(`
+          SELECT TOP 1 1 FROM payments
+          WHERE resident_id = @rid AND type = 'AHEWA_REG' AND status = 'verified'
+        `);
+      if (me.join_ahewa || ahewaPaidChk.recordset.length) {
         return res.status(400).json({ error: "You are already an AHEWA member." });
       }
       const ahewaQ = await pool.request()
