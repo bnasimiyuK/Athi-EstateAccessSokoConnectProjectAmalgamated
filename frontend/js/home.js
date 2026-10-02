@@ -46,14 +46,35 @@ function formatTimeUntil(iso) {
 /* Category icons (label → emoji) */
 function categoryIcon(label) {
   const icons = {
-    Cleaning:   "🧽",
-    Errands:    "🛒",
-    Electrical: "⚡",
-    Gardening:  "🌿",
-    Moving:     "📦",
-    Painting:   "🎨",
-    Plumbing:   "🔧",
-    Tutoring:   "📚",
+    // ---- Original 8 ----
+    Plumbing:          "🔧",
+    Cleaning:          "🧽",
+    Electrical:        "⚡",
+    Errands:           "🏃",
+    Gardening:         "🌿",
+    Painting:          "🎨",
+    Moving:            "📦",
+    Tutoring:          "📚",
+
+    // ---- Expanded 18 ----
+    Pharmacy:          "💊",
+    Cobbler:           "👞",
+    "Bicycle repairs": "🚲",
+    Mechanic:          "🔩",
+    "Car wash":        "🚗",
+    "Agro vet":        "🐄",
+    Mason:             "🧱",
+    Carpenter:         "🪚",
+    School:            "🏫",
+    Clinic:            "🩺",
+    Hospital:          "🏥",
+    Supermarket:       "🏪",
+    Poshomill:         "🌾",
+    Butchery:          "🥩",
+    "Water vendor":    "💧",
+    Exhauster:         "🚛",
+    Restaurant:        "🍽️",
+    Grocery:           "🛍️",
   };
   return icons[label] || "🧰";
 }
