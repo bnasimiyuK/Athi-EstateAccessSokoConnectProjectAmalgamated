@@ -25,7 +25,7 @@ const invoicesRouter = require("./routes/invoices");
 const paymentsRouter = require("./routes/payments");
 const houseNumbersRouter = require("./routes/house-numbers");
 const visitorsRouter = require("./routes/visitors");
-
+const { startReconciler } = require("./jobs/reconcilePending");
 
 
 const app = express();
@@ -87,4 +87,5 @@ app.use("/api", (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Athi Soko Connect backend running at http://localhost:${PORT}`);
   console.log(`Serving frontend from ${FRONTEND_DIR}`);
+  startReconciler(60 * 1000);   // every 60 seconds
 });

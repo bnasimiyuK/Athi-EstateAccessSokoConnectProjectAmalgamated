@@ -941,5 +941,9 @@ router.post("/simulate", async (req, res, next) => {
     next(err);
   }
 });
+/* Expose internal finalizers so jobs/reconcilePending.js can reuse them */
+router._finalizeBillPayment       = finalizeBillPayment;
+router._finalizeInvoicePayment    = finalizeInvoicePayment;
+router._finalizeSignupFromPayload = finalizeSignupFromPayload;
 
 module.exports = router;
