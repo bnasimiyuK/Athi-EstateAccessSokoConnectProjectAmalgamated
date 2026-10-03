@@ -1,7 +1,7 @@
 /* ============================================================
    routes/ahewa.js — AHEWA
-   Handles welfare events, contributions, and disbursement
-   co-authorization by the three signatories.
+   Handles welfare events, contributions, disbursement
+   co-authorization by the three signatories, and photo gallery.
    ============================================================ */
 
 const express = require("express");
@@ -11,6 +11,9 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 const { notifyEventOpened, notifyEventClosed } = require("../utils/ahewaSms");
 const ExcelJS = require("exceljs");
 const PDFDocument = require("pdfkit");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
 /* ------------------------------------------------------------
    Helpers
@@ -205,10 +208,7 @@ router.get("/events/:id", requireAuth, async (req, res, next) => {
         WHERE c.event_id = @id AND c.resident_id = @rid
       `);
 
-    // Did this resident even get billed? (i.e. they're an AHEWA member and not the affected member)
     const ownContribution = ownQ.recordset.length ? ownQ.recordset[0] : null;
-
-    // Is this resident the affected member?
     const isAffectedMember = evQ.recordset[0].affected_member_id === userId;
 
     return res.json({
@@ -226,7 +226,6 @@ router.get("/events/:id", requireAuth, async (req, res, next) => {
    POST /api/ahewa/events
    Create a welfare event and generate contribution invoices
    for every AHEWA member (excluding the affected member).
-   Body: { affected_member_id, event_type, event_title, description, event_date }
    ============================================================ */
 router.post("/events", requireAuth, async (req, res, next) => {
   const pool = await getPool();
@@ -272,10 +271,6 @@ router.post("/events", requireAuth, async (req, res, next) => {
     const eventId = evR.recordset[0].id;
 
     // Snapshot AHEWA members (exclude affected member)
-       // Snapshot AHEWA members (exclude affected member)
-    // Fetch phone + name too so we can SMS them after commit
-        // Snapshot AHEWA members (exclude affected member)
-    // Fetch phone + name so we can SMS them after commit
     const membersQ = await tx.request()
       .input("mid", affectedId)
       .query(`
@@ -285,7 +280,7 @@ router.post("/events", requireAuth, async (req, res, next) => {
 
     const memberIds = membersQ.recordset.map(r => r.id);
 
-    // Identify signatories among the billed members (they get an email too)
+    // Identify signatories among the billed members
     const signatoriesQ = await tx.request()
       .input("mid", affectedId)
       .query(`
@@ -296,15 +291,12 @@ router.post("/events", requireAuth, async (req, res, next) => {
       `);
     const signatories = signatoriesQ.recordset;
 
-    // Insert a contribution row for each member
-       // Insert a contribution row AND a matching invoice for each member
-    // so the debt shows up on their billing page.
+    // Create invoice + contribution row for each member
     const month = currentMonth();
     const [y, m] = month.split("-").map(Number);
     const dueDate = new Date(Date.UTC(y, m - 1, 5));
 
     for (const mid of memberIds) {
-      // 1. Create the invoice first
       const invR = await tx.request()
         .input("rid",  mid)
         .input("m",    month)
@@ -324,7 +316,6 @@ router.post("/events", requireAuth, async (req, res, next) => {
         `);
       const invoiceId = invR.recordset[0].id;
 
-      // 2. Link the contribution row to the invoice
       await tx.request()
         .input("eid", eventId)
         .input("rid", mid)
@@ -336,7 +327,8 @@ router.post("/events", requireAuth, async (req, res, next) => {
         `);
     }
 
-        await tx.commit();
+    await tx.commit();
+
     const eventDetails = {
       id: eventId,
       event_title: event_title,
@@ -346,6 +338,7 @@ router.post("/events", requireAuth, async (req, res, next) => {
     };
     notifyEventOpened(membersQ.recordset, signatories, eventDetails)
       .catch((err) => console.error("[ahewa] open SMS failed:", err.message));
+
     res.status(201).json({
       ok: true,
       event_id: eventId,
@@ -361,7 +354,6 @@ router.post("/events", requireAuth, async (req, res, next) => {
 
 /* ============================================================
    DELETE /api/ahewa/events/:id
-   Deletes event and all contributions (cascade).
    ============================================================ */
 router.delete("/events/:id", requireAuth, async (req, res, next) => {
   try {
@@ -394,8 +386,6 @@ router.delete("/events/:id", requireAuth, async (req, res, next) => {
 
 /* ============================================================
    POST /api/ahewa/events/:id/approve-disbursement
-   Record one signatory's approval. Only signatories can approve.
-   When all signatories approve, event is eligible for disbursement.
    ============================================================ */
 router.post("/events/:id/approve-disbursement", requireAuth, async (req, res, next) => {
   try {
@@ -405,12 +395,7 @@ router.post("/events/:id/approve-disbursement", requireAuth, async (req, res, ne
 
     const pool = await getPool();
 
-    // Is the caller an active signatory?
-        // Is the caller an active signatory?
-    // IMPORTANT: Only users whose role is "resident" can be signatories,
-    // because AhewaSignatories.resident_id references Residents.id.
-    // Admins have a separate Admins table whose ids can collide with
-    // Residents ids, so we must not match them here.
+    // Only residents can be signatories — see note in mark-disbursed
     if (req.user.role !== "resident") {
       return res.status(403).json({
         error: "Only AHEWA resident signatories can approve disbursements."
@@ -424,11 +409,9 @@ router.post("/events/:id/approve-disbursement", requireAuth, async (req, res, ne
       return res.status(403).json({ error: "Only AHEWA signatories can approve disbursements." });
     }
 
-    // Does the event exist?
     const evQ = await pool.request().input("id", id).query("SELECT 1 FROM AhewaEvents WHERE id = @id");
     if (!evQ.recordset.length) return res.status(404).json({ error: "Event not found." });
 
-    // Insert approval (UNIQUE prevents double-approval by same signatory)
     try {
       await pool.request()
         .input("eid", id)
@@ -453,19 +436,19 @@ router.post("/events/:id/approve-disbursement", requireAuth, async (req, res, ne
 
 /* ============================================================
    POST /api/ahewa/events/:id/mark-disbursed
-   Mark event as fully disbursed. Requires all signatories to have approved.
    ============================================================ */
 router.post("/events/:id/mark-disbursed", requireAuth, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     const notes = req.body.notes || null;
     const pool = await getPool();
+
     if (req.user.role !== "resident") {
       return res.status(403).json({
         error: "Only AHEWA resident signatories can mark events as disbursed."
       });
     }
-    // Count active signatories and approvals
+
     const sigQ = await pool.request().query("SELECT COUNT(*) AS n FROM AhewaSignatories WHERE is_active = 1");
     const apprQ = await pool.request().input("id", id)
       .query("SELECT COUNT(*) AS n FROM AhewaDisbursementApprovals WHERE event_id = @id");
@@ -482,7 +465,7 @@ router.post("/events/:id/mark-disbursed", requireAuth, async (req, res, next) =>
       });
     }
 
-        await pool.request()
+    await pool.request()
       .input("id", id)
       .input("notes", notes)
       .query(`
@@ -493,7 +476,6 @@ router.post("/events/:id/mark-disbursed", requireAuth, async (req, res, next) =>
         WHERE id = @id
       `);
 
-    /* ---- Fire-and-forget closing SMS to all billed members ---- */
     const evQ = await pool.request()
       .input("id", id)
       .query("SELECT id, event_title, contribution_amount FROM AhewaEvents WHERE id = @id");
@@ -517,9 +499,9 @@ router.post("/events/:id/mark-disbursed", requireAuth, async (req, res, next) =>
     next(err);
   }
 });
+
 /* ============================================================
    GET /api/ahewa/events/:id/export.xlsx
-   Download event report as Excel (xlsx).
    ============================================================ */
 router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
   try {
@@ -528,7 +510,6 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
 
     const pool = await getPool();
 
-    // Event header
     const evQ = await pool.request()
       .input("id", id)
       .query(`
@@ -542,17 +523,16 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
     if (!evQ.recordset.length) return res.status(404).json({ error: "Event not found" });
     const ev = evQ.recordset[0];
 
-    // Contribution matrix
     const contribQ = await pool.request()
       .input("id", id)
       .query(`
         SELECT r.full_name, r.house_number, c2.name AS court_name,
                c.amount_due, c.amount_paid, c.status, c.paid_at,
                (SELECT TOP 1 mpesa_receipt FROM payments p
- WHERE p.invoice_id = c.invoice_id
-   AND p.type = 'AHEWA_EVENT'
-   AND p.status = 'verified'
- ORDER BY p.id DESC) AS last_receipt
+                WHERE p.invoice_id = c.invoice_id
+                  AND p.type = 'AHEWA_EVENT'
+                  AND p.status = 'verified'
+                ORDER BY p.id DESC) AS last_receipt
         FROM AhewaContributions c
         JOIN Residents r ON r.id = c.resident_id
         LEFT JOIN Courts c2 ON c2.id = r.court_id
@@ -560,7 +540,6 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
         ORDER BY r.full_name ASC
       `);
 
-    // Signatories + approvals
     const apprQ = await pool.request()
       .input("id", id)
       .query(`
@@ -573,29 +552,19 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
         ORDER BY CASE s.role WHEN 'Chairperson' THEN 1 WHEN 'Treasurer' THEN 2 WHEN 'Secretary' THEN 3 ELSE 9 END
       `);
 
-    // Build workbook
     const wb = new ExcelJS.Workbook();
     wb.creator = "Athi Soko Connect";
     wb.created = new Date();
 
     const ws = wb.addWorksheet("AHEWA Event");
 
-    // Column widths
     ws.columns = [
-      { width: 4  }, // #
-      { width: 28 }, // Member
-      { width: 16 }, // House
-      { width: 22 }, // Court
-      { width: 14 }, // Amount due
-      { width: 14 }, // Amount paid
-      { width: 12 }, // Status
-      { width: 16 }, // Paid on
-      { width: 18 }, // Receipt
+      { width: 4  }, { width: 28 }, { width: 16 }, { width: 22 },
+      { width: 14 }, { width: 14 }, { width: 12 }, { width: 16 }, { width: 18 },
     ];
 
     let row = 1;
 
-    // Title
     ws.mergeCells(row, 1, row, 9);
     const titleCell = ws.getCell(row, 1);
     titleCell.value = "AHEWA WELFARE CONTRIBUTION REPORT";
@@ -603,18 +572,16 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
     titleCell.alignment = { horizontal: "left" };
     row++;
 
-    // Event title
     ws.mergeCells(row, 1, row, 9);
     ws.getCell(row, 1).value = ev.event_title;
     ws.getCell(row, 1).font = { bold: true, size: 12 };
     row += 2;
 
-    // Event info block
     const info = [
-      ["Event type:",         ev.event_type === "PRINCIPAL" ? "Deceased principal" : "Deceased dependant"],
-      ["Event date:",         new Date(ev.event_date).toDateString()],
-      ["Affected member:",    `${ev.affected_member_name} (${ev.affected_member_house || "—"}${ev.affected_member_court ? ` · ${ev.affected_member_court}` : ""})`],
-      ["Amount per member:",  Number(ev.contribution_amount).toLocaleString("en-KE", { style: "currency", currency: "KES" })],
+      ["Event type:",        ev.event_type === "PRINCIPAL" ? "Deceased principal" : "Deceased dependant"],
+      ["Event date:",        new Date(ev.event_date).toDateString()],
+      ["Affected member:",   `${ev.affected_member_name} (${ev.affected_member_house || "—"}${ev.affected_member_court ? ` · ${ev.affected_member_court}` : ""})`],
+      ["Amount per member:", Number(ev.contribution_amount).toLocaleString("en-KE", { style: "currency", currency: "KES" })],
     ];
     info.forEach(([label, value]) => {
       ws.getCell(row, 1).value = label;
@@ -625,7 +592,6 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
     });
     row++;
 
-    // Table header
     const headers = ["#", "Member", "House", "Court", "Amount due", "Amount paid", "Status", "Paid on", "Receipt"];
     const headerRow = ws.getRow(row);
     headers.forEach((h, i) => {
@@ -639,7 +605,6 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
     headerRow.height = 20;
     row++;
 
-    // Data rows
     let totalDue = 0, totalPaid = 0;
     contribQ.recordset.forEach((c, i) => {
       totalDue += Number(c.amount_due);
@@ -655,7 +620,7 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
         Number(c.amount_paid),
         c.status.charAt(0).toUpperCase() + c.status.slice(1),
         c.paid_at ? new Date(c.paid_at).toLocaleDateString("en-KE") : "—",
-        c.receipt || "—",
+        c.last_receipt || "—",
       ];
       values.forEach((v, idx) => {
         const cell = r.getCell(idx + 1);
@@ -666,7 +631,6 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
       row++;
     });
 
-    // Totals
     row++;
     ws.getCell(row, 1).value = "Totals";
     ws.mergeCells(row, 1, row, 4);
@@ -679,7 +643,6 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
     ws.getCell(row, 6).font = { bold: true };
     row += 2;
 
-    // Signatories
     ws.getCell(row, 1).value = "Disbursement Co-Authorization";
     ws.mergeCells(row, 1, row, 4);
     ws.getCell(row, 1).font = { bold: true, size: 11 };
@@ -697,12 +660,10 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
     });
     row++;
 
-    // Footer
     ws.getCell(row, 1).value = `Generated ${new Date().toLocaleString("en-KE")} · Athi Highway Estate Welfare Association`;
     ws.mergeCells(row, 1, row, 9);
     ws.getCell(row, 1).font = { italic: true, color: { argb: "FF8791A3" } };
 
-    // Send the file
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="ahewa-event-${id}.xlsx"`);
 
@@ -715,7 +676,6 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
 
 /* ============================================================
    GET /api/ahewa/events/:id/export.pdf
-   Download event report as PDF.
    ============================================================ */
 router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
   try {
@@ -743,7 +703,9 @@ router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
         SELECT r.full_name, r.house_number, c2.name AS court_name,
                c.amount_due, c.amount_paid, c.status, c.paid_at,
                (SELECT TOP 1 mpesa_receipt FROM payments p
-                WHERE p.invoice_id = c.invoice_id AND p.type = 'AHEWA_EVENT' AND p.status = 'verified'
+                WHERE p.invoice_id = c.invoice_id
+                  AND p.type = 'AHEWA_EVENT'
+                  AND p.status = 'verified'
                 ORDER BY p.id DESC) AS receipt
         FROM AhewaContributions c
         JOIN Residents r ON r.id = c.resident_id
@@ -764,23 +726,19 @@ router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
         ORDER BY CASE s.role WHEN 'Chairperson' THEN 1 WHEN 'Treasurer' THEN 2 WHEN 'Secretary' THEN 3 ELSE 9 END
       `);
 
-    // Set response headers
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="ahewa-event-${id}.pdf"`);
 
-    // Build PDF
     const doc = new PDFDocument({ size: "A4", margin: 40 });
     doc.pipe(res);
 
     const fmtKsh = (n) => "KSh " + Number(n).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    /* --- Header --- */
     doc.fillColor("#16233f").fontSize(18).font("Helvetica-Bold").text("AHEWA Welfare Contribution Report", { align: "left" });
     doc.moveDown(0.3);
     doc.fillColor("#c8862a").fontSize(10).font("Helvetica").text("Athi Highway Estate Welfare Association");
     doc.moveDown(1);
 
-    /* --- Event info --- */
     doc.fillColor("#16233f").fontSize(13).font("Helvetica-Bold").text(ev.event_title);
     doc.moveDown(0.4);
 
@@ -792,7 +750,6 @@ router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
     doc.text(`Amount per member: ${fmtKsh(ev.contribution_amount)}`);
     doc.moveDown(1);
 
-    /* --- Table header --- */
     const pageW = doc.page.width - doc.page.margins.left - doc.page.margins.right;
     const cols = [
       { label: "#",          width: 20,  align: "left"   },
@@ -821,11 +778,9 @@ router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
       doc.y = y;
     };
 
-    // Header background
     doc.rect(doc.page.margins.left, y - 4, pageW, 20).fill("#16233f");
     drawRow(cols.map((c) => c.label), { bold: true, color: "#ffffff", height: 20 });
 
-    // Rows
     let totalDue = 0, totalPaid = 0;
     contribQ.recordset.forEach((c, i) => {
       totalDue += Number(c.amount_due);
@@ -849,7 +804,6 @@ router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
       doc.moveTo(doc.page.margins.left, y - 4).lineTo(doc.page.margins.left + pageW, y - 4).strokeColor("#dcd8cd").stroke();
     });
 
-    /* --- Totals --- */
     y += 8;
     doc.font("Helvetica-Bold").fontSize(10).fillColor("#16233f");
     doc.text(`Total expected: ${fmtKsh(totalDue)}`, doc.page.margins.left, y);
@@ -860,7 +814,6 @@ router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
     y += 24;
     doc.y = y;
 
-    /* --- Signatories --- */
     doc.font("Helvetica-Bold").fontSize(11).fillColor("#16233f").text("Disbursement Co-Authorization");
     doc.moveDown(0.4);
     doc.font("Helvetica").fontSize(9).fillColor("#4a5670");
@@ -872,7 +825,6 @@ router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
     });
     doc.moveDown(1.5);
 
-    /* --- Footer --- */
     doc.fontSize(8).fillColor("#8791a3").font("Helvetica-Oblique");
     doc.text(
       `Generated ${new Date().toLocaleString("en-KE")} · Athi Highway Estate Welfare Association`,
@@ -884,4 +836,212 @@ router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+
+/* ============================================================
+   Multer config for AHEWA photo uploads
+   Files stored at: backend/uploads/ahewa/<eventId>/<unique>.ext
+   Served at:      /uploads/ahewa/<eventId>/<unique>.ext
+   ============================================================ */
+const uploadsRoot = path.join(__dirname, "..", "uploads", "ahewa");
+if (!fs.existsSync(uploadsRoot)) {
+  fs.mkdirSync(uploadsRoot, { recursive: true });
+}
+
+const ALLOWED_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const eventId = parseInt(req.params.id, 10);
+    if (isNaN(eventId)) return cb(new Error("Invalid event id"));
+    const dir = path.join(uploadsRoot, String(eventId));
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    cb(null, unique);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },   // 5 MB
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_MIME.has(file.mimetype)) {
+      return cb(new Error("Only image files (JPG, PNG, WEBP, HEIC) are allowed."));
+    }
+    cb(null, true);
+  },
+});
+
+/* ============================================================
+   POST /api/ahewa/events/:id/photos
+   Upload a photo to an event. Only members billed for the event
+   (or admins) can upload.
+   ============================================================ */
+router.post("/events/:id/photos", requireAuth, upload.single("photo"), async (req, res, next) => {
+  try {
+    const eventId = parseInt(req.params.id, 10);
+    if (isNaN(eventId)) return res.status(400).json({ error: "Invalid event id" });
+
+    if (!req.file) return res.status(400).json({ error: "No photo uploaded." });
+
+    const pool = await getPool();
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const evQ = await pool.request()
+      .input("id", eventId)
+      .query("SELECT id FROM AhewaEvents WHERE id = @id");
+    if (!evQ.recordset.length) {
+      try { fs.unlinkSync(req.file.path); } catch {}
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    const isAdmin = userRole === "admin";
+    let isBilledMember = false;
+
+    if (!isAdmin && userRole === "resident") {
+      const billQ = await pool.request()
+        .input("eid", eventId)
+        .input("rid", userId)
+        .query(`
+          SELECT 1 FROM AhewaContributions
+          WHERE event_id = @eid AND resident_id = @rid
+        `);
+      isBilledMember = billQ.recordset.length > 0;
+    }
+
+    if (!isAdmin && !isBilledMember) {
+      try { fs.unlinkSync(req.file.path); } catch {}
+      return res.status(403).json({
+        error: "Only AHEWA members billed for this event can upload photos.",
+      });
+    }
+
+    const relPath = path.relative(path.join(__dirname, ".."), req.file.path).replace(/\\/g, "/");
+    const caption = (req.body.caption || "").toString().trim().slice(0, 500) || null;
+
+    const ins = await pool.request()
+      .input("eid",     eventId)
+      .input("path",    relPath)
+      .input("orig",    req.file.originalname || null)
+      .input("caption", caption)
+      .input("size",    req.file.size)
+      .input("mime",    req.file.mimetype)
+      .input("by",      userId)
+      .query(`
+        INSERT INTO AhewaEventPhotos
+          (event_id, file_path, original_name, caption, file_size, mime_type, uploaded_by)
+        OUTPUT INSERTED.id, INSERTED.uploaded_at
+        VALUES (@eid, @path, @orig, @caption, @size, @mime, @by)
+      `);
+
+    res.status(201).json({
+      ok: true,
+      photo: {
+        id: ins.recordset[0].id,
+        event_id: eventId,
+        file_path: relPath,
+        url: "/" + relPath,
+        caption,
+        uploaded_at: ins.recordset[0].uploaded_at,
+        uploaded_by: userId,
+      },
+    });
+  } catch (err) {
+    if (req.file && req.file.path) {
+      try { fs.unlinkSync(req.file.path); } catch {}
+    }
+    next(err);
+  }
+});
+
+/* ============================================================
+   GET /api/ahewa/events/:id/photos
+   List photos for an event (any authenticated user).
+   ============================================================ */
+router.get("/events/:id/photos", requireAuth, async (req, res, next) => {
+  try {
+    const eventId = parseInt(req.params.id, 10);
+    if (isNaN(eventId)) return res.status(400).json({ error: "Invalid event id" });
+
+    const pool = await getPool();
+    const result = await pool.request()
+      .input("id", eventId)
+      .query(`
+        SELECT
+          p.id,
+          p.event_id,
+          p.file_path,
+          p.original_name,
+          p.caption,
+          p.file_size,
+          p.mime_type,
+          p.uploaded_by,
+          r.full_name AS uploaded_by_name,
+          p.uploaded_at
+        FROM AhewaEventPhotos p
+        JOIN Residents r ON r.id = p.uploaded_by
+        WHERE p.event_id = @id AND p.is_deleted = 0
+        ORDER BY p.uploaded_at DESC
+      `);
+
+    const photos = result.recordset.map((p) => ({ ...p, url: "/" + p.file_path }));
+    res.json(photos);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ============================================================
+   DELETE /api/ahewa/photos/:photoId
+   Uploader or admin can delete. Soft delete + file removal.
+   ============================================================ */
+router.delete("/photos/:photoId", requireAuth, async (req, res, next) => {
+  try {
+    const photoId = parseInt(req.params.photoId, 10);
+    if (isNaN(photoId)) return res.status(400).json({ error: "Invalid photo id" });
+
+    const pool = await getPool();
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const pQ = await pool.request()
+      .input("id", photoId)
+      .query("SELECT uploaded_by, file_path FROM AhewaEventPhotos WHERE id = @id AND is_deleted = 0");
+    if (!pQ.recordset.length) return res.status(404).json({ error: "Photo not found." });
+
+    const photo = pQ.recordset[0];
+    const isAdmin = userRole === "admin";
+    const isUploader = photo.uploaded_by === userId;
+
+    if (!isAdmin && !isUploader) {
+      return res.status(403).json({ error: "Only the uploader or an admin can delete this photo." });
+    }
+
+    await pool.request()
+      .input("id", photoId)
+      .query("UPDATE AhewaEventPhotos SET is_deleted = 1 WHERE id = @id");
+
+    try {
+      const absPath = path.join(__dirname, "..", photo.file_path);
+      if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
+    } catch (e) {
+      console.warn("[ahewa] could not delete file:", e.message);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

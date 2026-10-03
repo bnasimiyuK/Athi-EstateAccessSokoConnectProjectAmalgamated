@@ -73,7 +73,65 @@
       <div class="empty-state">Loading approvals…</div>
     </div>
   </section>
+  <!-- ============================================================
+       Event photo gallery
+       ============================================================ -->
+  <section class="stat-section" id="gallery-section">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <h3 class="stat-section__title" style="margin:0; border:none; padding:0;">Event photo gallery</h3>
+      <button id="btn-upload-photo" class="btn btn--accent btn--small" style="display:none;">
+        📷 Add photo
+      </button>
+    </div>
 
+    <div id="gallery-grid" class="ahewa-gallery">
+      <div class="empty-state">Loading photos…</div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Upload photo modal
+       ============================================================ -->
+  <div class="modal-backdrop" id="modal-upload-photo">
+    <div class="modal" style="max-width: 480px;">
+      <h2 style="margin-top:0;">Add a photo</h2>
+      <p style="color:var(--ink-70); margin-top:-8px; font-size:0.9rem;">
+        JPG, PNG, WEBP, or HEIC. Max 5 MB.
+      </p>
+
+      <form id="form-upload-photo" style="display:flex; flex-direction:column; gap:14px; margin-top:16px;">
+        <label class="field">
+          <span>Photo</span>
+          <input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" required />
+        </label>
+
+        <label class="field">
+          <span>Caption <small style="color:var(--ink-70);">(optional)</small></span>
+          <input type="text" id="photo-caption" class="input" maxlength="500" placeholder="e.g. Memorial service, 2 Oct 2026" />
+        </label>
+
+        <div id="photo-upload-status" class="notice" style="display:none;"></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn--ghost" id="btn-cancel-photo">Cancel</button>
+          <button type="submit" class="btn btn--accent" id="btn-submit-photo">Upload</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       Lightbox
+       ============================================================ -->
+  <div class="modal-backdrop" id="modal-lightbox" style="background: rgba(0,0,0,0.85);">
+    <div style="position:relative; max-width:90vw; max-height:90vh;">
+      <img id="lightbox-img" src="" alt="" style="max-width:90vw; max-height:80vh; border-radius:8px; display:block;" />
+      <p id="lightbox-caption" style="color:white; text-align:center; margin-top:12px; font-size:0.95rem;"></p>
+      <button id="btn-lightbox-close" 
+              style="position:absolute; top:-40px; right:0; background:white; border:none; 
+                     border-radius:50%; width:36px; height:36px; cursor:pointer; font-size:1.2rem;">×</button>
+    </div>
+  </div>
   <!-- ============================================================
        Action buttons
        ============================================================ -->

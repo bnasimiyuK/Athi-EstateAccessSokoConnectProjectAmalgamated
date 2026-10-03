@@ -12,3 +12,14 @@ build/
 *.pem
 *.key
 ~$*
+# Uploaded AHEWA photos (served at runtime, not committed)
+uploads/ahewa/*
+!uploads/ahewa/.gitkeep
+# SQL backups
+*.bak
+*.mdf
+*.ldf
+
+# Word drafts
+*.docx
+*.doc

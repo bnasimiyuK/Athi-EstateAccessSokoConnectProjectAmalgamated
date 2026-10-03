@@ -458,8 +458,213 @@ async function load() {
   }
 }
 
+/* ============================================================
+   GALLERY
+   ============================================================ */
+let CAN_UPLOAD_PHOTOS = false;
+let PHOTOS = [];
+
+async function loadPhotos() {
+  const id = getEventId();
+  if (!id) return;
+
+  const grid = document.getElementById("gallery-grid");
+  try {
+    PHOTOS = await authFetch(`/ahewa/events/${id}/photos`);
+    renderGallery();
+  } catch (err) {
+    console.error("[ahewa] photo load failed:", err);
+    if (grid) grid.innerHTML = `<div class="empty-state" style="color:var(--clay);">Failed to load photos.</div>`;
+  }
+}
+
+function getCurrentUserId() {
+  try {
+    const token = localStorage.getItem("asc_token");
+    if (!token) return null;
+    return JSON.parse(atob(token.split(".")[1])).id || null;
+  } catch { return null; }
+}
+
+function currentRole() {
+  try {
+    const token = localStorage.getItem("asc_token");
+    if (!token) return null;
+    return JSON.parse(atob(token.split(".")[1])).role || null;
+  } catch { return null; }
+}
+
+function renderGallery() {
+  const grid = document.getElementById("gallery-grid");
+  if (!grid) return;
+
+  if (!PHOTOS.length) {
+    grid.innerHTML = `<div class="empty-state">No photos yet.${CAN_UPLOAD_PHOTOS ? " Click <b>Add photo</b> to share one." : ""}</div>`;
+    return;
+  }
+
+  const currentUserId = getCurrentUserId();
+  const isAdmin = currentRole() === "admin";
+
+  grid.innerHTML = PHOTOS.map((p) => {
+    const canDelete = isAdmin || p.uploaded_by === currentUserId;
+    return `
+      <div class="ahewa-photo-card" data-photo-id="${p.id}">
+        <div class="ahewa-photo-thumb" data-photo-url="${escapeHtml(p.url)}" data-caption="${escapeHtml(p.caption || "")}">
+          <img src="${escapeHtml(p.url)}" alt="${escapeHtml(p.caption || "AHEWA event photo")}" loading="lazy" />
+        </div>
+        <div class="ahewa-photo-meta">
+          ${p.caption ? `<div class="ahewa-photo-caption">${escapeHtml(p.caption)}</div>` : ""}
+          <div class="ahewa-photo-sub">
+            ${escapeHtml(p.uploaded_by_name)} · ${fmtDate(p.uploaded_at)}
+          </div>
+        </div>
+        ${canDelete
+          ? `<button class="ahewa-photo-delete" data-delete-photo="${p.id}" title="Delete photo">×</button>`
+          : ""}
+      </div>
+    `;
+  }).join("");
+
+  grid.querySelectorAll(".ahewa-photo-thumb").forEach((el) => {
+    el.addEventListener("click", () => {
+      document.getElementById("lightbox-img").src = el.dataset.photoUrl;
+      document.getElementById("lightbox-caption").textContent = el.dataset.caption || "";
+      document.getElementById("modal-lightbox").classList.add("is-open");
+    });
+  });
+
+  grid.querySelectorAll("[data-delete-photo]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("Delete this photo? This cannot be undone.")) return;
+      try {
+        await authFetch(`/ahewa/photos/${btn.dataset.deletePhoto}`, { method: "DELETE" });
+        toast("Photo deleted.");
+        await loadPhotos();
+      } catch (err) {
+        alert("Could not delete photo: " + err.message);
+      }
+    });
+  });
+}
+
+async function canUploadPhotosToThisEvent() {
+  if (currentRole() === "admin") return true;
+  if (currentRole() !== "resident") return false;
+
+  const id = getEventId();
+  if (!id) return false;
+
+  try {
+    const d = await authFetch(`/ahewa/events/${id}`);
+    if (d.access === "limited" && d.my_contribution) return true;
+    if (d.access === "full" && d.is_signatory) return true;
+    return false;
+  } catch { return false; }
+}
+
+function setupPhotoUpload() {
+  const modal = document.getElementById("modal-upload-photo");
+  const openBtn = document.getElementById("btn-upload-photo");
+  const closeBtn = document.getElementById("btn-cancel-photo");
+  const form = document.getElementById("form-upload-photo");
+  const status = document.getElementById("photo-upload-status");
+
+  if (!openBtn) return;
+
+  if (!CAN_UPLOAD_PHOTOS) {
+    openBtn.style.display = "none";
+    return;
+  }
+  openBtn.style.display = "inline-flex";
+
+  openBtn.addEventListener("click", () => {
+    modal.classList.add("is-open");
+    form.reset();
+    status.style.display = "none";
+  });
+  closeBtn.addEventListener("click", () => modal.classList.remove("is-open"));
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.classList.remove("is-open");
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const fileInput = document.getElementById("photo-file");
+    const captionInput = document.getElementById("photo-caption");
+    const btn = document.getElementById("btn-submit-photo");
+
+    if (!fileInput.files.length) return;
+    const file = fileInput.files[0];
+
+    if (file.size > 5 * 1024 * 1024) {
+      status.style.display = "block";
+      status.style.background = "var(--clay-tint)";
+      status.style.color = "var(--clay)";
+      status.textContent = "File is too large. Max 5 MB.";
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("photo", file);
+    if (captionInput.value.trim()) fd.append("caption", captionInput.value.trim());
+
+    btn.disabled = true;
+    btn.textContent = "Uploading…";
+    status.style.display = "block";
+    status.style.background = "var(--teal-tint)";
+    status.style.color = "var(--teal)";
+    status.textContent = "Uploading photo…";
+
+    const token = localStorage.getItem("asc_token");
+    const id = getEventId();
+
+    try {
+      const res = await fetch(`${API}/ahewa/events/${id}/photos`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status}: ${txt}`);
+      }
+
+      toast("Photo uploaded.");
+      modal.classList.remove("is-open");
+      await loadPhotos();
+    } catch (err) {
+      status.style.background = "var(--clay-tint)";
+      status.style.color = "var(--clay)";
+      status.textContent = "Upload failed: " + err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Upload";
+    }
+  });
+}
+
+function setupLightbox() {
+  const modal = document.getElementById("modal-lightbox");
+  const closeBtn = document.getElementById("btn-lightbox-close");
+  if (!modal || !closeBtn) return;
+  closeBtn.addEventListener("click", () => modal.classList.remove("is-open"));
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.classList.remove("is-open");
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof requireAuth === "function" && !requireAuth()) return;
   setupExports();
+  setupLightbox();
+
   await load();
+
+  CAN_UPLOAD_PHOTOS = await canUploadPhotosToThisEvent();
+
+  setupPhotoUpload();
+  await loadPhotos();
 });

@@ -1817,3 +1817,104 @@ main.container:has(.register-container) {
   font-size: 0.82rem;
   color: var(--ink-70);
 }
+/* ============================================================
+   AHEWA Event Photo Gallery
+   ============================================================ */
+
+.ahewa-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.ahewa-photo-card {
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ahewa-photo-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+
+.ahewa-photo-thumb {
+  cursor: pointer;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: var(--paper-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ahewa-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ahewa-photo-meta {
+  padding: 10px 12px;
+}
+
+.ahewa-photo-caption {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 4px;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.ahewa-photo-sub {
+  font-size: 0.72rem;
+  color: var(--ink-70);
+}
+
+.ahewa-photo-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(220, 38, 38, 0.85);
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 2;
+}
+
+.ahewa-photo-card:hover .ahewa-photo-delete {
+  opacity: 1;
+}
+
+.ahewa-photo-delete:hover {
+  background: rgb(220, 38, 38);
+}
+
+@media (max-width: 640px) {
+  .ahewa-gallery {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .ahewa-photo-meta { padding: 8px 10px; }
+  .ahewa-photo-caption { font-size: 0.78rem; }
+  .ahewa-photo-delete { opacity: 1; }
+}
