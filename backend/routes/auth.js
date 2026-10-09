@@ -1,5 +1,5 @@
-/* ============================================================
-   routes/auth.js — login, me, logout, change-password
+﻿/* ============================================================
+   routes/auth.js â€” login, me, logout, change-password
       Supports 4 roles: admin, security, resident, vendor
    ============================================================ */
 
@@ -10,10 +10,18 @@ const router  = express.Router();
 const { getPool } = require("../db");
 const { requireAuth, JWT_SECRET } = require("../middleware/auth");
 const { sendMail, residentApprovedEmail } = require("../utils/mailer");
+const {
+  normalizePhone,
+  validateName,
+  validateEmail,
+  validatePassword,
+} = require("../utils/validators");
+
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "10", 10);
 const JWT_EXPIRES   = process.env.JWT_EXPIRES_IN || "7d";
 const FEE_AHE   = parseInt(process.env.FEE_AHE   || "1", 10);
 const FEE_AHEWA = parseInt(process.env.FEE_AHEWA || "1", 10);
+
 /* ------------------------------------------------------------
    Helper: sign a JWT for a user object
    ------------------------------------------------------------ */
@@ -28,8 +36,6 @@ function signToken(user) {
 /* ------------------------------------------------------------
    POST /api/auth/login
    Body: { role, identifier, password }
-   role:       "admin" | "resident" | "vendor"
-   identifier: email (admin) OR phone (resident/vendor)
    ------------------------------------------------------------ */
 router.post("/login", async (req, res, next) => {
   try {
@@ -45,6 +51,29 @@ router.post("/login", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid role." });
     }
 
+    /* ---------- Validate identifier format by role ---------- */
+    let normalizedIdentifier = identifier.trim();
+
+    if (role === "admin" || role === "security") {
+      const emailCheck = validateEmail(normalizedIdentifier, { optional: false });
+      if (!emailCheck.valid) {
+        return res.status(400).json({ error: emailCheck.reason });
+      }
+      normalizedIdentifier = emailCheck.normalized;
+    } else {
+      /* resident or vendor â€” phone */
+      const phoneCheck = normalizePhone(normalizedIdentifier);
+      if (!phoneCheck.valid) {
+        return res.status(400).json({ error: phoneCheck.reason });
+      }
+      normalizedIdentifier = phoneCheck.normalized;
+    }
+
+    /* Password presence check (don't enforce strength on login â€” just non-empty) */
+    if (typeof password !== "string" || password.length === 0) {
+      return res.status(400).json({ error: "Password is required." });
+    }
+
     const pool = await getPool();
     let user = null;
     let mustChange = false;
@@ -52,7 +81,7 @@ router.post("/login", async (req, res, next) => {
     /* ---------- ADMIN & SECURITY ---------- */
     if (role === "admin" || role === "security") {
       const result = await pool.request()
-        .input("email", identifier.trim().toLowerCase())
+        .input("email", normalizedIdentifier.toLowerCase())
         .query("SELECT * FROM Admins WHERE email = @email");
 
       if (result.recordset.length) {
@@ -73,7 +102,7 @@ router.post("/login", async (req, res, next) => {
     /* ---------- RESIDENT ---------- */
     if (role === "resident") {
       const result = await pool.request()
-        .input("phone", identifier.trim())
+        .input("phone", normalizedIdentifier)
         .query(`
           SELECT r.*, c.name AS court_name, c.phase
           FROM Residents r
@@ -124,7 +153,7 @@ router.post("/login", async (req, res, next) => {
     /* ---------- VENDOR ---------- */
     if (role === "vendor") {
       const result = await pool.request()
-        .input("phone", identifier.trim())
+        .input("phone", normalizedIdentifier)
         .query(`
           SELECT
             p.*,
@@ -190,37 +219,7 @@ router.post("/login", async (req, res, next) => {
 
 /* ------------------------------------------------------------
    POST /api/auth/register-resident
-   Public self-registration — fully transactional.
-
-   Body:
-     {
-          Body:
-     {
-       fullName, phone, email, courtId, password,
-       joinAHEWA: bool,
-       payments: [
-         { type: "AHE_REG",   amount: <FEE_AHE>,   mpesaReceipt: "...", mpesaPhone?: "..." },
-         { type: "AHEWA_REG", amount: <FEE_AHEWA>, mpesaReceipt: "...", mpesaPhone?: "..." }
-       ]
-     }
-
-   Flow (all inside ONE SQL Server transaction):
-     - Insert resident (verified = 0, join_ahewa flag).
-     - Insert AHE_REG invoice (2,000)  — MANDATORY.
-     - Insert AHEWA_REG invoice (500)  — only if joinAHEWA.
-     - Insert one pending payment row per submitted receipt.
-
-   Any failure → full ROLLBACK. No partial writes.
-
-   Placeholder house number is now 'PENDING-<residentId>' so two pending
-   residents in the same month do not collide on the unique constraint
-   (house_number, billing_month, type). Admin later assigns the real
-   house number, at which point the placeholder is replaced.
-
-   NOTE: The first monthly SERVICE invoice (KSh 2,000) is NOT created here —
-         it is created in POST /api/payments/:id/verify when the admin verifies
-         the AHE_REG payment and the resident is auto-approved. That way billing
-         starts in the month of approval.
+   Public self-registration â€” fully transactional.
    ------------------------------------------------------------ */
 router.post("/register-resident", async (req, res, next) => {
   const pool = await getPool();
@@ -233,24 +232,30 @@ router.post("/register-resident", async (req, res, next) => {
       payments = [],
     } = req.body;
 
-    /* ---------- Basic validation ---------- */
+    /* ---------- Basic presence checks ---------- */
     if (!fullName || !phone || !courtId || !password) {
       return res.status(400).json({
         error: "fullName, phone, courtId, and password are required.",
       });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters." });
-    }
-    if (!/[A-Z]/.test(password)) {
-      return res.status(400).json({ error: "Password must contain an uppercase letter." });
-    }
-    if (!/[a-z]/.test(password)) {
-      return res.status(400).json({ error: "Password must contain a lowercase letter." });
-    }
-    if (!/[0-9]/.test(password)) {
-      return res.status(400).json({ error: "Password must contain a number." });
-    }
+
+    /* ---------- Field validation ---------- */
+    const nameCheck = validateName(fullName, "Full name");
+    if (!nameCheck.valid) return res.status(400).json({ error: nameCheck.reason });
+
+    const phoneCheck = normalizePhone(phone);
+    if (!phoneCheck.valid) return res.status(400).json({ error: phoneCheck.reason });
+
+    const emailCheck = validateEmail(email, { optional: true });
+    if (!emailCheck.valid) return res.status(400).json({ error: emailCheck.reason });
+
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.reason });
+
+    /* ---------- Normalize for downstream use ---------- */
+    const normalizedFullName = nameCheck.normalized;
+    const normalizedPhone    = phoneCheck.normalized;
+    const normalizedEmail    = emailCheck.normalized; // null if not provided
 
     const courtIdInt = parseInt(courtId, 10);
     if (isNaN(courtIdInt)) {
@@ -258,7 +263,7 @@ router.post("/register-resident", async (req, res, next) => {
     }
 
     /* ---------- AHE_REG receipt (mandatory) ---------- */
-        const ahePay = payments.find((p) => p && p.type === "AHE_REG");
+    const ahePay = payments.find((p) => p && p.type === "AHE_REG");
     if (!ahePay || !ahePay.mpesaReceipt || Number(ahePay.amount) < FEE_AHE) {
       return res.status(400).json({
         error: `AHE registration payment (KSh ${FEE_AHE.toLocaleString()}) with M-Pesa receipt is required.`,
@@ -267,7 +272,7 @@ router.post("/register-resident", async (req, res, next) => {
 
     let ahewaPay = null;
     if (joinAHEWA) {
-        ahewaPay = payments.find((p) => p && p.type === "AHEWA_REG");
+      ahewaPay = payments.find((p) => p && p.type === "AHEWA_REG");
       if (!ahewaPay || !ahewaPay.mpesaReceipt || Number(ahewaPay.amount) < FEE_AHEWA) {
         return res.status(400).json({
           error: "You selected AHEWA membership, but no AHEWA payment receipt was supplied.",
@@ -275,7 +280,7 @@ router.post("/register-resident", async (req, res, next) => {
       }
     }
 
-    /* ---------- Pre-flight checks (outside the tx — read-only) ---------- */
+    /* ---------- Pre-flight checks (outside the tx â€” read-only) ---------- */
     const court = await pool.request()
       .input("courtId", courtIdInt)
       .query("SELECT id FROM Courts WHERE id = @courtId");
@@ -284,7 +289,7 @@ router.post("/register-resident", async (req, res, next) => {
     }
 
     const existing = await pool.request()
-      .input("phone", phone.trim())
+      .input("phone", normalizedPhone)
       .query("SELECT id FROM Residents WHERE phone = @phone");
     if (existing.recordset.length) {
       return res.status(409).json({ error: "Phone number already registered." });
@@ -304,9 +309,9 @@ router.post("/register-resident", async (req, res, next) => {
     try {
       /* ---- 1. Insert resident ---- */
       const inserted = await tx.request()
-        .input("fullName",  fullName.trim())
-        .input("phone",     phone.trim())
-        .input("email",     email ? email.trim() : null)
+        .input("fullName",  normalizedFullName)
+        .input("phone",     normalizedPhone)
+        .input("email",     normalizedEmail)
         .input("courtId",   courtIdInt)
         .input("hash",      passwordHash)
         .input("joinAHEWA", joinAHEWA ? 1 : 0)
@@ -320,12 +325,8 @@ router.post("/register-resident", async (req, res, next) => {
         `);
       const residentId = inserted.recordset[0].id;
 
-      /* ---- 2. Per-resident placeholder house number ----
-         Prevents collisions with other pending residents in the same
-         (billing_month, type) slot until the admin assigns a real house. */
       const placeholderHouse = `PENDING-${residentId}`;
 
-      /* ---- 3. Helper: insert invoice, return id ---- */
       async function makeInvoice({ type, amount }) {
         const r = await tx.request()
           .input("rid",  residentId)
@@ -343,7 +344,6 @@ router.post("/register-resident", async (req, res, next) => {
         return r.recordset[0].id;
       }
 
-      /* ---- 4. Helper: insert payment ---- */
       async function makePayment({ type, amount, receipt, phoneUsed, invoiceId }) {
         await tx.request()
           .input("inv",  invoiceId)
@@ -364,8 +364,7 @@ router.post("/register-resident", async (req, res, next) => {
           `);
       }
 
-      /* ---- 5. AHE_REG invoice + payment (mandatory) ---- */
-            const aheInvoiceId = await makeInvoice({ type: "AHE_REG", amount: FEE_AHE });
+      const aheInvoiceId = await makeInvoice({ type: "AHE_REG", amount: FEE_AHE });
       await makePayment({
         type: "AHE_REG",
         amount: ahePay.amount,
@@ -374,7 +373,6 @@ router.post("/register-resident", async (req, res, next) => {
         invoiceId: aheInvoiceId,
       });
 
-      /* ---- 6. AHEWA_REG invoice + payment (optional) ---- */
       let ahewaInvoiceId = null;
       if (joinAHEWA && ahewaPay) {
         ahewaInvoiceId = await makeInvoice({ type: "AHEWA_REG", amount: FEE_AHEWA });
@@ -387,14 +385,13 @@ router.post("/register-resident", async (req, res, next) => {
         });
       }
 
-      /* ---- 7. COMMIT ---- */
       await tx.commit();
 
       res.status(201).json({
         id:        residentId,
-        fullName:  fullName.trim(),
-        phone:     phone.trim(),
-        email:     email ? email.trim() : null,
+        fullName:  normalizedFullName,
+        phone:     normalizedPhone,
+        email:     normalizedEmail,
         verified:  false,
         joinAHEWA: !!joinAHEWA,
         invoices: {
@@ -416,7 +413,7 @@ router.post("/register-resident", async (req, res, next) => {
 });
 
 /* ------------------------------------------------------------
-   GET /api/auth/me — return current user from token
+   GET /api/auth/me â€” return current user from token
    ------------------------------------------------------------ */
 router.get("/me", requireAuth, (req, res) => {
   res.json({ user: req.user });
@@ -424,8 +421,6 @@ router.get("/me", requireAuth, (req, res) => {
 
 /* ------------------------------------------------------------
    POST /api/auth/change-password
-   Body: { currentPassword, newPassword }
-   Works for admins, residents, and vendors.
    ------------------------------------------------------------ */
 router.post("/change-password", requireAuth, async (req, res, next) => {
   try {
@@ -436,10 +431,10 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
         error: "currentPassword and newPassword are required.",
       });
     }
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        error: "New password must be at least 8 characters.",
-      });
+
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.valid) {
+      return res.status(400).json({ error: pwCheck.reason });
     }
 
     const pool = await getPool();
@@ -497,5 +492,87 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 router.post("/logout", (req, res) => {
   res.json({ ok: true });
 });
+
+
+/* ============================================================
+   Avatar upload — POST /api/auth/me/avatar
+   Saves to /uploads/avatars/ and updates the right table
+   (Residents / Admins / Providers) based on the user's role.
+   ============================================================ */
+const multer = require("multer");
+const path   = require("path");
+const fs     = require("fs");
+
+const AVATAR_DIR = path.join(__dirname, "..", "uploads", "avatars");
+fs.mkdirSync(AVATAR_DIR, { recursive: true });
+
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, AVATAR_DIR),
+  filename:    (req, file, cb) => {
+    const ext = (path.extname(file.originalname) || ".jpg").toLowerCase();
+    const uid = req.user?.id || "anon";
+    cb(null, `user-${uid}-${Date.now()}${ext}`);
+  },
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter: (_, file, cb) => {
+    if (/^image\//.test(file.mimetype)) cb(null, true);
+    else cb(new Error("Only image files are allowed."));
+  },
+});
+
+const ROLE_TABLE = {
+  resident: "Residents",
+  admin:    "Admins",
+  vendor:   "Providers",
+  provider: "Providers",
+};
+
+router.post(
+  "/me/avatar",
+  requireAuth,
+  avatarUpload.single("avatar"),
+  async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded." });
+
+      const role  = String(req.user?.role || "").toLowerCase();
+      const table = ROLE_TABLE[role];
+      if (!table) return res.status(400).json({ error: "Unknown role: " + role });
+
+      const url    = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
+      const userId = req.user.id;
+
+      const pool = await getPool();
+
+      // Best-effort delete of previous avatar file
+      try {
+        const prev = await pool.request()
+          .input("id", userId)
+          .query(`SELECT avatar FROM ${table} WHERE id = @id`);
+        const prevUrl = prev.recordset[0] && prev.recordset[0].avatar;
+        if (prevUrl && prevUrl.startsWith("/uploads/")) {
+          const oldPath = path.join(__dirname, "..", prevUrl.replace(/^\//, ""));
+          fs.unlink(oldPath, () => {});
+        }
+      } catch (e) {
+        console.warn("[avatar] previous-file cleanup skipped:", e.message);
+      }
+
+      await pool.request()
+        .input("id",     userId)
+        .input("avatar", url)
+        .query(`UPDATE ${table} SET avatar = @avatar WHERE id = @id`);
+
+      res.json({ avatar: url });
+    } catch (err) {
+      console.error("[avatar] upload error:", err);
+      res.status(500).json({ error: "Could not save avatar." });
+    }
+  }
+);
 
 module.exports = router;

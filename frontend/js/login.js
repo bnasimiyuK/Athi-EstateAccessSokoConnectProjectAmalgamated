@@ -13,7 +13,7 @@ function applyRole(role) {
   const label = document.getElementById("identifierLabel");
   const input = document.getElementById("identifier");
 
-  if (role === "admin") {
+  if (role === "admin" || role === "security") {
     label.innerHTML = `<i class="fas fa-envelope"></i> Email address`;
     input.placeholder = "you@example.com";
     input.type = "email";
@@ -79,13 +79,33 @@ async function handleLogin(e) {
     return;
   }
 
+  /* ---------- Client-side format validation ---------- */
+  let normalizedIdentifier = identifier;
+
+  if (currentRole === "admin" || currentRole === "security") {
+    /* Admin & security log in with email */
+    const check = validateEmail(identifier, { optional: false });
+    if (!check.valid) { showMessage(check.reason, true); return; }
+    normalizedIdentifier = check.normalized;
+  } else {
+    /* Resident & vendor log in with phone (Kenyan or international) */
+    const check = normalizePhone(identifier);
+    if (!check.valid) { showMessage(check.reason, true); return; }
+    normalizedIdentifier = check.normalized;
+  }
+
+  if (password.length === 0) {
+    showMessage("Password is required.", true);
+    return;
+  }
+
   btn.disabled = true;
   showMessage("Signing in…", false);
 
   try {
     const result = await Api.login({
       role: currentRole,
-      identifier,
+      identifier: normalizedIdentifier,
       password,
     });
 

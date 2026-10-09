@@ -1,6 +1,7 @@
-/* ============================================================
+﻿/* ============================================================
    home.js — Discover page with category-first landing
-   + Load More pagination (replaces Prev/Next)
+   + Category tiles with "View more" / "Show fewer" pagination
+   + Provider results "Load more" pagination
    + Live "Busy until" countdown on provider cards
    ============================================================ */
 
@@ -46,7 +47,6 @@ function formatTimeUntil(iso) {
 /* Category icons (label → emoji) */
 function categoryIcon(label) {
   const icons = {
-    // ---- Original 8 ----
     Plumbing:          "🔧",
     Cleaning:          "🧽",
     Electrical:        "⚡",
@@ -55,8 +55,6 @@ function categoryIcon(label) {
     Painting:          "🎨",
     Moving:            "📦",
     Tutoring:          "📚",
-
-    // ---- Expanded 18 ----
     Pharmacy:          "💊",
     Cobbler:           "👞",
     "Bicycle repairs": "🚲",
@@ -83,8 +81,12 @@ function categoryIcon(label) {
 const _state = {
   categories: [],
   courts: [],
-  activeCategory: null,   // null = all categories
+  activeCategory: null,
 };
+
+const INITIAL_CATEGORY_COUNT = 4;
+const CATEGORIES_PER_PAGE    = 5;
+let   VISIBLE_CATEGORY_COUNT = INITIAL_CATEGORY_COUNT;
 
 const discoverState = {
   page: 1,
@@ -100,6 +102,7 @@ function buildPhaseOptions(courts) {
     .filter((v) => !isNaN(v)).sort((a, b) => a - b);
 
   const $phase = document.getElementById("phase");
+  if (!$phase) return;
   $phase.innerHTML = `<option value="">All phases</option>`;
   phases.forEach((p) => {
     const opt = document.createElement("option");
@@ -111,6 +114,7 @@ function buildPhaseOptions(courts) {
 
 function filterCourtsByPhase(phase) {
   const $court = document.getElementById("court");
+  if (!$court) return;
   const list = phase
     ? _state.courts.filter((c) => Number(c.phase) === Number(phase))
     : _state.courts;
@@ -131,9 +135,14 @@ function filterCourtsByPhase(phase) {
    ============================================================ */
 function renderCategoryTiles() {
   const el = document.getElementById("category-tiles");
+  const loadMoreBtn  = document.getElementById("btn-load-more-categories");
+  const showFewerBtn = document.getElementById("btn-show-fewer-categories");
   if (!el) return;
 
-  const tiles = _state.categories.map((c) => {
+  const totalCategories   = _state.categories.length;
+  const visibleCategories = _state.categories.slice(0, VISIBLE_CATEGORY_COUNT);
+
+  const tiles = visibleCategories.map((c) => {
     const isActive = _state.activeCategory === c.id;
     return `
       <button type="button" class="category-tile ${isActive ? "is-active" : ""}"
@@ -171,6 +180,23 @@ function renderCategoryTiles() {
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
+
+  if (loadMoreBtn) {
+    if (VISIBLE_CATEGORY_COUNT < totalCategories) {
+      loadMoreBtn.style.display = "inline-flex";
+      loadMoreBtn.textContent = "View more categories";
+    } else {
+      loadMoreBtn.style.display = "none";
+    }
+  }
+
+  if (showFewerBtn) {
+    if (VISIBLE_CATEGORY_COUNT > INITIAL_CATEGORY_COUNT) {
+      showFewerBtn.style.display = "inline-block";
+    } else {
+      showFewerBtn.style.display = "none";
+    }
+  }
 }
 
 function updateResultsHeading() {
@@ -187,11 +213,14 @@ function updateResultsHeading() {
 
 /* ---------------- populate ---------------- */
 async function populateFilters() {
-  _state.categories = typeof loadCategoryCache === "function"
-    ? await loadCategoryCache()
-    : await Api.getCategories();
-
-  renderCategoryTiles();
+  try {
+    _state.categories = typeof loadCategoryCache === "function"
+      ? await loadCategoryCache()
+      : await Api.getCategories();
+    renderCategoryTiles();
+  } catch (err) {
+    console.error("[home] categories failed:", err);
+  }
 
   try {
     _state.courts = await Api.getCourts();
@@ -207,13 +236,26 @@ async function populateFilters() {
   } catch (err) {
     console.error("[home] stats failed:", err);
   }
+
+  /* ----- Optional routes: never let a 404 kill the page ----- */
+  if (typeof Api.getPhaseRange === "function") {
+    try { await Api.getPhaseRange(); } catch (e) { /* ignore */ }
+  }
+  if (typeof Api.getNotice === "function") {
+    try { await Api.getNotice(); } catch (e) { /* ignore */ }
+  }
+  if (typeof Api.getGateRules === "function") {
+    try { await Api.getGateRules(); } catch (e) { /* ignore */ }
+  }
 }
 
 /* ---------------- hero stats ---------------- */
 function renderStats(providers) {
-  document.getElementById("stat-providers").textContent = providers.length;
-  document.getElementById("stat-verified").textContent  =
-    providers.filter((p) => p.verified).length;
+  const arr = Array.isArray(providers) ? providers : (providers?.data || []);
+  const pEl = document.getElementById("stat-providers");
+  const vEl = document.getElementById("stat-verified");
+  if (pEl) pEl.textContent = arr.length;
+  if (vEl) vEl.textContent = arr.filter((p) => p.verified).length;
 }
 
 /* ---------------- provider card ---------------- */
@@ -305,13 +347,18 @@ function providerCard(p) {
 
 /* ---------------- Build current filters ---------------- */
 function buildDiscoverFilters() {
+  const $q    = document.getElementById("q");
+  const $ph   = document.getElementById("phase");
+  const $ct   = document.getElementById("court");
+  const $mp   = document.getElementById("maxPrice");
+
   return {
     verified: true,
-    search:   document.getElementById("q").value.trim(),
-    phase:    document.getElementById("phase").value,
-    courtId:  document.getElementById("court").value,
+    search:   $q ? $q.value.trim() : "",
+    phase:    $ph ? $ph.value : "",
+    courtId:  $ct ? $ct.value : "",
     category: _state.activeCategory ?? "",
-    maxPrice: document.getElementById("maxPrice").value,
+    maxPrice: $mp ? $mp.value : "",
     page:     discoverState.page,
     limit:    discoverState.limit,
   };
@@ -320,6 +367,7 @@ function buildDiscoverFilters() {
 /* ---------------- results ---------------- */
 async function renderResults({ append = false } = {}) {
   const grid = document.getElementById("provider-grid");
+  if (!grid) return;
 
   if (!append) {
     grid.innerHTML = `<div class="empty-state">Loading providers…</div>`;
@@ -347,11 +395,14 @@ async function renderResults({ append = false } = {}) {
     discoverState.accumulated = providers;
   }
 
-  if (discoverState.total === 0) {
-    document.getElementById("results-count").textContent = "No providers found";
-  } else {
-    document.getElementById("results-count").textContent =
-      `Showing ${discoverState.accumulated.length} of ${discoverState.total} provider${discoverState.total === 1 ? "" : "s"}`;
+  const countEl = document.getElementById("results-count");
+  if (countEl) {
+    if (discoverState.total === 0) {
+      countEl.textContent = "No providers found";
+    } else {
+      countEl.textContent =
+        `Showing ${discoverState.accumulated.length} of ${discoverState.total} provider${discoverState.total === 1 ? "" : "s"}`;
+    }
   }
 
   if (!discoverState.accumulated.length) {
@@ -421,12 +472,38 @@ function startCountdownTicker() {
   }, 30000);
 }
 
+/* ============================================================
+   CATEGORY PAGINATION
+   ============================================================ */
+function setupCategoryLoadMore() {
+  const moreBtn  = document.getElementById("btn-load-more-categories");
+  const fewerBtn = document.getElementById("btn-show-fewer-categories");
+
+  if (moreBtn) {
+    moreBtn.addEventListener("click", () => {
+      VISIBLE_CATEGORY_COUNT += CATEGORIES_PER_PAGE;
+      renderCategoryTiles();
+    });
+  }
+
+  if (fewerBtn) {
+    fewerBtn.addEventListener("click", () => {
+      VISIBLE_CATEGORY_COUNT = Math.max(
+        INITIAL_CATEGORY_COUNT,
+        VISIBLE_CATEGORY_COUNT - CATEGORIES_PER_PAGE
+      );
+      renderCategoryTiles();
+    });
+  }
+}
+
 /* ---------------- init ---------------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  if (typeof requireAuth === "function" && !requireAuth()) return;
+  // Discover is public — no auth gate.
 
   try {
     await populateFilters();
+    setupCategoryLoadMore();
     updateResultsHeading();
     await renderResults();
     startCountdownTicker();
@@ -435,52 +512,66 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   let searchTimer = null;
-  document.getElementById("q").addEventListener("input", () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
+  const $q = document.getElementById("q");
+  if ($q) {
+    $q.addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        discoverState.page = 1;
+        discoverState.accumulated = [];
+        renderResults();
+      }, 200);
+    });
+  }
+
+  const $phase = document.getElementById("phase");
+  if ($phase) {
+    $phase.addEventListener("change", (e) => {
+      filterCourtsByPhase(e.target.value);
       discoverState.page = 1;
       discoverState.accumulated = [];
       renderResults();
-    }, 200);
-  });
+    });
+  }
 
-  document.getElementById("phase").addEventListener("change", (e) => {
-    filterCourtsByPhase(e.target.value);
-    discoverState.page = 1;
-    discoverState.accumulated = [];
-    renderResults();
-  });
-
-  document.getElementById("court").addEventListener("change", () => {
-    discoverState.page = 1;
-    discoverState.accumulated = [];
-    renderResults();
-  });
-
-  document.getElementById("maxPrice").addEventListener("input", () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
+  const $court = document.getElementById("court");
+  if ($court) {
+    $court.addEventListener("change", () => {
       discoverState.page = 1;
       discoverState.accumulated = [];
       renderResults();
-    }, 200);
-  });
+    });
+  }
 
-  document.getElementById("search-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    discoverState.page = 1;
-    discoverState.accumulated = [];
-    renderResults();
-  });
+  const $max = document.getElementById("maxPrice");
+  if ($max) {
+    $max.addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        discoverState.page = 1;
+        discoverState.accumulated = [];
+        renderResults();
+      }, 200);
+    });
+  }
 
-  /* Reset button */
+  const $form = document.getElementById("search-form");
+  if ($form) {
+    $form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      discoverState.page = 1;
+      discoverState.accumulated = [];
+      renderResults();
+    });
+  }
+
   const resetBtn = document.getElementById("reset-search");
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
-      document.getElementById("q").value = "";
-      document.getElementById("phase").value = "";
-      document.getElementById("court").value = "";
-      document.getElementById("maxPrice").value = "";
+      if ($q) $q.value = "";
+      if ($phase) $phase.value = "";
+      if ($court) $court.value = "";
+      if ($max) $max.value = "";
 
       _state.activeCategory = null;
       renderCategoryTiles();
@@ -490,7 +581,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       discoverState.page = 1;
       discoverState.accumulated = [];
       renderResults();
-      toast("Filters cleared.");
+      if (typeof toast === "function") toast("Filters cleared.");
     });
   }
 });

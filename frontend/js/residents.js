@@ -3,12 +3,14 @@
    - STK push  : Api.stkPush → Api.stkQuery (auto-approve)
    - Manual    : Api.registerResident (admin verifies)
    Uses API_BASE (from api.js) so it works from port 3000 or 4050.
+   Now uses validators.js for phone/name/email/password checks.
    ============================================================ */
 
 let ALL_COURTS        = [];
 let FILTERED_COURTS   = [];
 let selectedCourtId   = "";
 let FEES = { AHE: 1, AHEWA: 1 };
+
 /* ------------------------------------------------------------
    Load courts
    ------------------------------------------------------------ */
@@ -21,6 +23,7 @@ async function loadCourts() {
     toast("Could not load court list. Please refresh.");
   }
 }
+
 async function loadFees() {
   try {
     const s = await Api.getBillingSettings();
@@ -35,9 +38,7 @@ async function loadFees() {
     console.warn("[residents] could not load fee settings:", err);
   }
 }
-/* ------------------------------------------------------------
-   Load paybill number for the signup instructions
-   ------------------------------------------------------------ */
+
 async function loadPaybill() {
   try {
     const s = await Api.getBillingSettings();
@@ -121,32 +122,13 @@ function selectCourt(court) {
 }
 
 /* ------------------------------------------------------------
-   Password validation
-   ------------------------------------------------------------ */
-function validatePassword(password) {
-  if (password.length < 8) {
-    return { valid: false, message: "Password must be at least 8 characters." };
-  }
-  if (!/[A-Z]/.test(password)) {
-    return { valid: false, message: "Password must contain at least one uppercase letter." };
-  }
-  if (!/[a-z]/.test(password)) {
-    return { valid: false, message: "Password must contain at least one lowercase letter." };
-  }
-  if (!/[0-9]/.test(password)) {
-    return { valid: false, message: "Password must contain at least one number." };
-  }
-  return { valid: true };
-}
-
-/* ------------------------------------------------------------
-   Shared form validation
+   Shared form validation — uses validators.js
    ------------------------------------------------------------ */
 function collectAndValidateForm({ requireAheReceipt = true } = {}) {
   const firstName = document.getElementById("firstName").value.trim();
   const lastName  = document.getElementById("lastName").value.trim();
   const fullName  = `${firstName} ${lastName}`.trim();
-  const phone     = document.getElementById("phone").value.trim();
+  const rawPhone  = document.getElementById("phone").value.trim();
   const email     = document.getElementById("email").value.trim();
 
   const pwEl            = document.getElementById("password");
@@ -154,40 +136,65 @@ function collectAndValidateForm({ requireAheReceipt = true } = {}) {
   const password        = pwEl  ? pwEl.value  : "";
   const confirmPassword = cpwEl ? cpwEl.value : "";
 
-  if (!firstName) { toast("Please enter your first name."); return { ok: false }; }
-  if (!lastName)  { toast("Please enter your last name.");  return { ok: false }; }
-  if (!phone)     { toast("Please enter your phone number."); return { ok: false }; }
+  /* ---------- First name ---------- */
+  const firstNameCheck = validateName(firstName, "First name");
+  if (!firstNameCheck.valid) { toast(firstNameCheck.reason); return { ok: false }; }
+
+  /* ---------- Last name ---------- */
+  const lastNameCheck = validateName(lastName, "Last name");
+  if (!lastNameCheck.valid) { toast(lastNameCheck.reason); return { ok: false }; }
+
+  /* ---------- Phone (normalizes +254XXXXXXXXX or foreign) ---------- */
+  const phoneCheck = normalizePhone(rawPhone);
+  if (!phoneCheck.valid) { toast(phoneCheck.reason); return { ok: false }; }
+  const phone = phoneCheck.normalized;
+
+  /* ---------- Email (optional) ---------- */
+  let normalizedEmail = null;
+  if (email) {
+    const emailCheck = validateEmail(email, { optional: true });
+    if (!emailCheck.valid) { toast(emailCheck.reason); return { ok: false }; }
+    normalizedEmail = emailCheck.normalized;
+  }
+
+  /* ---------- Court ---------- */
   if (!selectedCourtId) { toast("Please select a court."); return { ok: false }; }
 
+  /* ---------- Password ---------- */
   const pwCheck = validatePassword(password);
-  if (!pwCheck.valid)              { toast(pwCheck.message);        return { ok: false }; }
+  if (!pwCheck.valid) { toast(pwCheck.reason); return { ok: false }; }
   if (password !== confirmPassword) { toast("Passwords do not match."); return { ok: false }; }
 
+  /* ---------- Terms ---------- */
   if (!document.getElementById("terms").checked) {
     toast("Please agree to the Terms and Privacy Policy to continue.");
     return { ok: false };
   }
 
+  /* ---------- AHE receipt ---------- */
   const aheReceipt = document.getElementById("ahe-receipt").value.trim();
   const ahePhone   = document.getElementById("ahe-phone").value.trim();
   if (requireAheReceipt && !aheReceipt) {
-    toast("AHE registration (KSh 2,000) M-Pesa receipt is required.");
+    toast("AHE registration M-Pesa receipt is required.");
     return { ok: false };
   }
 
+  /* ---------- AHEWA receipt ---------- */
   const joinAHEWA    = document.getElementById("join-ahewa").checked;
   const ahewaReceipt = document.getElementById("ahewa-receipt").value.trim();
   const ahewaPhone   = document.getElementById("ahewa-phone").value.trim();
 
   if (requireAheReceipt && joinAHEWA && !ahewaReceipt) {
-    toast("You selected AHEWA — please enter the AHEWA M-Pesa receipt (KSh 500).");
+    toast("You selected AHEWA — please enter the AHEWA M-Pesa receipt.");
     return { ok: false };
   }
 
   return {
     ok: true,
     data: {
-      firstName, lastName, fullName, phone, email,
+      firstName, lastName, fullName,
+      phone,                 /* normalized +254XXXXXXXXX or +<country> */
+      email: normalizedEmail,
       password, joinAHEWA,
       aheReceipt, ahePhone, ahewaReceipt, ahewaPhone,
     },
@@ -214,8 +221,14 @@ async function initiateStkPush(includeAHEWA) {
   if (!check.ok) return;
   const d = check.data;
 
-  const stkPhone = (document.getElementById("stk-phone").value.trim() || d.phone);
-  if (!stkPhone) { toast("Enter the M-Pesa phone number."); return; }
+  /* ---------- Normalize the STK phone too ---------- */
+  const rawStkPhone = document.getElementById("stk-phone").value.trim() || d.phone;
+  const stkPhoneCheck = normalizePhone(rawStkPhone);
+  if (!stkPhoneCheck.valid) {
+    show("❌ " + stkPhoneCheck.reason, "error");
+    return;
+  }
+  const stkPhone = stkPhoneCheck.normalized;
 
   const amount = includeAHEWA ? FEES.AHE + FEES.AHEWA : FEES.AHE;
 
@@ -316,14 +329,14 @@ async function handleSubmit(e) {
   const d = check.data;
 
   const payments = [
-  { type: "AHE_REG", amount: FEES.AHE, mpesaReceipt: d.aheReceipt, mpesaPhone: d.ahePhone || null },
-];
-if (d.joinAHEWA) {
-  payments.push({
-    type: "AHEWA_REG", amount: FEES.AHEWA,
-    mpesaReceipt: d.ahewaReceipt, mpesaPhone: d.ahewaPhone || null,
-  });
-}
+    { type: "AHE_REG", amount: FEES.AHE, mpesaReceipt: d.aheReceipt, mpesaPhone: d.ahePhone || null },
+  ];
+  if (d.joinAHEWA) {
+    payments.push({
+      type: "AHEWA_REG", amount: FEES.AHEWA,
+      mpesaReceipt: d.ahewaReceipt, mpesaPhone: d.ahewaPhone || null,
+    });
+  }
 
   const payload = {
     fullName: d.fullName,
@@ -356,7 +369,7 @@ if (d.joinAHEWA) {
     searchEl.value = "";
     searchEl.placeholder = "Select a phase first…";
     document.getElementById("courtList").style.display = "none";
-    document.getElementById("ahewa-fields").style.display = "none";
+    document.getElementById("ahewa-fields").hidden = true;
     document.getElementById("stk-phone").value = "";
     const stkStatusEl = document.getElementById("stk-status");
     if (stkStatusEl) { stkStatusEl.hidden = true; stkStatusEl.innerHTML = ""; }

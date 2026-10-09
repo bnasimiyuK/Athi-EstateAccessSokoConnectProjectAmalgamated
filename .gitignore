@@ -31,3 +31,24 @@ build/
 # ---- Word drafts ----
 *.docx
 *.doc
+# ---- Debugging backups we created ----
+_backup_*/
+
+# ---- Rollback backups for JS files ----
+*.bak2
+*.bak3
+*.bak4
+*.bak5
+*.bak6
+*.bak7
+*.bak8
+frontend/js/*.bak
+backend/server.js.bak*
+backend/routes/auth.js.bak*
+frontend/js/api.js.bak*
+
+# ---- Uploaded user photos (keep local only) ----
+backend/uploads/
+
+# ---- IDE / editors ----
+.idea/

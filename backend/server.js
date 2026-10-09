@@ -1,12 +1,12 @@
-/* ============================================================
-   server.js — AthiEstateAccessSokoConnectProjectAmalgamated backend
+﻿/* ============================================================
+   server.js â€” AthiEstateAccessSokoConnectProjectAmalgamated backend
    Serves the REST API under /api/* and the static frontend
    (../frontend) on every other path. Run with: node server.js
    ============================================================ */
 
 require("dotenv").config();
 
-console.log("🔧 ALLOW_ORIGIN =", process.env.ALLOW_ORIGIN || "(not set)");
+console.log("ðŸ”§ ALLOW_ORIGIN =", process.env.ALLOW_ORIGIN || "(not set)");
 
 const express = require("express");
 const cors = require("cors");
@@ -26,14 +26,12 @@ const paymentsRouter = require("./routes/payments");
 const houseNumbersRouter = require("./routes/house-numbers");
 const visitorsRouter = require("./routes/visitors");
 const { startReconciler } = require("./jobs/reconcilePending");
-
-
 const app = express();
 const PORT = process.env.PORT || 4050;
 const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
 
 /* ------------------------------------------------------------
-   CORS — accept requests from one or more origins listed in
+   CORS â€” accept requests from one or more origins listed in
    ALLOW_ORIGIN (comma-separated). Falls back to localhost:3000
    for local development.
    ------------------------------------------------------------ */
@@ -42,7 +40,7 @@ const allowedOrigins = (process.env.ALLOW_ORIGIN || "http://localhost:3000")
   .map((s) => s.trim())
   .filter(Boolean);
 
-console.log("🔧 CORS allowed origins:", allowedOrigins);
+console.log("ðŸ”§ CORS allowed origins:", allowedOrigins);
 
 app.use(
   cors({
@@ -50,13 +48,12 @@ app.use(
       // Allow same-origin / curl / Postman (no Origin header)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
-      console.warn(`🚫 CORS blocked: ${origin}`);
+      console.warn(`ðŸš« CORS blocked: ${origin}`);
       return callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
   })
 );
-
 app.use(express.json());
 
 /* ---------- API routes ---------- */
@@ -77,6 +74,8 @@ app.use("/api/visitors", visitorsRouter);
 app.use("/api/events", require("./routes/events"));
 app.use("/api/mpesa", require("./routes/mpesa"));
 app.use("/api/ahewa", require("./routes/ahewa"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/auth", require("./routes/google-auth"));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 /* ---------- Static frontend ---------- */

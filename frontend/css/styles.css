@@ -997,19 +997,15 @@ main.container:has(.register-container) {
 
 /* ============================================================
    📱 TASK 5 — MOBILE RESPONSIVENESS (≤ 640px)
-   All rules below are scoped to phones.
-   Desktop layout (≥ 641px) is unaffected.
    ============================================================ */
 
 @media (max-width: 640px) {
 
-  /* ---------- Prevent any horizontal page overflow ---------- */
   html, body {
     overflow-x: hidden;
     max-width: 100vw;
   }
 
-  /* ---------- Container / spacing ---------- */
   .container {
     padding: 0 14px;
   }
@@ -1022,7 +1018,6 @@ main.container:has(.register-container) {
     padding: 32px 0;
   }
 
-  /* ---------- Header / nav ---------- */
   .site-header .container {
     height: auto;
     padding: 10px 14px;
@@ -1037,7 +1032,7 @@ main.container:has(.register-container) {
   }
 
   nav.main-nav {
-    display: flex !important;      /* override the 860px "display: none" */
+    display: flex !important;
     flex-wrap: wrap;
     gap: 6px 12px;
     width: 100%;
@@ -1052,13 +1047,11 @@ main.container:has(.register-container) {
     white-space: nowrap;
   }
 
-  /* Hide the two lower-priority links on phones */
   nav.main-nav a[href="register.html"],
   nav.main-nav a[href="residents.html"] {
     display: none;
   }
 
-  /* User badge — compact */
   .auth-slot {
     gap: 6px !important;
     font-size: 0.78rem;
@@ -1070,13 +1063,11 @@ main.container:has(.register-container) {
     font-size: 0.6rem !important;
   }
 
-  /* Dropdown tweak */
   .dropdown-menu {
     right: auto;
     left: 0;
   }
 
-  /* ---------- Hero ---------- */
   .hero h1 {
     font-size: 1.55rem;
     line-height: 1.2;
@@ -1096,7 +1087,6 @@ main.container:has(.register-container) {
     padding-top: 14px;
   }
 
-  /* ---------- Multi-column grids → single column ---------- */
   .hero-grid,
   .detail-grid,
   .form-grid,
@@ -1105,14 +1095,12 @@ main.container:has(.register-container) {
     gap: 20px !important;
   }
 
-  /* ---------- Search / filter panel ---------- */
   .search-panel {
     grid-template-columns: 1fr !important;
     padding: 14px;
     gap: 10px;
   }
 
-  /* ---------- Category chips — horizontal scroll ---------- */
   .chip-row {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -1128,7 +1116,6 @@ main.container:has(.register-container) {
     padding: 6px 14px;
   }
 
-  /* ---------- Stat tiles ---------- */
   .stat-tiles {
     grid-template-columns: 1fr 1fr !important;
     gap: 10px;
@@ -1156,7 +1143,6 @@ main.container:has(.register-container) {
     letter-spacing: 0.6px;
   }
 
-  /* ---------- Tables ---------- */
   .table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -1164,7 +1150,7 @@ main.container:has(.register-container) {
   }
 
   table {
-    min-width: 620px;      /* prevents column crushing; page scrolls */
+    min-width: 620px;
     font-size: 0.82rem;
   }
 
@@ -1176,7 +1162,6 @@ main.container:has(.register-container) {
     font-size: 0.72rem;
   }
 
-  /* ---------- Buttons — tap-friendly ---------- */
   .btn {
     min-height: 44px;
     padding: 10px 16px;
@@ -1194,7 +1179,6 @@ main.container:has(.register-container) {
     font-size: 0.85rem;
   }
 
-  /* ---------- Cards ---------- */
   .card {
     padding: 16px;
   }
@@ -1205,14 +1189,12 @@ main.container:has(.register-container) {
     padding: 0 4px;
   }
 
-  /* ---------- Booking box ---------- */
   .booking-box {
     padding: 18px;
     position: static !important;
     top: auto !important;
   }
 
-  /* ---------- Provider header — stack ---------- */
   .provider-header {
     grid-template-columns: 1fr !important;
     gap: 12px;
@@ -1225,7 +1207,6 @@ main.container:has(.register-container) {
     font-size: 1.3rem;
   }
 
-  /* ---------- Section head (left-aligned on mobile) ---------- */
   .section-head {
     align-items: flex-start !important;
     text-align: left !important;
@@ -1235,7 +1216,6 @@ main.container:has(.register-container) {
     font-size: 1.35rem;
   }
 
-  /* ---------- Admin page-head with actions ---------- */
   .page-head--with-actions {
     flex-direction: column;
     gap: 14px;
@@ -1255,7 +1235,6 @@ main.container:has(.register-container) {
     font-size: 1.5rem;
   }
 
-  /* ---------- Pagination footer — stack vertically ---------- */
   div[id$="pagination"] {
     flex-direction: column !important;
     gap: 10px !important;
@@ -1268,7 +1247,6 @@ main.container:has(.register-container) {
     width: 100%;
   }
 
-  /* ---------- Reports / Reviews tabs ---------- */
   .tab-row {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -1281,7 +1259,6 @@ main.container:has(.register-container) {
     flex-shrink: 0;
   }
 
-  /* ---------- Modals — full width ---------- */
   .modal {
     padding: 20px;
     max-width: calc(100vw - 24px);
@@ -1295,7 +1272,6 @@ main.container:has(.register-container) {
     flex: 1;
   }
 
-  /* ---------- Toast — fit on screen ---------- */
   .toast {
     font-size: 0.82rem;
     padding: 10px 16px;
@@ -1303,7 +1279,6 @@ main.container:has(.register-container) {
     text-align: center;
   }
 
-  /* ---------- Alerts / weekday bars ---------- */
   .alert-grid {
     grid-template-columns: 1fr !important;
   }
@@ -1313,12 +1288,10 @@ main.container:has(.register-container) {
     font-size: 0.8rem;
   }
 
-  /* ---------- Chart heights ---------- */
   .chart-card__body {
     height: 200px;
   }
 
-  /* ---------- Register container ---------- */
   .register-container {
     padding: 1.5rem 1.25rem;
     border-radius: 1.25rem;
@@ -1328,7 +1301,6 @@ main.container:has(.register-container) {
     font-size: 1.4rem;
   }
 
-  /* ---------- Footer ---------- */
   .site-footer {
     padding: 24px 0;
     margin-top: 40px;
@@ -1342,7 +1314,6 @@ main.container:has(.register-container) {
   }
 }
 
-/* Extra narrow phones (iPhone SE 1st gen, older Androids) */
 @media (max-width: 380px) {
   .stat-tiles {
     grid-template-columns: 1fr !important;
@@ -1360,6 +1331,7 @@ main.container:has(.register-container) {
     font-size: 0.78rem;
   }
 }
+
 /* ============================================================
    Category tiles — Discover page (category-first landing)
    ============================================================ */
@@ -1429,7 +1401,6 @@ main.container:has(.register-container) {
   line-height: 1.2;
 }
 
-/* Mobile: 2-column category grid */
 @media (max-width: 640px) {
   .category-tiles {
     grid-template-columns: repeat(2, 1fr);
@@ -1448,9 +1419,9 @@ main.container:has(.register-container) {
     font-size: 1.4rem;
   }
 }
+
 /* ============================================================
-   FINAL HEADER FIX - appended last, wins the cascade
-   Desktop/tablet only (>= 641px). Mobile keeps its own styles.
+   FINAL HEADER FIX — desktop/tablet only (>= 641px)
    ============================================================ */
 @media (min-width: 641px) {
   .site-header .container {
@@ -1496,16 +1467,15 @@ main.container:has(.register-container) {
     color: var(--ink-70);
   }
 }
+
 /* ============================================================
    RESIDENT SIGNUP PAGE — layout, court dropdown, payment block
    ============================================================ */
 
-/* ---------- Page wrapper ---------- */
 .main--signup {
   padding: 40px 24px;
 }
 
-/* ---------- Searchable court dropdown ---------- */
 .input-group--relative {
   position: relative;
 }
@@ -1530,7 +1500,6 @@ main.container:has(.register-container) {
    REGISTRATION PAYMENT
    ============================================================ */
 
-/* ---------- Fieldset wrapper ---------- */
 .payment-fieldset {
   margin-top: 24px;
   padding: 20px;
@@ -1543,7 +1512,6 @@ main.container:has(.register-container) {
   font-weight: 600;
 }
 
-/* ---------- STK push accelerator box ---------- */
 .stk-box {
   margin: 4px 0 16px;
   padding: 14px 16px;
@@ -1604,7 +1572,6 @@ main.container:has(.register-container) {
 .stk-box__status.is-ok    { color: #1a7d3a; }
 .stk-box__status.is-error { color: #b0472e; }
 
-/* ---------- "Or pay manually" hint ---------- */
 .manual-pay-hint {
   font-size: 0.9rem;
   color: var(--ink-70);
@@ -1619,7 +1586,6 @@ main.container:has(.register-container) {
   font-size: 0.85rem;
 }
 
-/* ---------- AHE / AHEWA rows ---------- */
 .pay-row {
   display: flex;
   align-items: flex-start;
@@ -1663,14 +1629,12 @@ main.container:has(.register-container) {
   min-width: 200px;
 }
 
-/* ---------- Monthly service charge notice ---------- */
 .notice--payment {
   margin-top: 16px;
   font-size: 0.9rem;
   line-height: 1.55;
 }
 
-/* ---------- STK buttons — keep side-by-side on all sizes ---------- */
 .stk-box__buttons {
   display: flex;
   gap: 8px;
@@ -1684,7 +1648,6 @@ main.container:has(.register-container) {
   font-size: 0.9rem;
 }
 
-/* ---------- Small screens ---------- */
 @media (max-width: 520px) {
   .stk-box__row,
   .pay-row__inputs {
@@ -1697,6 +1660,7 @@ main.container:has(.register-container) {
     flex: 1 1 100%;
   }
 }
+
 /* ============================================================
    Clickable pay tiles on the resident billing page
    ============================================================ */
@@ -1711,10 +1675,8 @@ main.container:has(.register-container) {
   font-style: italic;
 }
 
-    /* ============================================================
+/* ============================================================
    RESIDENT SIGNUP — two-column layout
-   Identity on the left, payment panel on the right.
-   Collapses to single column on narrow screens.
    ============================================================ */
 
 .register-container--wide {
@@ -1730,7 +1692,7 @@ main.container:has(.register-container) {
 
 .signup-two-col__left,
 .signup-two-col__right {
-  min-width: 0;   /* prevents grid blowout from long content */
+  min-width: 0;
 }
 
 .signup-two-col__actions {
@@ -1743,17 +1705,14 @@ main.container:has(.register-container) {
   border-top: 1px solid var(--line);
 }
 
-/* Right column fieldset — tighter top margin since it's beside the form */
 .signup-two-col__right .payment-fieldset {
   margin-top: 0;
 }
 
-/* The terms checkbox spans the left column only */
 .signup-two-col__left .checkbox-group {
   margin-top: 18px;
 }
 
-/* Stack on tablet and mobile */
 @media (max-width: 900px) {
   .signup-two-col {
     grid-template-columns: 1fr;
@@ -1768,7 +1727,6 @@ main.container:has(.register-container) {
   }
 }
 
-/* Very small screens — stack the buttons too */
 @media (max-width: 520px) {
   .signup-two-col__actions {
     flex-direction: column-reverse;
@@ -1778,6 +1736,7 @@ main.container:has(.register-container) {
     width: 100%;
   }
 }
+
 /* ============================================================
    AHEWA
    ============================================================ */
@@ -1817,6 +1776,7 @@ main.container:has(.register-container) {
   font-size: 0.82rem;
   color: var(--ink-70);
 }
+
 /* ============================================================
    AHEWA Event Photo Gallery
    ============================================================ */
@@ -1918,3 +1878,497 @@ main.container:has(.register-container) {
   .ahewa-photo-caption { font-size: 0.78rem; }
   .ahewa-photo-delete { opacity: 1; }
 }
+
+/* ============================================================
+   SIDEBAR (merged from sidebar.css)
+   Depends on the design tokens defined at the top of this file.
+   ============================================================ */
+
+/* ---------- ICON SAFETY NET ---------- */
+.sidebar i,
+.topbar i,
+.sidebar__link i,
+.sidebar__group-header i {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  line-height: 1;
+  font-size: 1.1rem;
+  text-align: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sidebar__group-header .fa-chevron-down {
+  width: 0.9em;
+  height: 0.9em;
+  font-size: 0.7rem;
+}
+.sidebar__sub .sidebar__link i {
+  width: 1em;
+  height: 1em;
+  font-size: 0.9rem;
+}
+
+/* ---------- SIDEBAR BASE ---------- */
+.sidebar {
+  width: 270px;
+  background: #ffffff;
+  border-right: 1px solid var(--line, #e2e6ec);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  z-index: 40;
+  transition: transform 0.2s ease;
+}
+
+.sidebar__header {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--line, #e2e6ec);
+}
+
+.sidebar__logo {
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--ink, #16233f);
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar__logo span {
+  color: var(--ochre, #c8862a);
+}
+
+.sidebar__logo small {
+  font-size: 0.65rem;
+  font-weight: 400;
+  background: #f8f6f2;
+  padding: 2px 8px;
+  border-radius: 30px;
+  color: rgba(22, 35, 63, 0.7);
+  margin-left: 6px;
+}
+
+.sidebar__nav {
+  flex: 1;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--ink, #16233f);
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: background 0.15s;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.sidebar__link i {
+  color: rgba(22, 35, 63, 0.7);
+}
+
+.sidebar__link:hover {
+  background: #f8f6f2;
+}
+
+.sidebar__link.is-active {
+  background: rgba(200, 134, 42, 0.1);
+  color: var(--ochre, #c8862a);
+  font-weight: 600;
+}
+
+.sidebar__link.is-active i {
+  color: var(--ochre, #c8862a);
+}
+
+/* ---------- Dropdown groups ---------- */
+.sidebar__group {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar__group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: background 0.15s;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: var(--ink, #16233f);
+}
+
+.sidebar__group-header span {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar__group-header:hover {
+  background: #f8f6f2;
+}
+
+.sidebar__group-header i:first-child {
+  color: rgba(22, 35, 63, 0.7);
+}
+
+.sidebar__group-header .fa-chevron-down {
+  transition: transform 0.2s;
+  color: rgba(22, 35, 63, 0.7);
+}
+
+.sidebar__group-header.open .fa-chevron-down {
+  transform: rotate(180deg);
+}
+
+.sidebar__sub {
+  display: none;
+  flex-direction: column;
+  padding-left: 26px;
+  margin-bottom: 4px;
+}
+
+.sidebar__sub.open {
+  display: flex;
+}
+
+.sidebar__sub .sidebar__link {
+  font-size: 0.85rem;
+  padding: 7px 12px;
+  font-weight: 400;
+}
+
+.sidebar__footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--line, #e2e6ec);
+  font-size: 0.75rem;
+  color: rgba(22, 35, 63, 0.7);
+}
+
+/* ---------- AUTH SLOT ---------- */
+.sidebar__auth {
+  padding: 8px 12px;
+  border-top: 1px solid var(--line, #e2e6ec);
+  border-bottom: 1px solid var(--line, #e2e6ec);
+  margin-top: 8px;
+}
+
+/* ---------- MAIN CONTENT ---------- */
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f8f6f2;
+}
+
+/* ---------- TOP BAR (mobile only) ---------- */
+.topbar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--line, #e2e6ec);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.topbar__toggle {
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  cursor: pointer;
+  color: var(--ink, #16233f);
+  padding: 0 6px;
+}
+
+.topbar__title {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+/* ---------- OVERLAY (mobile) ---------- */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 45;
+}
+
+.sidebar-overlay.active {
+  display: block;
+}
+
+/* ============================================================
+   LAYOUT OVERRIDE — must come LAST in this file so it wins
+   over the "body:not(.register-page)" reset defined earlier.
+   Without this, body stays display:block and the sidebar stacks
+   vertically above the main content.
+   ============================================================ */
+body:not(.register-page) {
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  min-height: 100vh !important;
+  padding: 0 !important;
+  background: #f8f6f2 !important;
+}
+
+body:not(.register-page) > .sidebar {
+  flex: 0 0 270px !important;
+  height: 100vh !important;
+  position: sticky !important;
+  top: 0 !important;
+}
+
+body:not(.register-page) > .main {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* ============================================================
+   SIDEBAR — mobile (≤ 820px)
+   ============================================================ */
+@media (max-width: 820px) {
+  body:not(.register-page) {
+    display: block !important;
+  }
+
+  body:not(.register-page) > .sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    transform: translateX(-100%) !important;
+    width: 280px !important;
+    height: 100vh !important;
+    z-index: 50 !important;
+    flex: none !important;
+  }
+
+  body:not(.register-page) > .sidebar.open {
+    transform: translateX(0) !important;
+  }
+
+  body:not(.register-page) > .main {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .topbar {
+    display: flex;
+  }
+}
+/* ============================================================
+   TOP-RIGHT AUTH CHIP — signed-in user / login link
+   ============================================================ */
+.auth-chip {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #dcd8cd;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  font-size: 0.85rem;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  color: #16233f;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.auth-chip__greet {
+  color: #4a5670;
+  font-size: 0.78rem;
+}
+
+.auth-chip__name {
+  font-weight: 600;
+  color: #16233f;
+  white-space: nowrap;
+}
+
+.auth-chip__role {
+  display: inline-block;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.auth-chip__logout,
+.auth-chip__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: #16233f;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 0.82rem;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.auth-chip__logout {
+  color: #b0472e;
+}
+.auth-chip__logout:hover {
+  background: #f7e6e0;
+}
+
+.auth-chip__link:hover {
+  background: #f0eee7;
+}
+
+.auth-chip__logout i,
+.auth-chip__link i {
+  font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .auth-chip {
+    top: 10px;
+    right: 10px;
+    font-size: 0.78rem;
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  .auth-chip__greet { display: none; }
+  .auth-chip__role  { font-size: 0.55rem; padding: 2px 6px; }
+  .auth-chip__logout,
+  .auth-chip__link  { padding: 3px 8px; font-size: 0.75rem; }
+}
+
+/* Push main content down a touch so the top-right chip has room */
+body:not(.register-page) .main {
+  padding-top: 46px;
+}
+@media (max-width: 640px) {
+  body:not(.register-page) .main { padding-top: 0; }
+}
+
+/* Avatar inside the auth chip (photo or initials) */
+.auth-chip__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.3px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  text-transform: uppercase;
+  user-select: none;
+}
+.auth-chip__avatar--initials {
+  font-family: "Inter", system-ui, sans-serif;
+}
+img.auth-chip__avatar {
+  background: #e8e8e8; /* placeholder while loading */
+}
+
+/* Slightly smaller on mobile */
+@media (max-width: 640px) {
+  .auth-chip__avatar {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    font-size: 0.62rem;
+  }
+}
+
+/* Avatar button with camera overlay on hover */
+.auth-chip__avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  background: #b0472e;
+  transition: transform 0.12s;
+}
+.auth-chip__avatar:hover { transform: scale(1.05); }
+
+.auth-chip__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.auth-chip__avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.auth-chip__avatar:hover .auth-chip__avatar-overlay { opacity: 1; }

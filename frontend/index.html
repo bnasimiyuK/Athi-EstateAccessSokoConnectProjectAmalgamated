@@ -1,138 +1,197 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AthiEstateAccessSokoConnectProjectAmalgamated — Find trusted home & errand help</title>
-<link rel="stylesheet" href="css/styles.css" />
-<link rel="icon" href="data:,">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AthiEstateAccessSokoConnectProjectAmalgamated — Find trusted home & errand help</title>
+
+  <!-- Font Awesome for sidebar icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+  />
+  <!-- Single stylesheet (all sidebar + page styles merged here) -->
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
 </head>
 <body>
 
-<header class="site-header">
-  <div class="container">
-    <a href="index.html" class="logo">Athi Soko <span>Access</span></a>
-    <nav class="main-nav">
-      <a href="index.html" data-nav="index.html">Discover</a>
-      <a href="register.html" data-nav="register.html">Become a provider</a>
-      <a href="dashboard.html" data-nav="dashboard.html">My bookings</a>
-      <a href="billing.html" data-nav="billing.html">My billing</a>
-      <a href="visitors.html" data-nav="visitors.html">My visitors</a>
-      <a href="residents.html" data-nav="residents.html">Sign Up</a>
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar__header">
+      <a href="index.html" class="sidebar__logo">
+        Athi Soko <span>Access</span>
+        <small>estate</small>
+      </a>
+    </div>
 
-      <div class="nav-dropdown">
-        <a href="#">AHEWA ▾</a>
-        <div class="dropdown-menu">
-          <a href="ahewa.html">Dashboard</a>
-          <a href="ahewa-events.html">Events</a>
+    <nav class="sidebar__nav">
+      <a href="index.html" class="sidebar__link" data-nav="index.html">
+        <i class="fas fa-compass"></i> Discover
+      </a>
+      <a href="register.html" class="sidebar__link" data-nav="register.html">
+        <i class="fas fa-user-plus"></i> Become a provider
+      </a>
+      <a href="dashboard.html" class="sidebar__link" data-nav="dashboard.html">
+        <i class="fas fa-calendar-check"></i> My bookings
+      </a>
+      <a href="billing.html" class="sidebar__link" data-nav="billing.html">
+        <i class="fas fa-file-invoice"></i> My billing
+      </a>
+      <a href="visitors.html" class="sidebar__link" data-nav="visitors.html">
+        <i class="fas fa-address-book"></i> My visitors
+      </a>
+      <a href="residents.html" class="sidebar__link" data-nav="residents.html">
+        <i class="fas fa-user-friends"></i> Sign Up
+      </a>
+
+      <!-- AHEWA dropdown -->
+      <div class="sidebar__group">
+        <button type="button" class="sidebar__group-header" data-group="ahewa">
+          <span><i class="fas fa-chart-pie"></i> AHEWA</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="sidebar__sub" id="group-ahewa">
+          <a href="ahewa.html" class="sidebar__link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+          <a href="ahewa-events.html" class="sidebar__link"><i class="fas fa-calendar-alt"></i> Events</a>
         </div>
       </div>
 
-      <div class="nav-dropdown">
-        <a href="#">Admin ▾</a>
-        <div class="dropdown-menu">
-          <a href="admin.html">Dashboard</a>
-          <a href="pending.html">Pending approvals</a>
-          <a href="admin-reviews.html">All Reviews</a>
-          <a href="admin-residents.html">Approved residents</a>
-          <a href="admin-house-numbers.html">House numbers</a>
-          <a href="admin-invoices.html">Invoices</a>
-          <a href="admin-payments.html">Payments</a>
-          <a href="admin-visitors.html">Visitors</a>
-          <a href="admin-providers.html">All vendors</a>
+      <!-- Admin dropdown -->
+      <div class="sidebar__group">
+        <button type="button" class="sidebar__group-header" data-group="admin">
+          <span><i class="fas fa-shield-alt"></i> Admin</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="sidebar__sub" id="group-admin">
+          <a href="admin.html" class="sidebar__link"><i class="fas fa-chart-line"></i> Dashboard</a>
+          <a href="pending.html" class="sidebar__link"><i class="fas fa-clock"></i> Pending approvals</a>
+          <a href="admin-reviews.html" class="sidebar__link"><i class="fas fa-star"></i> All Reviews</a>
+          <a href="admin-residents.html" class="sidebar__link"><i class="fas fa-users"></i> Approved residents</a>
+          <a href="admin-house-numbers.html" class="sidebar__link"><i class="fas fa-home"></i> House numbers</a>
+          <a href="admin-invoices.html" class="sidebar__link"><i class="fas fa-file-invoice-dollar"></i> Invoices</a>
+          <a href="admin-payments.html" class="sidebar__link"><i class="fas fa-credit-card"></i> Payments</a>
+          <a href="admin-visitors.html" class="sidebar__link"><i class="fas fa-user-tag"></i> Visitors</a>
+          <a href="admin-providers.html" class="sidebar__link"><i class="fas fa-store"></i> All vendors</a>
         </div>
       </div>
     </nav>
-  </div>
-</header>
 
-<!-- ============================================================
-     HERO + FILTERS (category dropdown removed — tiles handle it)
-     ============================================================ -->
-<section class="hero">
-  <div class="container hero-grid">
-    <div>
-      <div class="hero-eyebrow">Athi Highway Estate, resident-only</div>
-      <h1>One noticeboard for every plumber, cleaner and errand-runner in the estate.</h1>
-      <p>Stop scrolling the WhatsApp group for the day's two posts. Search, compare and book verified providers any time — then track the job from request to done.</p>
+    <div class="sidebar__footer">
+      &copy; 2025 Athi Highway Estate
     </div>
-    <div class="hero-stats">
-      <div class="hero-stat"><b id="stat-providers">–</b><span>Active providers listed</span></div>
-      <div class="hero-stat"><b id="stat-verified">–</b><span>Verified by estate admin</span></div>
-      <div class="hero-stat"><b>2×/day</b><span>Old WhatsApp post limit — now unlimited</span></div>
-    </div>
-  </div>
+  </aside>
 
-  <div class="container">
-    <form class="search-panel" id="search-form">
+  <!-- Mobile overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-      <div class="field">
-        <label for="q">Search</label>
-        <input type="text" id="q" placeholder="e.g. Grace, blocked drain, cleaning…" />
-      </div>
+  <!-- ================= MAIN CONTENT ================= -->
+  <div class="main">
 
-      <div class="field">
-        <label for="phase">Phase</label>
-        <select id="phase">
-          <option value="">All phases</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="court">Court</label>
-        <select id="court" disabled>
-          <option value="">All courts</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="maxPrice">Max Price (KSh)</label>
-        <input type="number" id="maxPrice" placeholder="e.g. 500" min="0" />
-      </div>
-
-    </form>
-
-    <div style="display:flex; justify-content:flex-end; margin-top:12px;">
-      <button type="button" id="reset-search" class="btn btn--ghost btn--small">
-        ✕ Clear all filters
+    <!-- Mobile top bar (hidden on desktop) -->
+    <div class="topbar">
+      <button class="topbar__toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+        <i class="fas fa-bars"></i>
       </button>
+      <span class="topbar__title">Athi Soko</span>
+      <span style="width:32px;"></span>
     </div>
-  </div>
-</section>
 
-<!-- ============================================================
-     CATEGORY-FIRST LANDING
-     ============================================================ -->
-<section class="container" style="padding: 40px 0 24px;">
-  <div class="category-head">
-    <h2>Browse by category</h2>
-    <p>Pick a service type to see available vendors</p>
-  </div>
-  <div class="category-tiles" id="category-tiles"></div>
-</section>
+    <!-- HERO + FILTERS -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="hero-eyebrow">Athi Highway Estate, resident-only</div>
+          <h1>One noticeboard for every plumber, cleaner and errand-runner in the estate.</h1>
+          <p>Stop scrolling the WhatsApp group for the day's two posts. Search, compare and book verified providers any time — then track the job from request to done.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><b id="stat-providers">–</b><span>Active providers listed</span></div>
+          <div class="hero-stat"><b id="stat-verified">–</b><span>Verified by estate admin</span></div>
+          <div class="hero-stat"><b>2×/day</b><span>Old WhatsApp post limit — now unlimited</span></div>
+        </div>
+      </div>
 
-<!-- ============================================================
-     RESULTS (Load More)
-     ============================================================ -->
-<main class="container section" style="padding-top: 0;">
-  <div class="section-head">
-    <div>
-      <h2 id="results-heading">All providers</h2>
-      <p id="results-count"></p>
-    </div>
-  </div>
-  <div class="provider-grid" id="provider-grid"></div>
-</main>
+      <div class="container">
+        <form class="search-panel" id="search-form">
+          <div class="field">
+            <label for="q">Search</label>
+            <input type="text" id="q" placeholder="e.g. Grace, blocked drain, cleaning…" />
+          </div>
+          <div class="field">
+            <label for="phase">Phase</label>
+            <select id="phase">
+              <option value="">All phases</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="court">Court</label>
+            <select id="court" disabled>
+              <option value="">All courts</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="maxPrice">Max Price (KSh)</label>
+            <input type="number" id="maxPrice" placeholder="e.g. 500" min="0" />
+          </div>
+        </form>
 
-<footer class="site-footer">
-  <div class="container" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; width:100%;">
-    <span>AthiEstateAccessSokoConnectProjectAmalgamated — a service of Athi Highway Estate management.</span>
-    <span>Prices are set by providers. Payment is arranged directly between residents and providers.</span>
+        <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+          <button type="button" id="reset-search" class="btn btn--ghost btn--small">
+            ✕ Clear all filters
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CATEGORY-FIRST LANDING -->
+    <section class="container" style="padding: 40px 0 24px;">
+      <div class="category-head">
+        <h2>Browse by category</h2>
+        <p>Pick a service type to see available vendors</p>
+      </div>
+
+      <div class="category-tiles" id="category-tiles"></div>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <button type="button" id="btn-load-more-categories" class="btn btn--ghost btn--small" style="display: none;">
+          View more categories
+        </button>
+        <div style="margin-top: 10px;">
+          <button type="button" id="btn-show-fewer-categories"
+                  style="display: none; background: none; border: none; cursor: pointer;
+                         font-size: 0.88rem; color: var(--ink-70); text-decoration: underline;
+                         padding: 4px 8px;">
+            ↺ Show fewer
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS -->
+    <main class="container section" style="padding-top: 0;">
+      <div class="section-head">
+        <div>
+          <h2 id="results-heading">All providers</h2>
+          <p id="results-count"></p>
+        </div>
+      </div>
+      <div class="provider-grid" id="provider-grid"></div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; width:100%;">
+        <span>AthiEstateAccessSokoConnectProjectAmalgamated — a service of Athi Highway Estate management.</span>
+        <span>Prices are set by providers. Payment is arranged directly between residents and providers.</span>
+      </div>
+    </footer>
   </div>
-</footer>
-<script src="js/auth.js"></script>
-<script src="js/api.js"></script>
-<script src="js/main.js"></script>
-<script src="js/home.js"></script>
+
+  <!-- ========== SCRIPTS ========== -->
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/home.js"></script>
+  <script src="js/sidebar.js"></script>
 </body>
 </html>

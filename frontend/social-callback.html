@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signing in… · Athi Soko Connect</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <main class="container" style="padding:80px 24px; text-align:center;">
+    <h1>Signing you in…</h1>
+    <p id="social-status">Please wait.</p>
+  </main>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    (function () {
+      const statusEl = document.getElementById("social-status");
+
+      const hash = window.location.hash.slice(1);
+      const params = new URLSearchParams(hash);
+      const token = params.get("token");
+      const userRaw = params.get("user");
+      const err = params.get("error");
+
+      if (err) {
+        statusEl.textContent = "Sign-in failed: " + decodeURIComponent(err);
+        setTimeout(() => (window.location.href = "login.html"), 2500);
+        return;
+      }
+
+      if (!token || !userRaw) {
+        statusEl.textContent = "Missing session data. Redirecting to login…";
+        setTimeout(() => (window.location.href = "login.html"), 2000);
+        return;
+      }
+
+      let user;
+      try { user = JSON.parse(decodeURIComponent(userRaw)); }
+      catch (e) {
+        statusEl.textContent = "Bad session data. Redirecting to login…";
+        setTimeout(() => (window.location.href = "login.html"), 2000);
+        return;
+      }
+
+      saveSession(token, user);
+      history.replaceState(null, "", "social-callback.html");
+
+      if (user.role === "admin")       window.location.href = "admin.html";
+      else if (user.role === "vendor") window.location.href = "provider-dashboard.html";
+      else                             window.location.href = "dashboard.html";
+    })();
+  </script>
+</body>
+</html>

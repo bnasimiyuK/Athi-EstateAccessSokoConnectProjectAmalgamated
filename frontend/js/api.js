@@ -1,20 +1,20 @@
-/* ============================================================
-   api.js — thin fetch wrapper around the backend REST API.
+﻿/* ============================================================
+   api.js â€” thin fetch wrapper around the backend REST API.
    Now attaches the JWT (from auth.js) to every request.
 
    API base URL is resolved dynamically:
-     - Browser running at localhost         → http://localhost:4050/api
-     - Browser running at LAN IP (192.168..) → http://<same-host>:4050/api
-     - Capacitor mobile app (capacitor://)   → falls back to LAN IP
+     - Browser running at localhost         â†’ http://localhost:4050/api
+     - Browser running at LAN IP (192.168..) â†’ http://<same-host>:4050/api
+     - Capacitor mobile app (capacitor://)   â†’ falls back to LAN IP
 
-   🔧 TO CHANGE THE LAN IP, EDIT THE `LAN_IP` CONSTANT BELOW.
+   ðŸ”§ TO CHANGE THE LAN IP, EDIT THE `LAN_IP` CONSTANT BELOW.
    ============================================================ */
 
 /* ------------------------------------------------------------
-   SETTINGS — edit these two values if your network changes
+   SETTINGS â€” edit these two values if your network changes
    ------------------------------------------------------------ */
 const BACKEND_PORT = 4050;
-const LAN_IP       = "192.168.100.5";   // ← your PC's LAN IP
+const LAN_IP       = "192.168.100.5";   // â† your PC's LAN IP
 
 /* ------------------------------------------------------------
    Resolve API base at runtime
@@ -23,12 +23,12 @@ const API_BASE = (() => {
   const protocol = window.location.protocol;
   const host     = window.location.hostname;
 
-  // Capacitor mobile app — runs inside a WebView with a special protocol
+  // Capacitor mobile app â€” runs inside a WebView with a special protocol
   // (capacitor://localhost on iOS, http://localhost on Android)
   // In this case, window.location.hostname is "localhost" but we're on a device,
   // so we must use the LAN_IP.
   // Capacitor on Android (v3+) serves the app from https://localhost.
-  // Detect: we're loaded over HTTPS on "localhost" → we're in the app.
+  // Detect: we're loaded over HTTPS on "localhost" â†’ we're in the app.
   if (
     protocol === "capacitor:" ||
     protocol === "ionic:" ||
@@ -37,12 +37,12 @@ const API_BASE = (() => {
     return `http://${LAN_IP}:${BACKEND_PORT}/api`;
   }
 
-  // Browser on PC → use localhost
+  // Browser on PC â†’ use localhost
   if (host === "localhost" || host === "127.0.0.1") {
     return `http://localhost:${BACKEND_PORT}/api`;
   }
 
-  // Browser on LAN IP → use the same host
+  // Browser on LAN IP â†’ use the same host
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
     return `http://${host}:${BACKEND_PORT}/api`;
   }
@@ -54,7 +54,7 @@ const API_BASE = (() => {
 console.log("[api] API_BASE resolved to:", API_BASE);
 
 /* ------------------------------------------------------------
-   Core request helper — attaches Bearer token if present
+   Core request helper â€” attaches Bearer token if present
    ------------------------------------------------------------ */
 async function request(url, options = {}) {
   const headers = {
@@ -96,7 +96,7 @@ function qsOf(params = {}) {
 }
 
 /* ------------------------------------------------------------
-   Api — every backend endpoint exposed as a method
+   Api â€” every backend endpoint exposed as a method
    ------------------------------------------------------------ */
 const Api = {
   /* ---------- Auth ---------- */
@@ -365,7 +365,7 @@ const Api = {
     request(`${API_BASE}/house-numbers/assigned`),
   
   /* ============================================================
-     VISITORS — resident
+     VISITORS â€” resident
      ============================================================ */
   getVisitorConfig: () =>
     request(`${API_BASE}/visitors/config`),
@@ -386,7 +386,7 @@ const Api = {
     }),
 
   /* ============================================================
-     VISITORS — admin + security
+     VISITORS â€” admin + security
      ============================================================ */
   getVisitorPendingAdmin: (params = {}) =>
     request(`${API_BASE}/visitors/pending-admin${qsOf(params)}`),
@@ -467,7 +467,21 @@ const Api = {
 
   getVisitorLiveStats: () =>
     request(`${API_BASE}/visitors/live-stats`),
-  
+  async uploadAvatar(formData) {
+  const token = typeof getToken === "function" ? getToken() : null;
+  const headers = {};
+  if (token) headers.Authorization = "Bearer " + token;
+  const res = await fetch(API_BASE + "/auth/me/avatar", {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error("Upload failed: " + res.status + " " + t);
+  }
+  return res.json();
+},
 };
 
 
