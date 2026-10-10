@@ -38,6 +38,16 @@
         { href: "admin-health.html",             label: "System health",      icon: "fa-heartbeat" },
       ],
     },
+        {
+      key: "super-admin", label: "Super Admin", icon: "fa-crown",
+      items: [
+        { href: "super-admin.html",              label: "Overview",        icon: "fa-tachometer-alt" },
+        { href: "super-admin-admins.html",       label: "Manage admins",   icon: "fa-user-shield" },
+        { href: "super-admin-categories.html",   label: "Categories",      icon: "fa-tags" },
+        { href: "super-admin-providers.html",    label: "All providers",   icon: "fa-store" },
+        { href: "super-admin-residents.html",    label: "All residents",   icon: "fa-users" },
+      ],
+    },
   ];
 
   const BRAND_NAME   = "Athi Soko";
@@ -72,18 +82,21 @@
     };
 
     const mainHtml = MAIN_LINKS.map(linkHtml).join("");
+const currentUser = (typeof getUser === "function")
+  ? getUser()
+  : (function () {
+      try { return JSON.parse(localStorage.getItem("asc_user") || "null"); }
+      catch (e) { return null; }
+    })();
+ 
+const isSuper = currentUser && currentUser.role === "super-admin";
 
-    const groupsHtml = GROUPS.map((g) => {
-      const open = g.items.some((it) => it.href === current) ? " open" : "";
-      const subs = g.items.map(linkHtml).join("");
-      return '<div class="sidebar__group">' +
-        '<button type="button" class="sidebar__group-header' + open + '" data-group="' + esc(g.key) + '">' +
-          '<span><i class="fas ' + esc(g.icon) + '"></i> ' + esc(g.label) + '</span>' +
-          '<i class="fas fa-chevron-down"></i>' +
-        '</button>' +
-        '<div class="sidebar__sub' + open + '" id="group-' + esc(g.key) + '">' + subs + '</div>' +
-      '</div>';
-    }).join("");
+const groupsHtml = GROUPS
+  .filter((g) => g.key !== "super-admin" || isSuper)
+  .map((g) => {
+    const open = g.items.some((it) => it.href === current) ? " open" : "";
+    // ...existing logic
+  }).join("");
 
     return '<aside class="sidebar" id="sidebar">' +
       '<div class="sidebar__header">' +

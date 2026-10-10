@@ -1,5 +1,5 @@
-/* ============================================================
-   pending.js — admin approval queue for residents + vendors
+﻿/* ============================================================
+   pending.js â€” admin approval queue for residents + vendors
    + Prev/Next pagination for both columns
    ============================================================ */
 
@@ -47,12 +47,12 @@ function pendingCard(item, kind) {
   const isResident = kind === "residents";
 
   const contact = isResident
-    ? `<div class="meta"><i class="fas fa-phone"></i> ${item.phone || "—"}</div>
-       <div class="meta"><i class="fas fa-envelope"></i> ${item.email || "—"}</div>
-       <div class="meta"><i class="fas fa-map-marker-alt"></i> Phase ${item.phase} · ${item.courtName}</div>`
+    ? `<div class="meta"><i class="fas fa-phone"></i> ${item.phone || "â€”"}</div>
+       <div class="meta"><i class="fas fa-envelope"></i> ${item.email || "â€”"}</div>
+       <div class="meta"><i class="fas fa-map-marker-alt"></i> Phase ${item.phase} Â· ${item.courtName}</div>`
     : `<div class="meta"><i class="fas fa-tag"></i> ${categoryLabel(item.category)}</div>
-       <div class="meta"><i class="fas fa-phone"></i> ${item.phone || "—"}</div>
-       <div class="meta"><i class="fas fa-map-marker-alt"></i> ${item.zone || "—"}</div>`;
+       <div class="meta"><i class="fas fa-phone"></i> ${item.phone || "â€”"}</div>
+       <div class="meta"><i class="fas fa-map-marker-alt"></i> ${item.zone || "â€”"}</div>`;
 
   const label = isResident ? item.fullName : item.name;
 
@@ -94,17 +94,17 @@ function paginationHtml(kind) {
                 gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
                 border-top:1px solid var(--line);">
       <div style="font-size:0.85rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        Showing <b>${startRow}â€“${endRow}</b> of <b>${total}</b>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn--ghost btn--small" data-pending-page="${kind}:prev" ${prevDisabled}>
-          « Prev
+          Â« Prev
         </button>
         <span style="font-size:0.85rem;color:var(--ink-70);padding:0 4px;">
           Page <b>${page}</b> of <b>${totalPages}</b>
         </span>
         <button class="btn btn--ghost btn--small" data-pending-page="${kind}:next" ${nextDisabled}>
-          Next »
+          Next Â»
         </button>
       </div>
     </div>
@@ -140,7 +140,7 @@ function wirePagination(kind) {
    ------------------------------------------------------------ */
 async function loadResidents() {
   const listEl = document.getElementById("residents-list");
-  listEl.innerHTML = `<div class="empty-state">Loading…</div>`;
+  listEl.innerHTML = `<div class="empty-state">Loadingâ€¦</div>`;
 
   let result;
   try {
@@ -182,7 +182,7 @@ async function loadResidents() {
    ------------------------------------------------------------ */
 async function loadVendors() {
   const listEl = document.getElementById("vendors-list");
-  listEl.innerHTML = `<div class="empty-state">Loading…</div>`;
+  listEl.innerHTML = `<div class="empty-state">Loadingâ€¦</div>`;
 
   let result;
   try {
@@ -207,7 +207,7 @@ async function loadVendors() {
     pendingState.vendors.total ? `(${pendingState.vendors.total})` : "";
 
   if (!vendors.length) {
-    listEl.innerHTML = `<div class="empty-state">No pending vendors. 🎉</div>`;
+    listEl.innerHTML = `<div class="empty-state">No pending residents. 🎉</div>`;
     return;
   }
 
@@ -229,10 +229,10 @@ async function approve(id, kind) {
   try {
     if (kind === "residents") {
       await Api.updateResident(id, { verified: true });
-      toast("✅ Resident approved. Welcome email sent.");
+      toast("âœ… Resident approved. Welcome email sent.");
     } else {
       await Api.updateProvider(id, { verified: true });
-      toast("✅ Vendor approved.");
+      toast("âœ… Vendor approved.");
     }
 
     // Reload the current page (pagination-aware)
@@ -311,7 +311,7 @@ function setupTabs() {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
-  if (!requireRole("admin")) return;
+  if (!requireRole("admin", "super-admin")) return;
 
   setupTabs();
 

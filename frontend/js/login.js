@@ -1,5 +1,6 @@
 /* ============================================================
    login.js — role-tabbed login form
+   Supports 5 roles: admin, super-admin, security, resident, vendor
    ============================================================ */
 
 let currentRole = "resident";
@@ -13,12 +14,14 @@ function applyRole(role) {
   const label = document.getElementById("identifierLabel");
   const input = document.getElementById("identifier");
 
-  if (role === "admin" || role === "security") {
+  if (role === "admin" || role === "super-admin" || role === "security") {
+    /* Admin, super-admin, and security log in with email */
     label.innerHTML = `<i class="fas fa-envelope"></i> Email address`;
     input.placeholder = "you@example.com";
     input.type = "email";
     input.value = "";
   } else {
+    /* Resident & vendor log in with phone (Kenyan or international) */
     label.innerHTML = `<i class="fas fa-phone-alt"></i> Phone number`;
     input.placeholder = "07XX XXX XXX";
     input.type = "tel";
@@ -34,20 +37,28 @@ function applyRole(role) {
    Redirect after login, based on role (or `?next=` param)
 
    Priority:
-   1. Security role  → security-visitors.html  (always, no exceptions)
-   2. ?next= param   → that URL                (deep links)
-   3. Role default   → admin/resident/vendor pages
+   1. Security role    → security-visitors.html (always)
+   2. Super Admin role → super-admin.html       (always, unless ?next=)
+   3. ?next= param     → that URL               (deep links)
+   4. Role default     → admin/resident/vendor pages
    ------------------------------------------------------------ */
 function redirectAfterLogin(user) {
-  /* 1. Security always goes to its own dashboard.
-     This takes priority over ?next= so a lingering next=dashboard.html
-     from a previous session doesn't hijack the redirect. */
+  /* 1. Security always goes to its own dashboard. */
   if (user?.role === "security") {
     window.location.href = "security-visitors.html";
     return;
   }
 
-  /* 2. Honor ?next= for everyone else */
+  /* 2. Super admin always goes to the super-admin dashboard,
+        unless an explicit ?next= is provided. */
+  if (user?.role === "super-admin") {
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    window.location.href = next || "super-admin.html";
+    return;
+  }
+
+  /* 3. Honor ?next= for everyone else */
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
   if (next) {
@@ -55,7 +66,7 @@ function redirectAfterLogin(user) {
     return;
   }
 
-  /* 3. Role-based default */
+  /* 4. Role-based default */
   switch (user?.role) {
     case "admin":  window.location.href = "admin.html"; break;
     case "vendor": window.location.href = "provider-dashboard.html"; break;
@@ -82,8 +93,8 @@ async function handleLogin(e) {
   /* ---------- Client-side format validation ---------- */
   let normalizedIdentifier = identifier;
 
-  if (currentRole === "admin" || currentRole === "security") {
-    /* Admin & security log in with email */
+  if (currentRole === "admin" || currentRole === "super-admin" || currentRole === "security") {
+    /* Admin, super-admin & security log in with email */
     const check = validateEmail(identifier, { optional: false });
     if (!check.valid) { showMessage(check.reason, true); return; }
     normalizedIdentifier = check.normalized;

@@ -1,11 +1,13 @@
 ﻿/* ============================================================
-   routes/auth.js â€” login, me, logout, change-password
-      Supports 4 roles: admin, security, resident, vendor
+   routes/auth.js — login, me, logout, change-password,
+                    avatar upload, forgot / reset password
+      Supports roles: admin, super-admin, security, resident, vendor
    ============================================================ */
 
 const express = require("express");
 const bcrypt  = require("bcryptjs");
 const jwt     = require("jsonwebtoken");
+const crypto  = require("crypto");
 const router  = express.Router();
 const { getPool } = require("../db");
 const { requireAuth, JWT_SECRET } = require("../middleware/auth");
@@ -47,21 +49,21 @@ router.post("/login", async (req, res, next) => {
       });
     }
 
-    if (!["admin", "security", "resident", "vendor"].includes(role)) {
+    if (!["admin", "super-admin", "security", "resident", "vendor"].includes(role)) {
       return res.status(400).json({ error: "Invalid role." });
     }
 
     /* ---------- Validate identifier format by role ---------- */
     let normalizedIdentifier = identifier.trim();
 
-    if (role === "admin" || role === "security") {
+    if (role === "admin" || role === "super-admin" || role === "security") {
       const emailCheck = validateEmail(normalizedIdentifier, { optional: false });
       if (!emailCheck.valid) {
         return res.status(400).json({ error: emailCheck.reason });
       }
       normalizedIdentifier = emailCheck.normalized;
     } else {
-      /* resident or vendor â€” phone */
+      /* resident or vendor — phone */
       const phoneCheck = normalizePhone(normalizedIdentifier);
       if (!phoneCheck.valid) {
         return res.status(400).json({ error: phoneCheck.reason });
@@ -69,7 +71,7 @@ router.post("/login", async (req, res, next) => {
       normalizedIdentifier = phoneCheck.normalized;
     }
 
-    /* Password presence check (don't enforce strength on login â€” just non-empty) */
+    /* Password presence check (don't enforce strength on login — just non-empty) */
     if (typeof password !== "string" || password.length === 0) {
       return res.status(400).json({ error: "Password is required." });
     }
@@ -77,6 +79,27 @@ router.post("/login", async (req, res, next) => {
     const pool = await getPool();
     let user = null;
     let mustChange = false;
+
+    /* ---------- SUPER ADMIN ---------- */
+    if (role === "super-admin") {
+      const r = await pool.request()
+        .input("email", normalizedIdentifier.toLowerCase())
+        .query("SELECT * FROM SuperAdmins WHERE email = @email");
+
+      if (r.recordset.length) {
+        const row = r.recordset[0];
+        const ok = await bcrypt.compare(password, row.passwordHash);
+        if (ok) {
+          user = {
+            id:    row.id,
+            role:  "super-admin",
+            name:  row.name,
+            email: row.email,
+          };
+          mustChange = false;
+        }
+      }
+    }
 
     /* ---------- ADMIN & SECURITY ---------- */
     if (role === "admin" || role === "security") {
@@ -219,7 +242,7 @@ router.post("/login", async (req, res, next) => {
 
 /* ------------------------------------------------------------
    POST /api/auth/register-resident
-   Public self-registration â€” fully transactional.
+   Public self-registration — fully transactional.
    ------------------------------------------------------------ */
 router.post("/register-resident", async (req, res, next) => {
   const pool = await getPool();
@@ -232,14 +255,12 @@ router.post("/register-resident", async (req, res, next) => {
       payments = [],
     } = req.body;
 
-    /* ---------- Basic presence checks ---------- */
     if (!fullName || !phone || !courtId || !password) {
       return res.status(400).json({
         error: "fullName, phone, courtId, and password are required.",
       });
     }
 
-    /* ---------- Field validation ---------- */
     const nameCheck = validateName(fullName, "Full name");
     if (!nameCheck.valid) return res.status(400).json({ error: nameCheck.reason });
 
@@ -252,10 +273,9 @@ router.post("/register-resident", async (req, res, next) => {
     const pwCheck = validatePassword(password);
     if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.reason });
 
-    /* ---------- Normalize for downstream use ---------- */
     const normalizedFullName = nameCheck.normalized;
     const normalizedPhone    = phoneCheck.normalized;
-    const normalizedEmail    = emailCheck.normalized; // null if not provided
+    const normalizedEmail    = emailCheck.normalized;
 
     const courtIdInt = parseInt(courtId, 10);
     if (isNaN(courtIdInt)) {
@@ -280,7 +300,6 @@ router.post("/register-resident", async (req, res, next) => {
       }
     }
 
-    /* ---------- Pre-flight checks (outside the tx â€” read-only) ---------- */
     const court = await pool.request()
       .input("courtId", courtIdInt)
       .query("SELECT id FROM Courts WHERE id = @courtId");
@@ -297,17 +316,14 @@ router.post("/register-resident", async (req, res, next) => {
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-    /* ---------- Compute billing month + due date once ---------- */
     const now   = new Date();
     const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
     const [y, m]   = month.split("-").map(Number);
     const dueDate  = new Date(Date.UTC(y, m - 1, 5));
 
-    /* ---------- BEGIN TRANSACTION ---------- */
     await tx.begin();
 
     try {
-      /* ---- 1. Insert resident ---- */
       const inserted = await tx.request()
         .input("fullName",  normalizedFullName)
         .input("phone",     normalizedPhone)
@@ -413,7 +429,7 @@ router.post("/register-resident", async (req, res, next) => {
 });
 
 /* ------------------------------------------------------------
-   GET /api/auth/me â€” return current user from token
+   GET /api/auth/me — return current user from token
    ------------------------------------------------------------ */
 router.get("/me", requireAuth, (req, res) => {
   res.json({ user: req.user });
@@ -442,8 +458,13 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 
     let table = "";
     let idForUpdate = id;
+    let hashCol = "password_hash";   // most tables use this
 
     if (role === "admin" || role === "security") table = "Admins";
+    if (role === "super-admin") {
+      table = "SuperAdmins";
+      hashCol = "passwordHash";      // SuperAdmins uses camelCase
+    }
     if (role === "resident") table = "Residents";
     if (role === "vendor") {
       table = "Residents";
@@ -456,7 +477,7 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 
     const row = await pool.request()
       .input("id", idForUpdate)
-      .query(`SELECT password_hash AS hash FROM ${table} WHERE id = @id`);
+      .query(`SELECT ${hashCol} AS hash FROM ${table} WHERE id = @id`);
 
     if (!row.recordset.length) {
       return res.status(404).json({ error: "Account not found." });
@@ -469,16 +490,24 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 
     const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
-    await pool.request()
-      .input("id",   idForUpdate)
-      .input("hash", newHash)
-      .query(`
-        UPDATE ${table}
-        SET password_hash         = @hash,
-            must_change_password  = 0,
-            temp_password_expires = NULL
-        WHERE id = @id
-      `);
+    /* SuperAdmins has no must_change_password / temp_password_expires columns */
+    if (table === "SuperAdmins") {
+      await pool.request()
+        .input("id",   idForUpdate)
+        .input("hash", newHash)
+        .query(`UPDATE SuperAdmins SET passwordHash = @hash WHERE id = @id`);
+    } else {
+      await pool.request()
+        .input("id",   idForUpdate)
+        .input("hash", newHash)
+        .query(`
+          UPDATE ${table}
+          SET password_hash         = @hash,
+              must_change_password  = 0,
+              temp_password_expires = NULL
+          WHERE id = @id
+        `);
+    }
 
     res.json({ ok: true });
   } catch (err) {
@@ -496,8 +525,6 @@ router.post("/logout", (req, res) => {
 
 /* ============================================================
    Avatar upload — POST /api/auth/me/avatar
-   Saves to /uploads/avatars/ and updates the right table
-   (Residents / Admins / Providers) based on the user's role.
    ============================================================ */
 const multer = require("multer");
 const path   = require("path");
@@ -525,10 +552,11 @@ const avatarUpload = multer({
 });
 
 const ROLE_TABLE = {
-  resident: "Residents",
-  admin:    "Admins",
-  vendor:   "Providers",
-  provider: "Providers",
+  resident:      "Residents",
+  admin:         "Admins",
+  "super-admin": "SuperAdmins",
+  vendor:        "Providers",
+  provider:      "Providers",
 };
 
 router.post(
@@ -548,7 +576,6 @@ router.post(
 
       const pool = await getPool();
 
-      // Best-effort delete of previous avatar file
       try {
         const prev = await pool.request()
           .input("id", userId)
@@ -574,5 +601,142 @@ router.post(
     }
   }
 );
+
+/* ============================================================
+   FORGOT / RESET PASSWORD
+   ============================================================ */
+
+const RESET_ROLE_TABLE = {
+  resident:      "Residents",
+  admin:         "Admins",
+  "super-admin": "SuperAdmins",
+  vendor:        "Providers",
+  provider:      "Providers",
+  security:      "Admins",   // security logins are stored in Admins
+};
+
+/* ---------- POST /api/auth/forgot-password ---------- */
+router.post("/forgot-password", async (req, res, next) => {
+  try {
+    const { email, role } = req.body;
+    if (!email || !role) {
+      return res.status(400).json({ error: "Email and role are required." });
+    }
+
+    const table = RESET_ROLE_TABLE[role.toLowerCase()];
+    if (!table) {
+      return res.status(400).json({ error: "Unknown role." });
+    }
+
+    const pool = await getPool();
+
+    const found = await pool.request()
+      .input("email", email.trim().toLowerCase())
+      .query(`SELECT id FROM ${table} WHERE LOWER(email) = @email`);
+
+    // Always return success, even if user not found
+    if (!found.recordset.length) {
+      return res.json({ ok: true });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await pool.request()
+      .input("email",  email.trim().toLowerCase())
+      .input("role",   role.toLowerCase())
+      .input("token",  token)
+      .input("exp",    expiresAt)
+      .query(`INSERT INTO password_resets (email, role, token, expires_at)
+              VALUES (@email, @role, @token, @exp)`);
+
+    const origin = req.get("origin") || "http://localhost:3000";
+    const link = `${origin}/reset-password.html?token=${token}`;
+
+    try {
+      await sendMail({
+        to: email,
+        subject: "Reset your Athi Soko password",
+        text:
+`Hello,
+
+You requested a password reset for your Athi Soko account.
+
+Open this link to set a new password (valid for 1 hour):
+${link}
+
+If you didn't request this, you can ignore this email.
+
+— Athi Highway Estate`,
+        html:
+`<p>Hello,</p>
+<p>You requested a password reset for your Athi Soko account.</p>
+<p><a href="${link}" style="background:#c8862a;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">Reset your password</a></p>
+<p>Or copy this URL: <br><code>${link}</code></p>
+<p>This link is valid for 1 hour. If you didn't request this, you can ignore this email.</p>
+<p>— Athi Highway Estate</p>`,
+      });
+    } catch (mailErr) {
+      console.warn("[forgot-password] email failed:", mailErr.message);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ---------- POST /api/auth/reset-password ---------- */
+router.post("/reset-password", async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ error: "Token and password are required." });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters." });
+    }
+
+    const pool = await getPool();
+
+    const found = await pool.request()
+      .input("token", token)
+      .query(`SELECT id, email, role, expires_at, used
+              FROM password_resets
+              WHERE token = @token`);
+
+    const row = found.recordset[0];
+    if (!row) {
+      return res.status(400).json({ error: "Invalid or expired reset link." });
+    }
+    if (row.used) {
+      return res.status(400).json({ error: "This reset link has already been used." });
+    }
+    if (new Date(row.expires_at) < new Date()) {
+      return res.status(400).json({ error: "This reset link has expired." });
+    }
+
+    const table = RESET_ROLE_TABLE[row.role];
+    if (!table) return res.status(400).json({ error: "Unknown role." });
+
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    /* SuperAdmins uses passwordHash; all other tables use password_hash */
+    const hashCol = table === "SuperAdmins" ? "passwordHash" : "password_hash";
+
+    await pool.request()
+      .input("email", row.email)
+      .input("hash",  hash)
+      .query(`UPDATE ${table} SET ${hashCol} = @hash WHERE LOWER(email) = @email`);
+
+    await pool.request()
+      .input("id", row.id)
+      .query(`UPDATE password_resets SET used = 1 WHERE id = @id`);
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = router;

@@ -23,6 +23,7 @@
 
     <!-- Role tabs -->
     <div class="tab-row" id="roleTabs" style="margin-bottom:20px;">
+  <button type="button" class="tab-btn" data-role="super-admin">Super Admin</button>
   <button type="button" class="tab-btn" data-role="admin">Admin</button>
   <button type="button" class="tab-btn" data-role="security">Security</button>
   <button type="button" class="tab-btn is-active" data-role="resident">Resident</button>
@@ -51,7 +52,11 @@
                autocomplete="current-password"
                required />
       </div>
-
+<div style="text-align:right; margin-top:6px;">
+  <a href="forgot-password.html" style="font-size:0.85rem; color:var(--ochre-dark);">
+    Forgot password?
+  </a>
+</div>
       <div class="actions" style="margin-top:24px;">
         <button type="submit" class="btn-primary" id="loginBtn" style="width:100%;">
           <i class="fas fa-sign-in-alt"></i> Log in

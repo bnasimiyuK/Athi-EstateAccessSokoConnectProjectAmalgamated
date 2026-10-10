@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Super Admin — Athi Soko</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+  <main class="container" style="padding: 40px 24px;">
+    <div class="page-head">
+      <h1><i class="fas fa-crown" style="color: var(--ochre);"></i> Super Admin</h1>
+      <p>Full platform control — manage admins, categories, providers, and residents. Every admin page is also open to you.</p>
+    </div>
+
+    <!-- Quick actions — super-admin-specific tools -->
+    <section class="stat-section">
+      <h3 class="stat-section__title">Super Admin tools</h3>
+      <div class="stat-tiles">
+        <a href="super-admin-admins.html" class="stat-tile stat-tile--info">
+          <div class="stat-tile__value"><i class="fas fa-user-shield"></i></div>
+          <div class="stat-tile__label">Manage admins</div>
+        </a>
+        <a href="super-admin-categories.html" class="stat-tile stat-tile--ok">
+          <div class="stat-tile__value"><i class="fas fa-tags"></i></div>
+          <div class="stat-tile__label">Manage categories</div>
+        </a>
+        <a href="super-admin-providers.html" class="stat-tile stat-tile--warn">
+          <div class="stat-tile__value"><i class="fas fa-store"></i></div>
+          <div class="stat-tile__label">All providers</div>
+        </a>
+        <a href="super-admin-residents.html" class="stat-tile stat-tile--danger">
+          <div class="stat-tile__value"><i class="fas fa-users"></i></div>
+          <div class="stat-tile__label">All residents</div>
+        </a>
+      </div>
+    </section>
+
+    <!-- Admin tools — same pages the admin can reach -->
+    <section class="stat-section">
+      <h3 class="stat-section__title">Admin tools</h3>
+      <p style="margin-bottom: 12px;">These pages are shared with estate admins. You have full access to all of them.</p>
+      <div class="stat-tiles">
+        <a href="admin.html" class="stat-tile stat-tile--info">
+          <div class="stat-tile__value"><i class="fas fa-chart-line"></i></div>
+          <div class="stat-tile__label">Admin dashboard</div>
+        </a>
+        <a href="pending.html" class="stat-tile stat-tile--warn">
+          <div class="stat-tile__value"><i class="fas fa-clock"></i></div>
+          <div class="stat-tile__label">Pending approvals</div>
+        </a>
+        <a href="admin-reviews.html" class="stat-tile stat-tile--info">
+          <div class="stat-tile__value"><i class="fas fa-star"></i></div>
+          <div class="stat-tile__label">All reviews</div>
+        </a>
+        <a href="admin-residents.html" class="stat-tile stat-tile--ok">
+          <div class="stat-tile__value"><i class="fas fa-users"></i></div>
+          <div class="stat-tile__label">Approved residents</div>
+        </a>
+        <a href="admin-providers.html" class="stat-tile stat-tile--ok">
+          <div class="stat-tile__value"><i class="fas fa-store"></i></div>
+          <div class="stat-tile__label">All vendors</div>
+        </a>
+        <a href="admin-house-numbers.html" class="stat-tile stat-tile--info">
+          <div class="stat-tile__value"><i class="fas fa-home"></i></div>
+          <div class="stat-tile__label">House numbers</div>
+        </a>
+        <a href="admin-invoices.html" class="stat-tile stat-tile--info">
+          <div class="stat-tile__value"><i class="fas fa-file-invoice-dollar"></i></div>
+          <div class="stat-tile__label">Invoices</div>
+        </a>
+        <a href="admin-payments.html" class="stat-tile stat-tile--info">
+          <div class="stat-tile__value"><i class="fas fa-credit-card"></i></div>
+          <div class="stat-tile__label">Payments</div>
+        </a>
+        <a href="admin-visitors.html" class="stat-tile stat-tile--info">
+          <div class="stat-tile__value"><i class="fas fa-user-tag"></i></div>
+          <div class="stat-tile__label">Visitors</div>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/super-admin.js"></script>
+</body>
+</html>

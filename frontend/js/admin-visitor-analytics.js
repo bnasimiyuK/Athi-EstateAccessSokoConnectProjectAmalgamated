@@ -1,5 +1,5 @@
-/* ============================================================
-   admin-visitor-analytics.js — charts + totals
+﻿/* ============================================================
+   admin-visitor-analytics.js â€” charts + totals
    ============================================================ */
 
 const charts = {};
@@ -84,7 +84,7 @@ async function loadAnalytics() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  if (typeof requireRole === "function" && !requireRole("admin", "security")) return;
+  if (typeof requireRole === "function" && !requireRole("admin", "security", "super-admin")) return;
 
   const now = new Date();
   const from30 = new Date(Date.now() - 30 * 864e5);

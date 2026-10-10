@@ -1,5 +1,6 @@
 /* ============================================================
    auth.js — token & session helpers (load BEFORE api.js)
+   Super admin passes every guard.
    ============================================================ */
 
 const TOKEN_KEY = "asc_token";
@@ -33,24 +34,35 @@ function clearSession() {
   localStorage.removeItem(USER_KEY);
 }
 
+function isSuperAdmin() {
+  const u = getUser();
+  return !!(u && u.role === "super-admin");
+}
+
 /* ---------- Logout and redirect ---------- */
 function logout() {
   clearSession();
   window.location.href = "login.html";
 }
 
-/* ---------- Redirect by role ---------- */
-function redirectByRole(role) {
+/* ---------- Home page per role ---------- */
+function homeForRole(role) {
   switch (role) {
-    case "admin":    return window.location.href = "admin.html";
-    case "security": return window.location.href = "security-visitors.html";  // temporary
-    case "resident": return window.location.href = "index.html";
-    case "vendor":   return window.location.href = "dashboard.html";
-    default:         return window.location.href = "index.html";
+    case "super-admin": return "super-admin.html";
+    case "admin":       return "admin.html";
+    case "security":    return "security-visitors.html";
+    case "vendor":      return "provider-dashboard.html";
+    case "resident":    return "dashboard.html";
+    default:            return "index.html";
   }
 }
 
-/* ---------- Guard: require login (any role) ---------- */
+/* ---------- Redirect by role ---------- */
+function redirectByRole(role) {
+  window.location.href = homeForRole(role);
+}
+
+/* ---------- Guard: require login (any role, super admin passes) ---------- */
 function requireLogin() {
   if (!isLoggedIn()) {
     window.location.href = "login.html?next=" +
@@ -60,14 +72,31 @@ function requireLogin() {
   return true;
 }
 
-/* ---------- Guard: require a specific role ---------- */
-function requireRole(...allowed) {
-  if (!requireLogin()) return false;
+/* ---------- Guard: require one of the given roles ----------
+   Super admin passes EVERY role check so they can inspect,
+   test, and maintain any part of the system.
+   ------------------------------------------------------------ */
+function requireRole(...roles) {
   const user = getUser();
-  if (!user || !allowed.includes(user.role)) {
-    alert("You don't have permission to view this page.");
-    redirectByRole(user ? user.role : "resident");
+
+  // Super admin → always allowed
+  if (user && user.role === "super-admin") return true;
+
+  if (!user) {
+    window.location.href = "login.html?next=" +
+      encodeURIComponent(window.location.pathname);
+    return false;
+  }
+  if (!roles.includes(user.role)) {
+    // Not authorized → send them to their own home page
+    window.location.href = homeForRole(user.role);
     return false;
   }
   return true;
 }
+
+/* ---------- Convenience guards for common checks ---------- */
+function requireAdmin()    { return requireRole("admin"); }
+function requireVendor()   { return requireRole("vendor", "provider"); }
+function requireResident() { return requireRole("resident"); }
+function requireSecurity() { return requireRole("security"); }

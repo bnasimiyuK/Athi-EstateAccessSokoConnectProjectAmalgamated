@@ -186,7 +186,8 @@ function renderPayPagination() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  if (typeof requireRole === "function" && !requireRole("admin")) return;
+  if (typeof requireRole === "function" &&
+    !requireRole("admin", "super-admin")) return;
 
   const urlStatus = new URLSearchParams(location.search).get("status");
   if (urlStatus) {

@@ -66,6 +66,7 @@ app.use("/api/reports",    reportsRouter);
 app.use("/api/residents",  residentsRouter);
 app.use("/api/courts",     courtsRouter);
 app.use("/api/admin",      adminRouter);
+app.use("/api/super-admin", require("./routes/super-admin"));
 app.use("/api/admin/health", require("./routes/adminHealth"));
 app.use("/api/invoices", invoicesRouter);
 app.use("/api/payments", paymentsRouter);

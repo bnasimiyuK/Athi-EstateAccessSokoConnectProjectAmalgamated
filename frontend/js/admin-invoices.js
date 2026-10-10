@@ -283,7 +283,8 @@ function renderINVPagination() {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
-  if (typeof requireRole === "function" && !requireRole("admin")) return;
+  if (typeof requireRole === "function" &&
+    !requireRole("admin", "super-admin")) return;
 
   const now = new Date();
   const ym  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;

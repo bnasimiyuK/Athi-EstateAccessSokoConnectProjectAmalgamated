@@ -1,5 +1,5 @@
-/* ============================================================
-   security-visitors.js — security dashboard
+﻿/* ============================================================
+   security-visitors.js â€” security dashboard
    Tabs: approvals (bulk) | today (per-visitor) | check-in/out
    - Paginated pending list with checkboxes + bulk actions
    - Approve ALL with typed confirmation
@@ -28,7 +28,7 @@ function escapeHtml(s) {
 }
 
 function fmtDate(s) {
-  if (!s) return "—";
+  if (!s) return "â€”";
   return new Date(s).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
 }
 
@@ -97,12 +97,12 @@ function updateBulkBar() {
 }
 
 /* ------------------------------------------------------------
-   Pending approvals — paginated
+   Pending approvals â€” paginated
    ------------------------------------------------------------ */
 async function loadApprovals(page) {
   if (typeof page === "number") svState.page = page;
   const el = document.getElementById("approvals-list");
-  el.innerHTML = `<div class="empty-state">Loading…</div>`;
+  el.innerHTML = `<div class="empty-state">Loadingâ€¦</div>`;
 
   let result;
   try {
@@ -155,11 +155,11 @@ async function loadApprovals(page) {
                        ${svState.selected.has(g.id) ? "checked" : ""} />
               </td>
               <td><b>${escapeHtml(fmtDate(g.visit_date))}</b></td>
-              <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
+              <td>${escapeHtml(g.expected_time_hhmm || "â€”")}</td>
               <td>${escapeHtml(g.house_number)}</td>
               <td>${escapeHtml(g.resident_name)}<br><small>${escapeHtml(g.resident_phone)}</small></td>
               <td>${g.headcount}</td>
-              <td>${escapeHtml(g.purpose || "—")}</td>
+              <td>${escapeHtml(g.purpose || "â€”")}</td>
               <td>${escapeHtml(fmtDate(g.admin_approved_at))}</td>
               <td class="row-actions">
                 <button class="btn btn--accent btn--small" data-approve="${g.id}">Approve</button>
@@ -223,15 +223,15 @@ function renderApprovalsPagination() {
   el.innerHTML = `
     <div class="pagination" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;border-top:1px solid var(--line);">
       <div style="font-size:0.9rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        Showing <b>${startRow}â€“${endRow}</b> of <b>${total}</b>
         ${svState.selected.size ? `<span style="margin-left:12px;color:var(--ochre);font-weight:600;">
-          · ${svState.selected.size} selected
+          Â· ${svState.selected.size} selected
         </span>` : ""}
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn btn--ghost btn--small" data-spg="prev" ${page <= 1 ? "disabled" : ""}>« Prev</button>
+        <button class="btn btn--ghost btn--small" data-spg="prev" ${page <= 1 ? "disabled" : ""}>Â« Prev</button>
         <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">Page <b>${page}</b> of <b>${totalPages}</b></span>
-        <button class="btn btn--ghost btn--small" data-spg="next" ${page >= totalPages ? "disabled" : ""}>Next »</button>
+        <button class="btn btn--ghost btn--small" data-spg="next" ${page >= totalPages ? "disabled" : ""}>Next Â»</button>
       </div>
     </div>
   `;
@@ -250,11 +250,11 @@ function renderApprovalsPagination() {
 async function approveOne(id, btn) {
   if (!confirm("Approve this visit?\n\nThe 6-digit access code will be generated and emailed to the visitor and host.")) return;
   const old = btn.textContent;
-  btn.disabled = true; btn.textContent = "Approving…";
+  btn.disabled = true; btn.textContent = "Approvingâ€¦";
 
   try {
     const r = await Api.approveVisitorSecurity(id);
-    toast(`✅ Approved. Code: ${r.code}`);
+    toast(`âœ… Approved. Code: ${r.code}`);
     svState.selected.delete(parseInt(id, 10));
     await loadTiles();
     await loadApprovals();
@@ -294,14 +294,14 @@ async function bulkApproveSelected() {
 
   const btn = document.getElementById("bulk-approve-btn");
   const old = btn.textContent;
-  btn.disabled = true; btn.textContent = "Approving & sending emails…";
+  btn.disabled = true; btn.textContent = "Approving & sending emailsâ€¦";
 
   try {
     const r = await Api.bulkApproveSecurity(ids);
     const emailsMsg = r.emailsSent !== undefined
-      ? ` · Emails: ${r.emailsSent} sent${r.emailsFailed ? ` · ${r.emailsFailed} failed` : ""}`
+      ? ` Â· Emails: ${r.emailsSent} sent${r.emailsFailed ? ` Â· ${r.emailsFailed} failed` : ""}`
       : "";
-    toast(`✅ Approved: ${r.ok}${r.failed ? ` · Failed: ${r.failed}` : ""}${emailsMsg}`);
+    toast(`âœ… Approved: ${r.ok}${r.failed ? ` Â· Failed: ${r.failed}` : ""}${emailsMsg}`);
 
     if (r.failed > 0)     console.warn("[bulk-approve-security] failures:", r.failures);
     if (r.emailFailures && r.emailFailures.length) {
@@ -334,11 +334,11 @@ async function bulkDenySelected() {
 
   const btn = document.getElementById("bulk-deny-btn");
   const old = btn.textContent;
-  btn.disabled = true; btn.textContent = "Denying…";
+  btn.disabled = true; btn.textContent = "Denyingâ€¦";
 
   try {
     const r = await Api.bulkDenyVisitors(ids, reason);
-    toast(`❌ Denied: ${r.ok}${r.failed ? ` · Failed: ${r.failed}` : ""}`);
+    toast(`âŒ Denied: ${r.ok}${r.failed ? ` Â· Failed: ${r.failed}` : ""}`);
     if (r.failed > 0) console.warn("[bulk-deny] failures:", r.failures);
 
     svState.selected.clear();
@@ -382,14 +382,14 @@ function closeConfirmAllModal() {
 
 async function approveAllPending() {
   const btn = document.getElementById("confirm-all-go");
-  btn.disabled = true; btn.textContent = "Approving…";
+  btn.disabled = true; btn.textContent = "Approvingâ€¦";
 
   try {
     const r = await Api.bulkApproveAllSecurity("APPROVE ALL", SV_MAX_BULK);
     const emailsMsg = r.emailsSent !== undefined
-      ? ` · Emails: ${r.emailsSent} sent${r.emailsFailed ? ` · ${r.emailsFailed} failed` : ""}`
+      ? ` Â· Emails: ${r.emailsSent} sent${r.emailsFailed ? ` Â· ${r.emailsFailed} failed` : ""}`
       : "";
-    toast(`✅ Approved ${r.ok}${r.failed ? ` · Failed ${r.failed}` : ""}${emailsMsg} · ${r.remaining} remaining`);
+    toast(`âœ… Approved ${r.ok}${r.failed ? ` Â· Failed ${r.failed}` : ""}${emailsMsg} Â· ${r.remaining} remaining`);
 
     if (r.failed > 0)     console.warn("[approve-all-security] failures:", r.failures);
     if (r.emailFailures && r.emailFailures.length) {
@@ -418,8 +418,8 @@ async function viewDetails(id) {
     const html = `
       <h2>Visit #${g.id}</h2>
       <p><b>Date:</b> ${escapeHtml(fmtDate(g.visit_date))} ${g.expected_time_hhmm ? "at " + escapeHtml(g.expected_time_hhmm) : ""}</p>
-      <p><b>House:</b> ${escapeHtml(g.house_number)} · <b>Host:</b> ${escapeHtml(g.resident_name)} (${escapeHtml(g.resident_phone)})</p>
-      <p><b>Purpose:</b> ${escapeHtml(g.purpose || "—")}</p>
+      <p><b>House:</b> ${escapeHtml(g.house_number)} Â· <b>Host:</b> ${escapeHtml(g.resident_name)} (${escapeHtml(g.resident_phone)})</p>
+      <p><b>Purpose:</b> ${escapeHtml(g.purpose || "â€”")}</p>
       <p><b>Status:</b> ${statusBadge(g.status)}</p>
       ${g.access_code ? `<p><b>Code:</b> <span style="font-family:monospace;font-size:1.4rem;">${escapeHtml(g.access_code)}</span></p>` : ""}
       <h3>Visitors</h3>
@@ -427,11 +427,11 @@ async function viewDetails(id) {
         ${(g.visitors || []).map((v) => `
           <li style="margin-bottom:6px;">
             <b>${escapeHtml(v.name)}</b>
-            ${v.phone ? " · " + escapeHtml(v.phone) : ""}
-            ${v.email ? " · " + escapeHtml(v.email) : ""}
+            ${v.phone ? " Â· " + escapeHtml(v.phone) : ""}
+            ${v.email ? " Â· " + escapeHtml(v.email) : ""}
             ${v.vehicles && v.vehicles.length
               ? "<br><small>" + v.vehicles.map((veh) =>
-                  `${escapeHtml(veh.type)}: ${escapeHtml(veh.plate)}`).join(" · ") + "</small>"
+                  `${escapeHtml(veh.type)}: ${escapeHtml(veh.plate)}`).join(" Â· ") + "</small>"
               : ""}
           </li>
         `).join("")}
@@ -451,7 +451,7 @@ async function viewDetails(id) {
 }
 
 /* ------------------------------------------------------------
-   Today's list — per-visitor rows
+   Today's list â€” per-visitor rows
    ------------------------------------------------------------ */
 async function loadToday() {
   const el = document.getElementById("today-list");
@@ -459,7 +459,7 @@ async function loadToday() {
   const q = document.getElementById("today-q").value.trim();
 
   if (!date) { el.innerHTML = `<div class="empty-state">Pick a date.</div>`; return; }
-  el.innerHTML = `<div class="empty-state">Loading…</div>`;
+  el.innerHTML = `<div class="empty-state">Loadingâ€¦</div>`;
 
   let result;
   try {
@@ -503,7 +503,7 @@ async function loadToday() {
             const groupHeader = visitors.length > 1 ? `
               <tr style="background:var(--paper-dim);">
                 <td colspan="7" style="font-size:0.85rem;color:var(--ink-70);padding:8px 16px;">
-                  <b>Group #${g.id}</b> · ${visitors.length} visitors ·
+                  <b>Group #${g.id}</b> Â· ${visitors.length} visitors Â·
                   ${onSiteCount} on-site
                   ${onSiteCount > 0
                     ? `<button class="btn btn--ghost btn--small" data-out-all="${g.id}" style="margin-left:8px;">
@@ -518,7 +518,7 @@ async function loadToday() {
             const visitorRows = visitors.map((v) => {
               const vehicles = (v.vehicles || []).map((veh) =>
                 `${escapeHtml(veh.plate)}${veh.driver ? " (" + escapeHtml(veh.driver) + ")" : ""}`
-              ).join(", ") || "—";
+              ).join(", ") || "â€”";
 
               let actionButtons = "";
               if (v.status === "pending" || v.status === "approved") {
@@ -532,11 +532,11 @@ async function loadToday() {
 
               return `
                 <tr>
-                  <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
+                  <td>${escapeHtml(g.expected_time_hhmm || "â€”")}</td>
                   <td>${escapeHtml(g.house_number)}</td>
                   <td>${escapeHtml(v.name)}</td>
                   <td>${vehicles}</td>
-                  <td><b style="font-family:monospace;">${escapeHtml(g.access_code || "—")}</b></td>
+                  <td><b style="font-family:monospace;">${escapeHtml(g.access_code || "â€”")}</b></td>
                   <td>${statusBadge(v.status)}</td>
                   <td>${actionButtons}</td>
                 </tr>
@@ -636,7 +636,7 @@ async function searchCheckin() {
   const el = document.getElementById("ci-result");
   if (!q) { el.innerHTML = ""; return; }
 
-  el.innerHTML = `<div class="empty-state">Searching…</div>`;
+  el.innerHTML = `<div class="empty-state">Searchingâ€¦</div>`;
 
   try {
     const r = await Api.getVisitorGroups({ q, limit: 20 });
@@ -650,9 +650,9 @@ async function searchCheckin() {
       <div class="alert-card" style="max-width:640px;">
         <div class="alert-card__head">Match: Visit #${g.id}</div>
         <div class="alert-card__body">
-          <p><b>House:</b> ${escapeHtml(g.house_number)} · <b>Host:</b> ${escapeHtml(g.resident_name)}</p>
+          <p><b>House:</b> ${escapeHtml(g.house_number)} Â· <b>Host:</b> ${escapeHtml(g.resident_name)}</p>
           <p><b>Date:</b> ${escapeHtml(fmtDate(g.visit_date))}</p>
-          <p><b>Code:</b> <span style="font-family:monospace;font-size:1.4rem;">${escapeHtml(g.access_code || "—")}</span></p>
+          <p><b>Code:</b> <span style="font-family:monospace;font-size:1.4rem;">${escapeHtml(g.access_code || "â€”")}</span></p>
           <p><b>Status:</b> ${statusBadge(g.status)}</p>
           <div style="display:flex;gap:10px;margin-top:14px;">
             ${g.status === "approved"   ? `<button class="btn btn--accent" data-do="in">Check in</button>` : ""}
@@ -687,7 +687,7 @@ async function printRegister() {
 
     const w = window.open("", "_blank");
     w.document.write(`
-      <html><head><title>Visitor Register — ${date}</title>
+      <html><head><title>Visitor Register â€” ${date}</title>
       <style>
         body { font-family: -apple-system, sans-serif; padding: 24px; color:#111; }
         h1 { margin-bottom: 4px; }
@@ -697,8 +697,8 @@ async function printRegister() {
         .code { font-family: monospace; font-weight: bold; font-size: 14px; }
       </style>
       </head><body>
-        <h1>Visitor Register — ${date}</h1>
-        <p>Athi Estate Access · Generated ${new Date().toLocaleString("en-KE")}</p>
+        <h1>Visitor Register â€” ${date}</h1>
+        <p>Athi Estate Access Â· Generated ${new Date().toLocaleString("en-KE")}</p>
         <table>
           <thead>
             <tr><th>Time</th><th>House</th><th>Host</th><th>Visitor</th><th>Phone</th><th>Vehicle</th><th>Code</th><th>In</th><th>Out</th></tr>
@@ -707,13 +707,13 @@ async function printRegister() {
             ${rows.flatMap((g) =>
               g.visitors.map((v) => `
                 <tr>
-                  <td>${escapeHtml(g.expected_time_hhmm || "—")}</td>
+                  <td>${escapeHtml(g.expected_time_hhmm || "â€”")}</td>
                   <td>${escapeHtml(g.house_number)}</td>
                   <td>${escapeHtml(g.resident_name)}</td>
                   <td>${escapeHtml(v.name)}</td>
-                  <td>${escapeHtml(v.phone || "—")}</td>
-                  <td>${v.vehicles && v.vehicles.length ? v.vehicles.map((veh) => escapeHtml(veh.plate)).join(", ") : "—"}</td>
-                  <td class="code">${escapeHtml(g.access_code || "—")}</td>
+                  <td>${escapeHtml(v.phone || "â€”")}</td>
+                  <td>${v.vehicles && v.vehicles.length ? v.vehicles.map((veh) => escapeHtml(veh.plate)).join(", ") : "â€”"}</td>
+                  <td class="code">${escapeHtml(g.access_code || "â€”")}</td>
                   <td>${v.checked_in_at ? new Date(v.checked_in_at).toLocaleTimeString("en-KE", {hour:"2-digit",minute:"2-digit"}) : ""}</td>
                   <td>${v.checked_out_at ? new Date(v.checked_out_at).toLocaleTimeString("en-KE", {hour:"2-digit",minute:"2-digit"}) : ""}</td>
                 </tr>
@@ -734,7 +734,7 @@ async function printRegister() {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
-  if (typeof requireRole === "function" && !requireRole("security", "admin")) return;
+  if (typeof requireRole === "function" && !requireRole("security", "admin", "super-admin")) return;
 
   setupTabs();
 

@@ -374,7 +374,8 @@ async function uploadCSV(file) {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
-  if (typeof requireRole === "function" && !requireRole("admin")) return;
+  if (typeof requireRole === "function" &&
+    !requireRole("admin", "super-admin")) return;
 
   await setupHNFilters();
   await loadHNSummary();

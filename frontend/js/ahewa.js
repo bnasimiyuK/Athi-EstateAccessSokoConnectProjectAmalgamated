@@ -308,7 +308,8 @@ async function loadAll() {
    INIT
    ============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
-  if (typeof requireRole === "function" && !requireRole("admin")) return;
+  if (typeof requireRole === "function" &&
+    !requireRole("admin", "super-admin")) return;
 
   try {
     const members = await authFetch("/ahewa/members");
