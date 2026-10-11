@@ -129,11 +129,11 @@ function paginationHtml() {
          style="display:flex;justify-content:space-between;align-items:center;
                 gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
                 border-top:1px solid var(--line);">
-      <div class="pagination__info" style="font-size:0.9rem;color:var(--ink-70);">
+      <div class="pagination_info" style="font-size:0.9rem;color:var(--ink-70);">
         Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
         review${total === 1 ? "" : "s"}
       </div>
-      <div class="pagination__controls"
+      <div class="pagination_controls"
            style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn--ghost btn--small" data-page="prev" ${prevDisabled}>
           « Prev

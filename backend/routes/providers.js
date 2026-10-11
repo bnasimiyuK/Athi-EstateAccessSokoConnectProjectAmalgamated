@@ -54,6 +54,48 @@ const PROVIDER_SELECT = `
 `;
 
 /* ------------------------------------------------------------
+   Sort handling — map frontend sort keys → SQL ORDER BY clauses.
+   Values come from the <select id="sort-by"> options.
+   All identifiers are hardcoded here (never user input), so this
+   is safe to interpolate directly.
+   ------------------------------------------------------------ */
+const SORT_MAP = {
+  // Default — availability + verification first, then best rated
+  default:      "p.is_available DESC, p.verified DESC, p.rating DESC, p.reviews DESC",
+
+  // Name
+  name_asc:     "p.name ASC",
+  name_desc:    "p.name DESC",
+
+  // Rating / reviews
+  rating:       "p.is_available DESC, p.verified DESC, p.rating DESC, p.reviews DESC",
+  rating_desc:  "p.rating DESC, p.reviews DESC",
+  reviews:      "p.reviews DESC, p.rating DESC",
+  reviews_desc: "p.reviews DESC, p.rating DESC",
+
+  // Price
+  price_asc:    "p.price_from ASC, p.name ASC",
+  price_desc:   "p.price_from DESC, p.name ASC",
+
+  // Newest
+  newest:       "p.created_at DESC",
+  oldest:       "p.created_at ASC",
+
+  // Verification
+  verified:     "p.verified DESC, p.rating DESC",
+};
+
+/**
+ * Resolve a `sort` query param to a safe SQL ORDER BY clause.
+ * Falls back to the default ordering if unknown.
+ */
+function resolveOrderBy(sortKey) {
+  if (!sortKey) return SORT_MAP.default;
+  const key = String(sortKey).toLowerCase().trim();
+  return SORT_MAP[key] || SORT_MAP.default;
+}
+
+/* ------------------------------------------------------------
    Helper: apply filter inputs to a request object
    (called twice — once for COUNT, once for the data query)
 
@@ -127,7 +169,7 @@ function applyProviderFilters(request, {
 /* ------------------------------------------------------------
    GET /api/providers
    Supports: category, phase, courtId, maxPrice, search (or q),
-             verified, availableOnly, page, limit
+             verified, availableOnly, sort, page, limit
 
    - If ?page is passed → returns { data, total, page, limit, totalPages }
    - Otherwise        → returns a plain array (legacy behaviour for
@@ -137,6 +179,9 @@ router.get("/", async (req, res, next) => {
   try {
     const pool = await getPool();
     const filters = req.query;
+
+    // Resolve sort → ORDER BY clause (falls back to default if unknown)
+    const orderBy = resolveOrderBy(filters.sort);
 
     /* ============================================================
        PAGINATED MODE (when ?page= is provided)
@@ -160,16 +205,16 @@ router.get("/", async (req, res, next) => {
       `);
       const total = countRes.recordset[0].total || 0;
 
-      // ---------- Data query (same WHERE + OFFSET/FETCH) ----------
+      // ---------- Data query (same WHERE + sort + OFFSET/FETCH) ----------
       const dataReq = pool.request();
-      applyProviderFilters(dataReq, filters);   // re-bind the same inputs
+      applyProviderFilters(dataReq, filters);
       dataReq.input("offset", offset);
       dataReq.input("limit",  limitNum);
 
       const dataRes = await dataReq.query(`
         ${PROVIDER_SELECT}
         ${whereClause}
-        ORDER BY p.is_available DESC, p.verified DESC, p.rating DESC, p.reviews DESC
+        ORDER BY ${orderBy}
         OFFSET @offset ROWS
         FETCH NEXT @limit ROWS ONLY
       `);
@@ -192,7 +237,7 @@ router.get("/", async (req, res, next) => {
     const result = await request.query(`
       ${PROVIDER_SELECT}
       ${whereClause}
-      ORDER BY p.is_available DESC, p.verified DESC, p.rating DESC, p.reviews DESC
+      ORDER BY ${orderBy}
     `);
 
     res.json(result.recordset.map(providerToJson));

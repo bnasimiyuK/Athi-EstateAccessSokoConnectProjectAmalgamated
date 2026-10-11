@@ -29,7 +29,7 @@ function reportToJson(row) {
    ------------------------------------------------------------ */
 router.get("/",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res, next) => {
     try {
       const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -127,7 +127,7 @@ router.post("/",
    ------------------------------------------------------------ */
 router.patch("/:id",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res, next) => {
     try {
       const id = parseInt(req.params.id, 10);

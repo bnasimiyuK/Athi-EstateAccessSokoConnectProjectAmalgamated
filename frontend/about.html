@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>About — Athi Highway Estate</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+<link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/about.css" />
+<link rel="icon" href="data:," />
+</head>
+
+<body class="discover-body has-sidebar">
+
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect — home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+
+    <a href="about.html" data-nav="about.html">
+      <i class="fas fa-circle-info" aria-hidden="true"></i>
+      <span>About AHE</span>
+    </a>
+
+    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden>
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+
+    <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden>
+      <i class="fas fa-store" aria-hidden="true"></i>
+      <span>My Profile</span>
+    </a>
+
+    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-friends" aria-hidden="true"></i>
+      <span>My Visitors</span>
+    </a>
+
+    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+      <span>My Billing &amp; Payments</span>
+    </a>
+
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+
+    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
+      <i class="fas fa-shield-halved" aria-hidden="true"></i>
+      <span>Security &mdash; Visitors</span>
+    </a>
+
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden>
+      <i class="fas fa-user-shield" aria-hidden="true"></i>
+      <span>Admin</span>
+    </a>
+
+    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden>
+      <i class="fas fa-crown" aria-hidden="true"></i>
+      <span>Super Admin</span>
+    </a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+<!-- ============================================================
+     PAGE CONTENT
+     ============================================================ -->
+<div class="side-rail__content">
+
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+
+  <main class="container dx-main">
+
+    <!-- HERO -->
+    <section class="about-hero">
+      <span class="about-badge">
+        <i class="fas fa-circle-info"></i> Official Information
+      </span>
+      <h1>About Athi Highway Estate</h1>
+      <p>
+        A resident-led community in Athi River, managed by the
+        Management &amp; Residents Association (MARA) and served by
+        the Athi Highway Estate (AHE) structure. This page outlines our
+        vision, mission, governance, and how to reach us.
+      </p>
+    </section>
+
+    <!-- STICKY SUB-NAV -->
+    <nav class="about-nav" aria-label="Section navigation">
+      <ul>
+        <li><a href="#vision"     class="about-nav-link">Vision</a></li>
+        <li><a href="#mission"    class="about-nav-link">Mission</a></li>
+        <li><a href="#objectives" class="about-nav-link">Objectives</a></li>
+        <li><a href="#mara"       class="about-nav-link">MARA</a></li>
+        <li><a href="#ahe"        class="about-nav-link">AHE Background</a></li>
+        <li><a href="#projects"   class="about-nav-link">Community Projects</a></li>
+        <li><a href="#structure"  class="about-nav-link">Structure &amp; Committees</a></li>
+        <li><a href="#contact"    class="about-nav-link">Contact</a></li>
+        <li><a href="#privacy"    class="about-nav-link">Privacy</a></li>
+      </ul>
+    </nav>
+
+    <div class="about-main">
+
+      <!-- ============ VISION ============ -->
+      <section id="vision" class="about-section">
+        <p class="about-lead">Our Vision</p>
+        <h2>A safe, connected and self-reliant community.</h2>
+        <p>
+          To be the model estate community in Kenya — a place where every
+          household feels secure, every voice is heard, and residents
+          work together to build a clean, green and thriving environment
+          for generations to come.
+        </p>
+      </section>
+
+      <!-- ============ MISSION ============ -->
+      <section id="mission" class="about-section">
+        <p class="about-lead">Our Mission</p>
+        <h2>To serve every resident with integrity, efficiency and care.</h2>
+        <p>
+          We will provide transparent governance, reliable shared services
+          (security, waste, water, road maintenance), and platforms that
+          connect residents to trusted local service providers — all while
+          fostering a strong sense of community ownership.
+        </p>
+      </section>
+
+      <!-- ============ OBJECTIVES ============ -->
+      <section id="objectives" class="about-section">
+        <p class="about-lead">Strategic Objectives</p>
+        <h2>What we are working towards</h2>
+        <p>Our committee measures progress against seven core objectives:</p>
+
+        <div class="about-grid">
+          <div class="about-card">
+            <i class="fas fa-shield-halved"></i>
+            <h4>1. Security &amp; Safety</h4>
+            <p>Maintain 24/7 controlled access, trained guards and a rapid response protocol with local authorities.</p>
+          </div>
+          <div class="about-card">
+            <i class="fas fa-broom"></i>
+            <h4>2. Clean Environment</h4>
+            <p>Reliable garbage collection, waste segregation, and a culture of &ldquo;keep Athi clean&rdquo;.</p>
+          </div>
+          <div class="about-card">
+            <i class="fas fa-water"></i>
+            <h4>3. Water &amp; Utilities</h4>
+            <p>Ensure continuous supply, fair billing and maintain critical infrastructure in partnership with the county.</p>
+          </div>
+          <div class="about-card">
+            <i class="fas fa-road"></i>
+            <h4>4. Infrastructure</h4>
+            <p>Keep roads, drainage and street lighting functional and safe.</p>
+          </div>
+          <div class="about-card">
+            <i class="fas fa-handshake"></i>
+            <h4>5. Community Engagement</h4>
+            <p>Regular MARA meetings, transparent communication and open decision making.</p>
+          </div>
+          <div class="about-card">
+            <i class="fas fa-leaf"></i>
+            <h4>6. Sustainability</h4>
+            <p>Promote tree planting, energy efficiency and responsible resource use across the estate.</p>
+          </div>
+          <div class="about-card">
+            <i class="fas fa-coins"></i>
+            <h4>7. Financial Health</h4>
+            <p>Prudent budgeting, transparent accounting and timely audits of all estate funds.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ MARA ============ -->
+      <section id="mara" class="about-section">
+        <p class="about-lead">MARA</p>
+        <h2>Management &amp; Residents Association</h2>
+        <p>
+          The Mavoko Residents Association (MARA) is a community organization in Mavoko Sub-county, Machakos County, Kenya, that represents local residents' interests regarding land rights, urban development, and public service delivery
+        </p>
+        <h3>Key responsibilities</h3>
+        <ul>
+          <li>Collect and manage the monthly service charge</li>
+          <li>Appoint, monitor and pay estate service providers</li>
+          <li>Enforce the estate&rsquo;s rules and by-laws fairly and consistently</li>
+          <li>Represent the estate in matters with the county and utilities</li>
+          <li>Organise the Annual General Meeting (AGM) and report on finances</li>
+        </ul>
+      </section>
+
+      <!-- ============ AHE BACKGROUND ============ -->
+      <section id="ahe" class="about-section">
+        <p class="about-lead">Background</p>
+        <h2>Athi Highway Estate (AHE)</h2>
+        <p>
+          Athi Highway Estate is a residential community located along the
+          Nairobi&ndash;Mombasa highway in Athi River, Machakos County. The
+          estate was developed in phases (Phase 1 and Phase 2) and is home
+          to hundreds of families. Over the years, the community has
+          grown organically, and with that growth came the need for
+          structured self-governance.
+        </p>
+        <p>
+          MARA was established to formalise this self-governance and give
+          every resident a seat at the table. Today, AHE and MARA work
+          hand-in-hand to deliver reliable services, maintain common
+          infrastructure, and keep the estate a place residents are proud
+          to call home.
+        </p>
+      </section>
+
+      <!-- ============ COMMUNITY PROJECTS ============ -->
+      <section id="projects" class="about-section">
+        <p class="about-lead">Community Projects</p>
+        <h2>What we have built together</h2>
+        <p>
+          A selection of the projects MARA has driven with residents and
+          partners. More are added as funding and volunteer effort allow.
+        </p>
+
+        <div class="about-grid">
+          <div class="about-card">
+            <i class="fas fa-camera"></i>
+            <h4>CCTV Coverage</h4>
+            <p>Cameras covering all entry/exit points and main junctions, monitored 24/7.</p>
+          </div>
+          <div class="about-card">
+            <i class="fas fa-tree"></i>
+            <h4>Tree Planting Drive</h4>
+            <p>Hundreds of indigenous trees planted across open spaces and along roads.</p>
+          </div>
+          <div class="about-card">
+            <i class="fas fa-water"></i>
+            <h4>Water Kiosks</h4>
+            <p>Community water points providing safe, affordable water in both phases.</p>
+          </div>
+          <div class="about-card">
+            <i class="fas fa-road"></i>
+            <h4>Road Grading</h4>
+            <p>Periodic grading and murram resurfacing of internal roads.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ STRUCTURE & COMMITTEES ============ -->
+      <section id="structure" class="about-section">
+        <p class="about-lead">Our Structure</p>
+        <h2>How we are organised</h2>
+        <p>
+          MARA is led by an elected executive committee supported by
+          specialised sub-committees. All roles are voluntary and
+          subject to re-election at the AGM.
+        </p>
+
+        <h3>Executive Committee</h3>
+        <table class="committee-table">
+          <thead>
+            <tr><th>Role</th><th>Responsibility</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Chairperson</strong></td><td>Leads MARA, chairs meetings, represents the estate externally.</td></tr>
+            <tr><td><strong>Vice Chairperson</strong></td><td>Deputises the Chair and coordinates sub-committees.</td></tr>
+            <tr><td><strong>Secretary</strong></td><td>Keeps records, circulates minutes, manages resident communications.</td></tr>
+            <tr><td><strong>Treasurer</strong></td><td>Handles all estate finances, prepares monthly reports and the annual budget.</td></tr>
+            <tr><td><strong>Security Liaison</strong></td><td>Works with the security provider and the local police.</td></tr>
+            <tr><td><strong>Environment Officer</strong></td><td>Oversees waste management, landscaping and sustainability initiatives.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Standing Committees</h3>
+        <table class="committee-table">
+          <thead>
+            <tr><th>Committee</th><th>Mandate</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Finance &amp; Audit</strong></td><td>Reviews income, expenditure and the annual accounts.</td></tr>
+            <tr><td><strong>Security</strong></td><td>Monitors guards, access control and incident response.</td></tr>
+            <tr><td><strong>Environment</strong></td><td>Runs clean-ups, tree planting and waste programs.</td></tr>
+            <tr><td><strong>Infrastructure</strong></td><td>Oversees roads, drainage, water and lighting.</td></tr>
+            <tr><td><strong>Events &amp; Culture</strong></td><td>Organises community events and the annual residents&rsquo; day.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============ CONTACT ============ -->
+      <section id="contact" class="about-section">
+        <p class="about-lead">Contact Us</p>
+        <h2>Reach MARA</h2>
+        <p>
+          For general enquiries, complaints, or to volunteer on a
+          committee, use any of the channels below.
+        </p>
+
+        <div class="contact-block">
+          <div class="contact-card">
+            <h4><i class="fas fa-envelope"></i> Email</h4>
+            <p><a href="mailto:mara@athihighwayestate.or.ke">mara@athihighwayestate.or.ke</a></p>
+          </div>
+          <div class="contact-card">
+            <h4><i class="fas fa-phone"></i> Office</h4>
+            <p><a href="tel:+254700000000">+254 700 000 000</a></p>
+          </div>
+          <div class="contact-card">
+            <h4><i class="fas fa-map-marker-alt"></i> Physical</h4>
+            <p>MARA Office, Riverside Court, Phase 2<br>Athi River, Machakos County</p>
+          </div>
+          <div class="contact-card">
+            <h4><i class="fas fa-clock"></i> Office Hours</h4>
+            <p>Mon &ndash; Fri, 9:00am &ndash; 5:00pm<br>Sat, 9:00am &ndash; 12:00pm</p>
+          </div>
+        </div>
+
+        <h3>Emergency contacts</h3>
+        <ul>
+          <li><strong>Gate 1 (main):</strong> +254 700 111 111</li>
+          <li><strong>Gate 2 (Phase 2):</strong> +254 700 222 222</li>
+          <li><strong>Athi River Police Station:</strong> 999 / 112</li>
+        </ul>
+      </section>
+
+      <!-- ============ PRIVACY ============ -->
+      <section id="privacy" class="about-section">
+        <p class="about-lead">Privacy Policy</p>
+        <h2>How we handle your information</h2>
+        <p>
+          We collect and process personal information only to the extent
+          needed to run estate services. We do not sell or share your data
+          with third parties for marketing. This summary explains the key
+          points &mdash; the full policy is available on request.
+        </p>
+
+        <ol class="privacy-list">
+          <li>
+            <b>What we collect</b>
+            Name, phone, email, house number, vehicle details and any
+            information you submit through resident, visitor or provider
+            forms.
+          </li>
+          <li>
+            <b>Why we collect it</b>
+            To verify residents, manage visitor pre-registration, deliver
+            access codes, coordinate security, and provide estate services.
+          </li>
+          <li>
+            <b>Who can access it</b>
+            Authorised MARA officials and estate security personnel.
+            Access is logged and limited by role.
+          </li>
+          <li>
+            <b>How long we keep it</b>
+            Resident and visit records are kept for the period required by
+            our constitution and any applicable law, then securely deleted.
+          </li>
+          <li>
+            <b>Sharing</b>
+            We share only with trusted service providers and public
+            authorities where necessary (for example, in a security
+            emergency). Never for advertising.
+          </li>
+          <li>
+            <b>Your rights</b>
+            You can request access to, correction of, or deletion of your
+            personal information by emailing MARA. We respond within 30
+            days.
+          </li>
+          <li>
+            <b>Data security</b>
+            We use password protection, encrypted connections, role-based
+            access and periodic audits to protect stored data.
+          </li>
+          <li>
+            <b>Questions</b>
+            Contact <a href="mailto:mara@athihighwayestate.or.ke">mara@athihighwayestate.or.ke</a>
+            for anything related to privacy.
+          </li>
+        </ol>
+      </section>
+
+    </div><!-- /.about-main -->
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container" style="width:100%;text-align:center;">
+      &copy; Athi Highway Estate &middot; MARA &middot;
+      <a href="#privacy">Privacy</a> &middot;
+      <a href="#contact">Contact</a>
+    </div>
+  </footer>
+</div>
+
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/main.js?v=7"></script>
+<script src="js/about.js"></script>
+
+</body>
+</html>

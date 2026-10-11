@@ -76,7 +76,7 @@
 
     const linkHtml = (l) => {
       const active = l.href === current ? " is-active" : "";
-      return '<a href="' + esc(l.href) + '" class="sidebar__link' + active + '">' +
+      return '<a href="' + esc(l.href) + '" class="sidebar_link' + active + '">' +
         '<i class="fas ' + esc(l.icon) + '"></i> ' + esc(l.label) +
         '</a>';
     };
@@ -96,23 +96,23 @@ const groupsHtml = GROUPS
   .map((g) => {
     const open = g.items.some((it) => it.href === current) ? " open" : "";
     const subs = g.items.map(linkHtml).join("");
-    return '<div class="sidebar__group">' +
-      '<button type="button" class="sidebar__group-header' + open + '" data-group="' + esc(g.key) + '">' +
+    return '<div class="sidebar_group">' +
+      '<button type="button" class="sidebar_group-header' + open + '" data-group="' + esc(g.key) + '">' +
         '<span><i class="fas ' + esc(g.icon) + '"></i> ' + esc(g.label) + '</span>' +
         '<i class="fas fa-chevron-down"></i>' +
       '</button>' +
-      '<div class="sidebar__sub' + open + '" id="group-' + esc(g.key) + '">' + subs + '</div>' +
+      '<div class="sidebar_sub' + open + '" id="group-' + esc(g.key) + '">' + subs + '</div>' +
     '</div>';
   }).join("");
 
     return '<aside class="sidebar" id="sidebar">' +
-      '<div class="sidebar__header">' +
-        '<a href="index.html" class="sidebar__logo">' +
+      '<div class="sidebar_header">' +
+        '<a href="index.html" class="sidebar_logo">' +
           esc(BRAND_NAME) + ' <span>' + esc(BRAND_ACCENT) + '</span> <small>estate</small>' +
         '</a>' +
       '</div>' +
-      '<nav class="sidebar__nav">' + mainHtml + groupsHtml + '</nav>' +
-      '<div class="sidebar__footer">' + esc(FOOTER_TEXT) + '</div>' +
+      '<nav class="sidebar_nav">' + mainHtml + groupsHtml + '</nav>' +
+      '<div class="sidebar_footer">' + esc(FOOTER_TEXT) + '</div>' +
     '</aside>';
   }
 
@@ -144,10 +144,10 @@ const groupsHtml = GROUPS
     const topbar = document.createElement("div");
     topbar.className = "topbar";
     topbar.innerHTML =
-      '<button class="topbar__toggle" id="sidebarToggle" aria-label="Toggle sidebar">' +
+      '<button class="topbar_toggle" id="sidebarToggle" aria-label="Toggle sidebar">' +
         '<i class="fas fa-bars"></i>' +
       '</button>' +
-      '<span class="topbar__title">' + esc(BRAND_NAME) + '</span>' +
+      '<span class="topbar_title">' + esc(BRAND_NAME) + '</span>' +
       '<span style="width:32px;"></span>';
     main.insertBefore(topbar, main.firstChild);
 
@@ -175,13 +175,13 @@ const groupsHtml = GROUPS
     if (toggle)  toggle.addEventListener("click", open);
     if (overlay) overlay.addEventListener("click", close);
 
-    document.querySelectorAll(".sidebar__link").forEach((l) =>
+    document.querySelectorAll(".sidebar_link").forEach((l) =>
       l.addEventListener("click", () => {
         if (window.innerWidth <= 820) close();
       })
     );
 
-    document.querySelectorAll(".sidebar__group-header").forEach((h) =>
+    document.querySelectorAll(".sidebar_group-header").forEach((h) =>
       h.addEventListener("click", function (e) {
         e.preventDefault();
         const sub = document.getElementById("group-" + this.dataset.group);
@@ -247,30 +247,30 @@ const groupsHtml = GROUPS
       let avatarInner;
       if (photo) {
         avatarInner =
-          '<img class="auth-chip__avatar-img" src="' + esc(photo) + '" ' +
+          '<img class="auth-chip_avatar-img" src="' + esc(photo) + '" ' +
           'alt="' + esc(name) + '" ' +
-          'onerror="this.style.display=\'none\'; this.parentNode.classList.add(\'auth-chip__avatar--initials\'); this.parentNode.textContent=\'' + esc(initials) + '\';" />';
+          'onerror="this.style.display=\'none\'; this.parentNode.classList.add(\'auth-chip_avatar--initials\'); this.parentNode.textContent=\'' + esc(initials) + '\';" />';
       } else {
         avatarInner = esc(initials);
       }
 
       const avatarHtml =
-        '<button type="button" class="auth-chip__avatar" id="authChipAvatar" ' +
+        '<button type="button" class="auth-chip_avatar" id="authChipAvatar" ' +
         'title="Click to upload a profile photo" ' +
         'style="background:' + roleColor + ';">' +
           avatarInner +
-          '<span class="auth-chip__avatar-overlay"><i class="fas fa-camera"></i></span>' +
+          '<span class="auth-chip_avatar-overlay"><i class="fas fa-camera"></i></span>' +
         '</button>' +
         '<input type="file" id="authChipAvatarInput" accept="image/*" hidden />';
 
       chip.innerHTML =
         avatarHtml +
-        '<span class="auth-chip__greet">Signed in as</span>' +
-        '<span class="auth-chip__name">' + esc(name) + '</span>' +
-        '<span class="auth-chip__role" style="background:' + roleColor + ';">' +
+        '<span class="auth-chip_greet">Signed in as</span>' +
+        '<span class="auth-chip_name">' + esc(name) + '</span>' +
+        '<span class="auth-chip_role" style="background:' + roleColor + ';">' +
           esc(role) +
         '</span>' +
-        '<a href="#" id="authChipLogout" class="auth-chip__logout">' +
+        '<a href="#" id="authChipLogout" class="auth-chip_logout">' +
           '<i class="fas fa-sign-out-alt"></i> Logout' +
         '</a>';
 
@@ -345,10 +345,10 @@ const groupsHtml = GROUPS
       }
     } else {
       chip.innerHTML =
-        '<a href="login.html" class="auth-chip__link">' +
+        '<a href="login.html" class="auth-chip_link">' +
           '<i class="fas fa-sign-in-alt"></i> Log in' +
         '</a>' +
-        '<a href="residents.html" class="auth-chip__link">' +
+        '<a href="residents.html" class="auth-chip_link">' +
           '<i class="fas fa-user-plus"></i> Register' +
         '</a>';
     }

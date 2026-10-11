@@ -85,7 +85,7 @@ function renderHeader(d) {
 
   el.innerHTML = `
     <div class="page-head page-head--with-actions" style="padding-top:0;">
-      <div class="page-head__text">
+      <div class="page-head_text">
         <h1 style="font-size:1.6rem; margin-bottom:4px;">${escapeHtml(e.event_title)}</h1>
         <p style="margin:0;">
           ${escapeHtml(typeLabel)} · ${fmtMoney(e.contribution_amount)} per member · Event date: ${fmtDate(e.event_date)}
@@ -143,16 +143,16 @@ function renderLimitedView(d) {
 
   document.getElementById("contrib-stats").innerHTML = `
     <div class="stat-tile stat-tile--info">
-      <div class="stat-tile__value">${fmtMoney(me.amount_due)}</div>
-      <div class="stat-tile__label">Your contribution</div>
+      <div class="stat-tile_value">${fmtMoney(me.amount_due)}</div>
+      <div class="stat-tile_label">Your contribution</div>
     </div>
     <div class="stat-tile ${me.status === "paid" ? "stat-tile--ok" : "stat-tile--warn"}">
-      <div class="stat-tile__value">${fmtMoney(me.amount_paid)}</div>
-      <div class="stat-tile__label">Amount paid</div>
+      <div class="stat-tile_value">${fmtMoney(me.amount_paid)}</div>
+      <div class="stat-tile_label">Amount paid</div>
     </div>
     <div class="stat-tile ${remaining > 0 ? "stat-tile--danger" : "stat-tile--ok"}">
-      <div class="stat-tile__value">${fmtMoney(remaining)}</div>
-      <div class="stat-tile__label">Outstanding</div>
+      <div class="stat-tile_value">${fmtMoney(remaining)}</div>
+      <div class="stat-tile_label">Outstanding</div>
     </div>
   `;
 
@@ -211,20 +211,20 @@ function renderFullView(d) {
 
   document.getElementById("contrib-stats").innerHTML = `
     <div class="stat-tile stat-tile--info">
-      <div class="stat-tile__value">${billed}</div>
-      <div class="stat-tile__label">Members billed</div>
+      <div class="stat-tile_value">${billed}</div>
+      <div class="stat-tile_label">Members billed</div>
     </div>
     <div class="stat-tile stat-tile--ok">
-      <div class="stat-tile__value">${paid} / ${billed}</div>
-      <div class="stat-tile__label">Paid</div>
+      <div class="stat-tile_value">${paid} / ${billed}</div>
+      <div class="stat-tile_label">Paid</div>
     </div>
     <div class="stat-tile stat-tile--ok">
-      <div class="stat-tile__value">${collected.toLocaleString()}</div>
-      <div class="stat-tile__label">Collected (KSh)</div>
+      <div class="stat-tile_value">${collected.toLocaleString()}</div>
+      <div class="stat-tile_label">Collected (KSh)</div>
     </div>
     <div class="stat-tile stat-tile--warn">
-      <div class="stat-tile__value">${outstanding.toLocaleString()}</div>
-      <div class="stat-tile__label">Outstanding (KSh)</div>
+      <div class="stat-tile_value">${outstanding.toLocaleString()}</div>
+      <div class="stat-tile_label">Outstanding (KSh)</div>
     </div>
   `;
 
@@ -293,8 +293,8 @@ function renderApprovals(d) {
     const isMe = isResidentUser && s.resident_id === uid;
     return `
       <div class="signatory-pill" style="border-left-color: ${approval ? 'var(--teal)' : 'var(--ochre)'};">
-        <div class="signatory-pill__role">${escapeHtml(s.role)}${isMe ? " (you)" : ""}</div>
-        <div class="signatory-pill__name">${escapeHtml(s.full_name)}</div>
+        <div class="signatory-pill_role">${escapeHtml(s.role)}${isMe ? " (you)" : ""}</div>
+        <div class="signatory-pill_name">${escapeHtml(s.full_name)}</div>
         <div style="margin-top:6px; font-size:0.8rem;">
           ${approval
             ? `<span style="color:var(--teal); font-weight:600;">✅ Approved ${fmtDateTime(approval.approved_at)}</span>`

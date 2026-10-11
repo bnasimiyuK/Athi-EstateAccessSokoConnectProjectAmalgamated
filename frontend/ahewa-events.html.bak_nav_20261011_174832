@@ -1,0 +1,184 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AHEWA Events — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+</head>
+<body class="discover-body has-sidebar">
+
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+    <a href="register.html" data-nav="register.html">
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+    <a href="dashboard.html" data-nav="dashboard.html">
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+    <a href="security-visitors.html" data-nav="security-visitors.html">
+      <i class="fas fa-shield-halved" aria-hidden="true"></i>
+      <span>Security — Visitors</span>
+    </a>
+    <a href="admin.html" data-nav="admin.html" data-admin-only hidden>
+      <i class="fas fa-user-shield" aria-hidden="true"></i>
+      <span>Admin</span>
+    </a>
+    <a href="super-admin.html" data-nav="super-admin.html" data-super-admin-only hidden>
+      <i class="fas fa-crown" aria-hidden="true"></i>
+      <span>Super Admin</span>
+    </a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile toggle -->
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+
+<div class="side-rail__content">
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+
+  <main class="container dx-main">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>AHEWA Welfare Events</h1>
+      <p>
+        All welfare contribution events. Click any row to view contributions, approvals, and export reports.
+        <br><small style="color:var(--ink-70);">
+          Only admins can create new events. Approvals are co-authorized by the three signatories.
+        </small>
+      </p>
+    </div>
+
+    <div class="admin-actions">
+      <button id="btn-new-event" class="btn btn--accent" type="button">➕ Create welfare event</button>
+    </div>
+  </div>
+
+  <form id="events-filter"
+        style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+    <select id="filter-status" class="input" style="min-width:160px;">
+      <option value="">All statuses</option>
+      <option value="open">Open</option>
+      <option value="approved">Approved — pending disbursement</option>
+      <option value="disbursed">Disbursed</option>
+    </select>
+
+    <input type="text" id="filter-search" class="input"
+           placeholder="Search event title or affected member…"
+           style="min-width:280px;" />
+
+    <button type="submit" class="btn btn--accent">Filter</button>
+    <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
+  </form>
+
+  <div class="table-wrap" id="events-table-wrap">
+    <div class="empty-state">Loading welfare events…</div>
+  </div>
+</main>
+</div>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">
+    AHEWA — managed by the three elected signatories. Disbursement requires all three approvals.
+  </div>
+</footer>
+
+<!-- Modal — Create welfare event -->
+<div class="modal-backdrop" id="modal-new-event">
+  <div class="modal" style="max-width: 520px;">
+    <h2 style="margin-top:0;">Create welfare event</h2>
+    <p style="color:var(--ink-70); margin-top:-8px;">
+      Generates a contribution invoice for every AHEWA member (excluding the affected member).
+    </p>
+
+    <form id="form-new-event" style="display:flex; flex-direction:column; gap:14px; margin-top:16px;">
+      <label class="field">
+        <span>Affected member</span>
+        <select id="ev-affected" class="input" required>
+          <option value="">Select AHEWA member…</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Event type</span>
+        <select id="ev-type" class="input" required>
+          <option value="">Select…</option>
+          <option value="PRINCIPAL">Deceased principal — KSh 1,200</option>
+          <option value="DEPENDANT">Deceased dependant — KSh 700</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Event title</span>
+        <input type="text" id="ev-title" class="input" placeholder="e.g. AHEWA Welfare contributions update for …" required />
+      </label>
+
+      <label class="field">
+        <span>Description <small style="color:var(--ink-70);">(optional)</small></span>
+        <textarea id="ev-description" class="input" rows="2" placeholder="Brief context…"></textarea>
+      </label>
+
+      <label class="field">
+        <span>Event date</span>
+        <input type="date" id="ev-date" class="input" required />
+      </label>
+
+      <div id="ev-preview" class="notice" style="display:none;"></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn--ghost" id="btn-cancel-event">Cancel</button>
+        <button type="submit" class="btn btn--accent" id="btn-submit-event">Create &amp; invoice members</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/main.js?v=7"></script>
+<script src="js/ahewa-events.js"></script>
+</body>
+</html>

@@ -10,15 +10,23 @@ const AV_PER_PAGE = 50;
 const AV_MAX_BULK = 200;
 
 const avState = {
-  page:    1,
-  limit:   AV_PER_PAGE,
-  total:   0,
+  page:       1,
+  limit:      AV_PER_PAGE,
+  total:      0,
   totalPages: 1,
-  selected: new Set(),
-  rows:    [],
+  selected:   new Set(),
+  rows:       [],
   /* All-visits tab state */
-  allTab: { page: 1, limit: AV_PER_PAGE, total: 0, totalPages: 1, status: "", q: "" },
+  allTab: {
+    page: 1, limit: AV_PER_PAGE, total: 0, totalPages: 1,
+    status: "", q: "",
+    details: new Map(),   // id -> { visitors, inside, done }
+  },
 };
+
+/* Request tokens to guard against race conditions on rapid pagination */
+let _pendingReqId = 0;
+let _allReqId     = 0;
 
 /* ------------------------------------------------------------
    Helpers
@@ -28,30 +36,43 @@ function escapeHtml(s) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function fmtDate(s) { return s ? new Date(s).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }) : "—"; }
+
+function fmtDate(s) {
+  return s
+    ? new Date(s).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })
+    : "—";
+}
 
 function statusBadge(s) {
   const map = {
-    pending_admin:    `<span class="badge" style="background:#c8862a;color:#fff;">Pending admin</span>`,
-    pending_security: `<span class="badge" style="background:#4a7ba7;color:#fff;">Pending security</span>`,
+    pending_admin:    `<span class="badge badge--pending-admin">Pending admin</span>`,
+    pending_security: `<span class="badge badge--pending-sec">Pending security</span>`,
     approved:         `<span class="badge badge--verified">Approved</span>`,
-    denied:           `<span class="badge" style="background:#b0472e;color:#fff;">Denied</span>`,
-    cancelled:        `<span class="badge" style="background:#666;color:#fff;">Cancelled</span>`,
-    checked_in:       `<span class="badge" style="background:#2f6f5e;color:#fff;">Checked in</span>`,
-    completed:        `<span class="badge" style="background:#2f6f5e;color:#fff;">Completed</span>`,
-    expired:          `<span class="badge" style="background:#b0472e;color:#fff;">Expired</span>`,
+    denied:           `<span class="badge badge--danger">Denied</span>`,
+    cancelled:        `<span class="badge badge--muted">Cancelled</span>`,
+    checked_in:       `<span class="badge badge--success">Checked in</span>`,
+    completed:        `<span class="badge badge--success">Completed</span>`,
+    expired:          `<span class="badge badge--danger">Expired</span>`,
   };
-  return map[s] || escapeHtml(s);
+  return map[s] || `<span class="badge">${escapeHtml(s)}</span>`;
 }
 
-function setupTabs() {
+function $(id) { return document.getElementById(id); }
+
+function safeToast(msg) {
+  if (typeof toast === "function") toast(msg);
+  else console.warn("[admin-visitors]", msg);
+}
+
+function setupTabs(onActivate) {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("is-active"));
       document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("is-active"));
       btn.classList.add("is-active");
-      const panel = document.getElementById(`tab-${btn.dataset.tab}`);
+      const panel = $(`tab-${btn.dataset.tab}`);
       if (panel) panel.classList.add("is-active");
+      if (typeof onActivate === "function") onActivate(btn.dataset.tab);
     });
   });
 }
@@ -61,23 +82,20 @@ function setupTabs() {
    ------------------------------------------------------------ */
 async function loadTiles() {
   try {
-    const [counts, all30] = await Promise.all([
-      Api.getVisitorPendingCounts(),
-      Api.getVisitorGroups({
-        from: new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10),
-        limit: 500,
-      }),
-    ]);
-    document.getElementById("tile-pending").textContent     = counts.pending_admin;
-    document.getElementById("tile-pending-sec").textContent = counts.pending_security;
+    const counts = await Api.getVisitorPendingCounts();
+    const t1 = $("tile-pending");     if (t1) t1.textContent = counts.pending_admin    ?? "0";
+    const t2 = $("tile-pending-sec"); if (t2) t2.textContent = counts.pending_security ?? "0";
 
-    const rows = all30.data || [];
-    document.getElementById("tile-approved").textContent =
-      rows.filter((g) => ["approved","checked_in","completed"].includes(g.status)).length;
-    document.getElementById("tile-denied").textContent =
-      rows.filter((g) => g.status === "denied").length;
+    // Prefer server-side counts if the API provides them.
+    if (typeof counts.approved_30d === "number") {
+      const t3 = $("tile-approved"); if (t3) t3.textContent = counts.approved_30d;
+    }
+    if (typeof counts.denied_30d === "number") {
+      const t4 = $("tile-denied"); if (t4) t4.textContent = counts.denied_30d;
+    }
   } catch (err) {
     console.error("[admin-visitors] tiles failed:", err);
+    safeToast("Could not load summary tiles.");
   }
 }
 
@@ -85,19 +103,19 @@ async function loadTiles() {
    Bulk bar
    ------------------------------------------------------------ */
 function updateBulkBar() {
-  const bar = document.getElementById("bulk-bar");
-  const countEl = document.getElementById("bulk-count");
+  const bar     = $("bulk-bar");
+  const countEl = $("bulk-count");
   if (!bar) return;
+
   const n = avState.selected.size;
-
   bar.style.display = n === 0 ? "none" : "flex";
-  if (n > 0) countEl.textContent = n;
+  if (n > 0 && countEl) countEl.textContent = n;
 
-  const allChk = document.getElementById("chk-select-all");
+  const allChk = $("chk-select-all");
   if (allChk) {
-    const pageIds = avState.rows.map((r) => r.id);
+    const pageIds        = avState.rows.map((r) => r.id);
     const selectedOnPage = pageIds.filter((id) => avState.selected.has(id)).length;
-    allChk.checked = pageIds.length > 0 && selectedOnPage === pageIds.length;
+    allChk.checked       = pageIds.length > 0 && selectedOnPage === pageIds.length;
     allChk.indeterminate = selectedOnPage > 0 && selectedOnPage < pageIds.length;
   }
 }
@@ -107,8 +125,12 @@ function updateBulkBar() {
    ------------------------------------------------------------ */
 async function loadPending(page) {
   if (typeof page === "number") avState.page = page;
-  const el = document.getElementById("pending-list");
+
+  const el = $("pending-list");
+  if (!el) return;
   el.innerHTML = `<div class="empty-state">Loading…</div>`;
+
+  const myId = ++_pendingReqId;
 
   let result;
   try {
@@ -117,19 +139,24 @@ async function loadPending(page) {
       limit: avState.limit,
     });
   } catch (err) {
-    el.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load: ${escapeHtml(err.message)}</div>`;
+    if (myId !== _pendingReqId) return;
+    el.innerHTML = `<div class="empty-state" style="color:var(--clay)">
+      Could not load: ${escapeHtml(err.message)}
+    </div>`;
     return;
   }
+
+  if (myId !== _pendingReqId) return; // stale response — a newer request is in-flight
 
   avState.rows       = result.data || [];
   avState.total      = result.total || 0;
   avState.page       = result.page || 1;
   avState.totalPages = result.totalPages || 1;
 
-  document.getElementById("count-pending").textContent =
-    avState.total ? `(${avState.total})` : "";
+  const countEl = $("count-pending");
+  if (countEl) countEl.textContent = avState.total ? `(${avState.total})` : "";
 
-  const approveAllBtn = document.getElementById("btn-approve-all");
+  const approveAllBtn = $("btn-approve-all");
   if (approveAllBtn) {
     approveAllBtn.style.display = avState.total > 0 ? "inline-flex" : "none";
   }
@@ -180,21 +207,21 @@ async function loadPending(page) {
 
   el.querySelectorAll(".chk-row").forEach((chk) => {
     chk.addEventListener("change", () => {
-      const id = parseInt(chk.dataset.id, 10);
+      const id = String(chk.dataset.id);
       if (chk.checked) avState.selected.add(id);
-      else avState.selected.delete(id);
+      else             avState.selected.delete(id);
       updateBulkBar();
     });
   });
 
-  const allChk = document.getElementById("chk-select-all");
+  const allChk = $("chk-select-all");
   if (allChk) {
     allChk.addEventListener("change", () => {
       const pageIds = avState.rows.map((r) => r.id);
       if (allChk.checked) pageIds.forEach((id) => avState.selected.add(id));
       else                pageIds.forEach((id) => avState.selected.delete(id));
       el.querySelectorAll(".chk-row").forEach((chk) => {
-        chk.checked = avState.selected.has(parseInt(chk.dataset.id, 10));
+        chk.checked = avState.selected.has(String(chk.dataset.id));
       });
       updateBulkBar();
     });
@@ -218,7 +245,9 @@ async function loadPending(page) {
    Pagination (pending tab)
    ------------------------------------------------------------ */
 function renderPendingPagination() {
-  const el = document.getElementById("pending-pagination");
+  const el = $("pending-pagination");
+  if (!el) return;
+
   const { page, limit, total, totalPages } = avState;
   if (!total || totalPages <= 1) { el.innerHTML = ""; return; }
 
@@ -254,17 +283,17 @@ function renderPendingPagination() {
    ------------------------------------------------------------ */
 async function approveOne(id, btn) {
   if (!confirm("Approve this visit at stage 1?\n\nSecurity will still need to approve at stage 2.")) return;
+
   const old = btn.textContent;
   btn.disabled = true; btn.textContent = "Approving…";
   try {
     await Api.approveVisitorAdmin(id);
-    toast("✅ Stage-1 approved. Waiting for security.");
-    avState.selected.delete(parseInt(id, 10));
-    await loadTiles();
-    await loadPending();
-    await loadAll();
+    safeToast("✅ Stage-1 approved. Waiting for security.");
+    avState.selected.delete(String(id));
+    avState.allTab.details.delete(Number(id));
+    await refreshAll();
   } catch (err) {
-    toast(err.message || "Could not approve.");
+    safeToast(err.message || "Could not approve.");
   } finally {
     btn.disabled = false; btn.textContent = old;
   }
@@ -273,15 +302,16 @@ async function approveOne(id, btn) {
 async function denyOne(id) {
   const reason = prompt("Reason for denial (will be sent to resident):");
   if (reason === null) return;
+  const cleanReason = reason.trim() || "Denied by admin";
+
   try {
-    await Api.denyVisitor(id, reason);
-    toast("Denied. Resident notified.");
-    avState.selected.delete(parseInt(id, 10));
-    await loadTiles();
-    await loadPending();
-    await loadAll();
+    await Api.denyVisitor(id, cleanReason);
+    safeToast("Denied. Resident notified.");
+    avState.selected.delete(String(id));
+    avState.allTab.details.delete(Number(id));
+    await refreshAll();
   } catch (err) {
-    toast(err.message || "Could not deny.");
+    safeToast(err.message || "Could not deny.");
   }
 }
 
@@ -290,31 +320,30 @@ async function denyOne(id) {
    ------------------------------------------------------------ */
 async function bulkApproveSelected() {
   const ids = [...avState.selected];
-  if (!ids.length) { toast("Select at least one pre-registration."); return; }
+  if (!ids.length) { safeToast("Select at least one pre-registration."); return; }
   if (ids.length > AV_MAX_BULK) {
-    toast(`Cannot approve more than ${AV_MAX_BULK} at once. You have ${ids.length} selected.`);
+    safeToast(`Cannot approve more than ${AV_MAX_BULK} at once. You have ${ids.length} selected.`);
     return;
   }
 
   if (!confirm(`Approve ${ids.length} pre-registration${ids.length === 1 ? "" : "s"}?\n\nEach one will move to security review.`)) return;
 
-  const btn = document.getElementById("bulk-approve-btn");
-  const old = btn.textContent;
-  btn.disabled = true; btn.textContent = "Approving…";
+  const btn = $("bulk-approve-btn");
+  const old = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Approving…"; }
 
   try {
     const r = await Api.bulkApproveAdmin(ids);
-    toast(`✅ Approved: ${r.ok} · Failed: ${r.failed}`);
+    safeToast(`✅ Approved: ${r.ok} · Failed: ${r.failed}`);
     if (r.failed > 0) console.warn("[bulk-approve] failures:", r.failures);
 
     avState.selected.clear();
-    await loadTiles();
-    await loadPending();
-    await loadAll();
+    avState.allTab.details.clear();
+    await refreshAll();
   } catch (err) {
-    toast(err.message || "Bulk approval failed.");
+    safeToast(err.message || "Bulk approval failed.");
   } finally {
-    btn.disabled = false; btn.textContent = old;
+    if (btn) { btn.disabled = false; btn.textContent = old; }
   }
 }
 
@@ -323,32 +352,32 @@ async function bulkApproveSelected() {
    ------------------------------------------------------------ */
 async function bulkDenySelected() {
   const ids = [...avState.selected];
-  if (!ids.length) { toast("Select at least one pre-registration."); return; }
+  if (!ids.length) { safeToast("Select at least one pre-registration."); return; }
   if (ids.length > AV_MAX_BULK) {
-    toast(`Cannot deny more than ${AV_MAX_BULK} at once. You have ${ids.length} selected.`);
+    safeToast(`Cannot deny more than ${AV_MAX_BULK} at once. You have ${ids.length} selected.`);
     return;
   }
 
   const reason = prompt(`Reason for denying ${ids.length} pre-registration${ids.length === 1 ? "" : "s"} (will be sent to residents):`);
   if (reason === null) return;
+  const cleanReason = reason.trim() || "Denied by admin";
 
-  const btn = document.getElementById("bulk-deny-btn");
-  const old = btn.textContent;
-  btn.disabled = true; btn.textContent = "Denying…";
+  const btn = $("bulk-deny-btn");
+  const old = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Denying…"; }
 
   try {
-    const r = await Api.bulkDenyVisitors(ids, reason);
-    toast(`❌ Denied: ${r.ok} · Failed: ${r.failed}`);
+    const r = await Api.bulkDenyVisitors(ids, cleanReason);
+    safeToast(`❌ Denied: ${r.ok} · Failed: ${r.failed}`);
     if (r.failed > 0) console.warn("[bulk-deny] failures:", r.failures);
 
     avState.selected.clear();
-    await loadTiles();
-    await loadPending();
-    await loadAll();
+    avState.allTab.details.clear();
+    await refreshAll();
   } catch (err) {
-    toast(err.message || "Bulk denial failed.");
+    safeToast(err.message || "Bulk denial failed.");
   } finally {
-    btn.disabled = false; btn.textContent = old;
+    if (btn) { btn.disabled = false; btn.textContent = old; }
   }
 }
 
@@ -356,49 +385,62 @@ async function bulkDenySelected() {
    Approve all pending (typed confirmation)
    ------------------------------------------------------------ */
 function openConfirmAllModal() {
-  const total = avState.total || 0;
+  const modal = $("confirm-all-modal");
+  if (!modal) return;
+
+  const total  = avState.total || 0;
   const willDo = Math.min(AV_MAX_BULK, total);
 
-  document.getElementById("confirm-all-text").innerHTML = `
-    This will approve <b>${willDo}</b> pending pre-registration${willDo === 1 ? "" : "s"}
-    (out of ${total} total${total > AV_MAX_BULK ? `, capped at ${AV_MAX_BULK} per click` : ""}).
-    They will all move to security review.
-  `;
+  const textEl = $("confirm-all-text");
+  if (textEl) {
+    textEl.innerHTML = `
+      This will approve <b>${willDo}</b> pending pre-registration${willDo === 1 ? "" : "s"}
+      (out of ${total} total${total > AV_MAX_BULK ? `, capped at ${AV_MAX_BULK} per click` : ""}).
+      They will all move to security review.
+    `;
+  }
 
-  const input = document.getElementById("confirm-all-input");
-  input.value = "";
-  document.getElementById("confirm-all-go").disabled = true;
+  const input = $("confirm-all-input");
+  const goBtn = $("confirm-all-go");
 
-  input.oninput = () => {
-    document.getElementById("confirm-all-go").disabled = input.value.trim() !== "APPROVE ALL";
-  };
+  if (input) {
+    input.value = "";
+    input.oninput = () => {
+      if (goBtn) goBtn.disabled = input.value.trim() !== "APPROVE ALL";
+    };
+  }
+  if (goBtn) {
+    goBtn.disabled = true;
+    goBtn.textContent = "Approve all";
+  }
 
-  document.getElementById("confirm-all-modal").style.display = "flex";
-  setTimeout(() => input.focus(), 50);
+  modal.style.display = "flex";
+  if (input) setTimeout(() => input.focus(), 50);
 }
 
 function closeConfirmAllModal() {
-  document.getElementById("confirm-all-modal").style.display = "none";
+  const modal = $("confirm-all-modal");
+  if (modal) modal.style.display = "none";
 }
 
 async function approveAllPending() {
-  const btn = document.getElementById("confirm-all-go");
-  btn.disabled = true; btn.textContent = "Approving…";
+  const btn = $("confirm-all-go");
+  const old = btn ? btn.textContent : "Approve all";
+  if (btn) { btn.disabled = true; btn.textContent = "Approving…"; }
 
   try {
     const r = await Api.bulkApproveAllAdmin("APPROVE ALL", AV_MAX_BULK);
-    toast(`✅ Approved ${r.ok} · Failed ${r.failed} · ${r.remaining} remaining`);
+    safeToast(`✅ Approved ${r.ok} · Failed ${r.failed} · ${r.remaining} remaining`);
     if (r.failed > 0) console.warn("[approve-all] failures:", r.failures);
 
     closeConfirmAllModal();
     avState.selected.clear();
-    await loadTiles();
-    await loadPending();
-    await loadAll();
+    avState.allTab.details.clear();
+    await refreshAll();
   } catch (err) {
-    toast(err.message || "Bulk approval failed.");
+    safeToast(err.message || "Bulk approval failed.");
   } finally {
-    btn.disabled = false; btn.textContent = "Approve all";
+    if (btn) { btn.disabled = false; btn.textContent = old; }
   }
 }
 
@@ -406,8 +448,11 @@ async function approveAllPending() {
    All visits tab
    ------------------------------------------------------------ */
 async function loadAll() {
-  const el = document.getElementById("all-list");
+  const el = $("all-list");
+  if (!el) return;
   el.innerHTML = `<div class="empty-state">Loading…</div>`;
+
+  const myId = ++_allReqId;
 
   let result;
   try {
@@ -418,9 +463,14 @@ async function loadAll() {
       limit:  avState.allTab.limit,
     });
   } catch (err) {
-    el.innerHTML = `<div class="empty-state" style="color:var(--clay)">Could not load: ${escapeHtml(err.message)}</div>`;
+    if (myId !== _allReqId) return;
+    el.innerHTML = `<div class="empty-state" style="color:var(--clay)">
+      Could not load: ${escapeHtml(err.message)}
+    </div>`;
     return;
   }
+
+  if (myId !== _allReqId) return;
 
   avState.allTab.total      = result.total;
   avState.allTab.page       = result.page;
@@ -432,22 +482,64 @@ async function loadAll() {
     return;
   }
 
+  /* Enrich rows with per-visit aggregate counts.
+     Prefer server-provided counts; only fall back to per-row fetch
+     when the list endpoint doesn't return them. */
+  const needsDetail = result.data.some(
+    (g) => typeof g.inside_count !== "number" || typeof g.checked_out_count !== "number"
+  );
+
+  let enriched = result.data.map((g) => ({
+    g,
+    visitors:   g.visitors || [],
+    inside:     typeof g.inside_count     === "number" ? g.inside_count     : 0,
+    done:       typeof g.checked_out_count === "number" ? g.checked_out_count : 0,
+  }));
+
+  if (needsDetail) {
+    // Limit concurrency to avoid hammering the backend with a burst of requests.
+    enriched = await mapWithConcurrency(result.data, 6, async (g) => {
+      const cached = avState.allTab.details.get(g.id);
+      if (cached) return { g, ...cached };
+      try {
+        const detail  = await Api.getVisitorGroup(g.id);
+        const body    = detail.data || detail;
+        const visitors = body.visitors || [];
+        const inside  = visitors.filter((v) => v.status === "checked_in").length;
+        const done    = visitors.filter((v) => v.status === "checked_out").length;
+        const payload = { visitors, inside, done };
+        avState.allTab.details.set(g.id, payload);
+        return { g, ...payload };
+      } catch {
+        return { g, visitors: [], inside: 0, done: 0 };
+      }
+    });
+  }
+
   el.innerHTML = `
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Visit date</th><th>House</th><th>Host</th><th>Visitors</th>
+            <th>Visit date</th><th>House</th><th>Host</th>
+            <th>Visitors</th><th>Inside</th>
             <th>Code</th><th>Status</th><th>Action</th>
           </tr>
         </thead>
         <tbody>
-          ${result.data.map((g) => `
+          ${enriched.map(({ g, visitors, inside, done }) => `
             <tr>
               <td>${escapeHtml(fmtDate(g.visit_date))}</td>
               <td>${escapeHtml(g.house_number)}</td>
               <td>${escapeHtml(g.resident_name)}</td>
               <td>${g.headcount}</td>
+              <td>
+                ${inside > 0
+                  ? `<b style="color:var(--teal);">${inside} on-site</b>`
+                  : done === visitors.length && visitors.length > 0
+                    ? `<span style="color:var(--ink-70);">all left</span>`
+                    : `<span style="color:var(--ink-40);">—</span>`}
+              </td>
               <td><b style="font-family:monospace;">${escapeHtml(g.access_code || "—")}</b></td>
               <td>${statusBadge(g.status)}</td>
               <td>
@@ -459,16 +551,36 @@ async function loadAll() {
       </table>
     </div>
   `;
+
   el.querySelectorAll("[data-view]").forEach((b) =>
     b.addEventListener("click", () => viewDetails(b.dataset.view))
   );
   renderAllPagination();
 }
 
+/* Run async tasks with a bounded concurrency (avoids 50 parallel requests). */
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function run() {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await worker(items[i], i);
+    }
+  }
+  const runners = Array.from({ length: Math.min(limit, items.length) }, run);
+  await Promise.all(runners);
+  return results;
+}
+
 function renderAllPagination() {
-  const el = document.getElementById("all-pagination");
+  const el = $("all-pagination");
+  if (!el) return;
+
   const { page, limit, total, totalPages } = avState.allTab;
   if (!total || totalPages <= 1) { el.innerHTML = ""; return; }
+
   const startRow = (page - 1) * limit + 1;
   const endRow   = Math.min(page * limit, total);
 
@@ -495,29 +607,63 @@ function renderAllPagination() {
 }
 
 /* ------------------------------------------------------------
-   Details modal
+   Details modal (in-page — replaces window.open/document.write)
    ------------------------------------------------------------ */
 async function viewDetails(id) {
+  let g;
   try {
     const r = await Api.getVisitorGroup(id);
-    const g = r.data || r;
-    const html = `
-      <h2>Visit #${g.id}</h2>
-      <p><b>Date:</b> ${escapeHtml(fmtDate(g.visit_date))}</p>
-      <p><b>House:</b> ${escapeHtml(g.house_number)} · <b>Host:</b> ${escapeHtml(g.resident_name)}</p>
-      <p><b>Status:</b> ${statusBadge(g.status)}</p>
-      ${g.access_code ? `<p><b>Code:</b> <span style="font-family:monospace;font-size:1.4rem;">${escapeHtml(g.access_code)}</span></p>` : ""}
-      <h3>Visitors</h3>
-      <ul style="padding-left:20px;">
-        ${(g.visitors || []).map((v) => `<li>${escapeHtml(v.name)}${v.phone ? " · " + escapeHtml(v.phone) : ""}</li>`).join("")}
-      </ul>
-    `;
-    const w = window.open("", "_blank", "width=520,height=600");
-    w.document.write(`<html><head><title>Visit #${g.id}</title><link rel="stylesheet" href="/css/styles.css"></head><body style="padding:24px;">${html}</body></html>`);
-    w.document.close();
+    g = r.data || r;
   } catch (err) {
-    toast(err.message || "Could not load.");
+    safeToast(err.message || "Could not load.");
+    return;
   }
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.style.cssText =
+    "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;";
+
+  const card = document.createElement("div");
+  card.className = "modal-card";
+  card.style.cssText =
+    "background:#fff;max-width:560px;width:100%;max-height:85vh;overflow:auto;border-radius:8px;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,.25);";
+  card.innerHTML = `
+    <h2 style="margin-top:0;">Visit #${escapeHtml(g.id)}</h2>
+    <p><b>Date:</b> ${escapeHtml(fmtDate(g.visit_date))}</p>
+    <p><b>House:</b> ${escapeHtml(g.house_number)} · <b>Host:</b> ${escapeHtml(g.resident_name)}</p>
+    <p><b>Status:</b> ${statusBadge(g.status)}</p>
+    ${g.access_code ? `<p><b>Code:</b> <span style="font-family:monospace;font-size:1.4rem;">${escapeHtml(g.access_code)}</span></p>` : ""}
+    <h3>Visitors</h3>
+    <ul style="padding-left:20px;">
+      ${(g.visitors || []).map((v) =>
+        `<li>${escapeHtml(v.name)}${v.phone ? " · " + escapeHtml(v.phone) : ""}</li>`
+      ).join("") || "<li><em>No visitors listed</em></li>"}
+    </ul>
+    <div style="margin-top:20px;text-align:right;">
+      <button class="btn btn--ghost" data-close>Close</button>
+    </div>
+  `;
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  const close = () => {
+    document.removeEventListener("keydown", onKey);
+    overlay.remove();
+  };
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  card.querySelector("[data-close]").addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+}
+
+/* ------------------------------------------------------------
+   Refresh helper
+   ------------------------------------------------------------ */
+async function refreshAll() {
+  await Promise.all([loadTiles(), loadPending(), loadAll()]);
 }
 
 /* ------------------------------------------------------------
@@ -525,15 +671,18 @@ async function viewDetails(id) {
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof requireRole === "function" &&
-    !requireRole("admin", "super-admin")) return;
+      !requireRole("admin", "super-admin")) return;
 
-  setupTabs();
+  setupTabs((tab) => {
+    // Lazy refetch when switching tabs, in case a previous load failed.
+    if (tab === "all" && !avState.allTab.total) loadAll();
+  });
 
   /* Bulk bar buttons */
-  const bulkApproveBtn = document.getElementById("bulk-approve-btn");
-  const bulkDenyBtn    = document.getElementById("bulk-deny-btn");
-  const bulkClearBtn   = document.getElementById("bulk-clear-btn");
-  const approveAllBtn  = document.getElementById("btn-approve-all");
+  const bulkApproveBtn = $("bulk-approve-btn");
+  const bulkDenyBtn    = $("bulk-deny-btn");
+  const bulkClearBtn   = $("bulk-clear-btn");
+  const approveAllBtn  = $("btn-approve-all");
 
   if (bulkApproveBtn) bulkApproveBtn.addEventListener("click", bulkApproveSelected);
   if (bulkDenyBtn)    bulkDenyBtn.addEventListener("click", bulkDenySelected);
@@ -545,26 +694,38 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (approveAllBtn)  approveAllBtn.addEventListener("click", openConfirmAllModal);
 
   /* Confirm-all modal */
-  document.getElementById("confirm-all-cancel").addEventListener("click", closeConfirmAllModal);
-  document.getElementById("confirm-all-go").addEventListener("click", approveAllPending);
+  const cancelBtn = $("confirm-all-cancel");
+  const goBtn     = $("confirm-all-go");
+  if (cancelBtn) cancelBtn.addEventListener("click", closeConfirmAllModal);
+  if (goBtn)     goBtn.addEventListener("click", approveAllPending);
 
   /* All-visits filter */
-  document.getElementById("all-filter").addEventListener("submit", (e) => {
-    e.preventDefault();
-    avState.allTab.status = document.getElementById("filter-status").value;
-    avState.allTab.q      = document.getElementById("filter-q").value.trim();
-    avState.allTab.page   = 1;
-    loadAll();
-  });
+  const allFilter = $("all-filter");
+  if (allFilter) {
+    allFilter.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const statusEl = $("filter-status");
+      const qEl      = $("filter-q");
+      avState.allTab.status = statusEl ? statusEl.value : "";
+      avState.allTab.q      = qEl ? qEl.value.trim() : "";
+      avState.allTab.page   = 1;
+      loadAll();
+    });
+  }
 
-  document.getElementById("filter-clear").addEventListener("click", () => {
-    document.getElementById("filter-status").value = "";
-    document.getElementById("filter-q").value = "";
-    avState.allTab.status = ""; avState.allTab.q = ""; avState.allTab.page = 1;
-    loadAll();
-  });
+  const clearBtn = $("filter-clear");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      const statusEl = $("filter-status");
+      const qEl      = $("filter-q");
+      if (statusEl) statusEl.value = "";
+      if (qEl)      qEl.value = "";
+      avState.allTab.status = "";
+      avState.allTab.q      = "";
+      avState.allTab.page   = 1;
+      loadAll();
+    });
+  }
 
-  await loadTiles();
-  await loadPending();
-  await loadAll();
+  await refreshAll();
 });

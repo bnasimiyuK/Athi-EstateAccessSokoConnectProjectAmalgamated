@@ -84,7 +84,7 @@ router.get("/settings", async (req, res, next) => {
    Creates one invoice per approved, numbered resident.
    Idempotent — skips existing (house_number, billing_month).
    ============================================================ */
-router.post("/generate", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/generate", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const { month } = req.body;
     if (!/^\d{4}-\d{2}$/.test(month || "")) {
@@ -156,7 +156,7 @@ if (dup.recordset.length) { skipped++; continue; }
    Flips status=overdue for invoices past due_date, unpaid.
    Also sets residents.access_blocked = 1 for those units.
    ============================================================ */
-router.post("/mark-overdue", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/mark-overdue", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
 
@@ -193,7 +193,7 @@ router.post("/mark-overdue", requireAuth, requireRole("admin"), async (req, res,
     next(err);
   }
 });
-router.post("/:id/set-status", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/:id/set-status", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });

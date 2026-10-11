@@ -1,9 +1,8 @@
 ﻿/* ============================================================
-   home.js — Discover page with category-first landing
-   + Category tiles use the icon from the API (DB-stored emoji)
-   + "View more" / "Show fewer" pagination
-   + Provider results "Load more" pagination
-   + Live "Busy until" countdown on provider cards
+   home.js — Discover page
+   All figures come from the backend. Every API call is
+   defensively wrapped so a missing/failing endpoint degrades
+   gracefully instead of leaving the UI on "Loading…".
    ============================================================ */
 
 /* ---------------- helpers ---------------- */
@@ -28,16 +27,12 @@ function formatTimeUntil(iso) {
   if (!iso) return null;
   const diffMs   = new Date(iso) - new Date();
   const diffMins = Math.round(diffMs / 60000);
-
   if (diffMins <= 0) return { relative: "any moment", backTime: null };
-
-  const back = new Date(iso);
+  const back     = new Date(iso);
   const backTime = back.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" });
-
   let relative;
-  if (diffMins < 60) {
-    relative = `in ${diffMins} min`;
-  } else {
+  if (diffMins < 60) relative = `in ${diffMins} min`;
+  else {
     const hrs  = Math.floor(diffMins / 60);
     const mins = diffMins % 60;
     relative = mins > 0 ? `in ${hrs}h ${mins}m` : `in ${hrs}h`;
@@ -45,15 +40,22 @@ function formatTimeUntil(iso) {
   return { relative, backTime };
 }
 
-/* ------------------------------------------------------------
-   Category icon resolver
-   Reads the icon from the API. Falls back to 🧰 only when the
-   category has no icon set in the database.
-   ------------------------------------------------------------ */
-function iconForCategory(cat) {
-  if (!cat) return "🧰";
-  const icon = (typeof cat === "object" && cat.icon) ? String(cat.icon).trim() : "";
-  return icon || "🧰";
+/* ---------------- category icons (UI decoration only) ---------------- */
+const CATEGORY_EMOJI = {
+  "Plumbing": "🔧", "Cleaning": "🧽", "Housekeeping": "🏠",
+  "Electrical": "⚡", "Electrical & Solar": "⚡", "Errands": "🏃",
+  "Gardening": "🌿", "Painting": "🎨", "Moving": "📦",
+  "Tutoring": "📚", "Pharmacy": "💊", "Cobbler": "👞",
+  "Bicycle repairs": "🚲", "Mechanic": "🔩", "Car wash": "🚗",
+  "Agro vet": "🐄", "Mason": "🧱", "Carpenter": "🪚",
+  "School": "🏫", "Clinic": "🩺", "Hospital": "🏥",
+  "Supermarket": "🏪", "Poshomill": "🌾", "Butchery": "🥩",
+  "Water vendor": "💧", "Exhauster": "🚛", "Restaurant": "🍽️",
+  "Grocery": "🛒", "Fresh Groceries": "🛒", "Garbage Collector": "🗑️",
+};
+function categoryIcon(input) {
+  const obj = (input && typeof input === "object") ? input : { label: input };
+  return obj.icon || CATEGORY_EMOJI[obj.label] || "🌐";
 }
 
 /* ---------------- state ---------------- */
@@ -61,11 +63,10 @@ const _state = {
   categories: [],
   courts: [],
   activeCategory: null,
+  allProviders: [],
+  categoriesExpanded: false,
+  quickFilter: "all",
 };
-
-const INITIAL_CATEGORY_COUNT = 4;
-const CATEGORIES_PER_PAGE    = 5;
-let   VISIBLE_CATEGORY_COUNT = INITIAL_CATEGORY_COUNT;
 
 const discoverState = {
   page: 1,
@@ -74,6 +75,23 @@ const discoverState = {
   totalPages: 1,
   accumulated: [],
 };
+
+/* ============================================================
+   Safe API wrapper — never throws, always returns a fallback.
+   ============================================================ */
+async function safeApi(method, fallback, ...args) {
+  try {
+    if (typeof Api === "undefined" || typeof Api[method] !== "function") {
+      console.warn(`[home] Api.${method} not available`);
+      return fallback;
+    }
+    const r = await Api[method](...args);
+    return r ?? fallback;
+  } catch (err) {
+    console.warn(`[home] Api.${method} failed:`, err.message || err);
+    return fallback;
+  }
+}
 
 /* ---------------- Phase → Court cascade ---------------- */
 function buildPhaseOptions(courts) {
@@ -94,13 +112,14 @@ function buildPhaseOptions(courts) {
 function filterCourtsByPhase(phase) {
   const $court = document.getElementById("court");
   if (!$court) return;
+
   const list = phase
     ? _state.courts.filter((c) => Number(c.phase) === Number(phase))
     : _state.courts;
 
   if (!list.length) {
-    $court.innerHTML = `<option value="">No courts</option>`;
-    $court.disabled = true;
+    $court.innerHTML = `<option value="">All courts</option>`;
+    $court.disabled = false;
     return;
   }
 
@@ -110,74 +129,247 @@ function filterCourtsByPhase(phase) {
 }
 
 /* ============================================================
+   NOTICE BANNER
+   ============================================================ */
+async function renderNotice() {
+  const labelEl = document.getElementById("notice-label");
+  const textEl  = document.getElementById("notice-text");
+  if (!labelEl || !textEl) return;
+
+  const notice = await safeApi("getNotice", null);
+  if (!notice) {
+    labelEl.textContent = "ATHI HIGHWAY ESTATE NOTICE";
+    textEl.textContent  = "Welcome to Athi Soko Connect — your trusted estate directory.";
+    return;
+  }
+  labelEl.textContent = notice.label || "ATHI HIGHWAY ESTATE NOTICE";
+  textEl.textContent  = notice.text  || "";
+}
+
+/* ============================================================
+   HERO EYEBROW
+   ============================================================ */
+async function renderHeroEyebrow() {
+  const el = document.getElementById("hero-eyebrow");
+  if (!el) return;
+
+  const r = await safeApi("getPhaseRange", null);
+  if (r && r.min != null && r.max != null) {
+    const range = r.min === r.max ? `Phase ${r.min}` : `Phase ${r.min}-${r.max}`;
+    el.innerHTML = `<i class="fas fa-check-circle"></i> Athi Highway Estate · ${range} · Residents only`;
+    return;
+  }
+
+  const phases = [...new Set(
+    _state.courts.map((c) => Number(c.phase)).filter((v) => !isNaN(v))
+  )].sort((a, b) => a - b);
+
+  if (!phases.length) {
+    el.innerHTML = `<i class="fas fa-check-circle"></i> Athi Highway Estate · Residents only`;
+    return;
+  }
+  const range = phases[0] === phases[phases.length - 1]
+    ? `Phase ${phases[0]}`
+    : `Phase ${phases[0]}-${phases[phases.length - 1]}`;
+  el.innerHTML = `<i class="fas fa-check-circle"></i> Athi Highway Estate · ${range} · Residents only`;
+}
+
+/* ============================================================
+   HERO STATS
+   ============================================================ */
+function renderStats(providers) {
+  const list = Array.isArray(providers) ? providers : [];
+  const total    = list.length;
+  const verified = list.filter((p) => p.verified).length;
+  const readyNow = list.filter((p) => p.isAvailable !== false).length;
+  const courts   = [...new Set(list.map((p) => p.courtName).filter(Boolean))];
+
+  const totalEl = document.getElementById("stat-providers");
+  if (totalEl) totalEl.textContent = total.toLocaleString();
+
+  const courtsEl = document.getElementById("stat-courts");
+  if (courtsEl) {
+    courtsEl.textContent = courts.length
+      ? `Across ${courts.length} court${courts.length === 1 ? "" : "s"}`
+      : "Across the estate";
+  }
+
+  const verifiedEl = document.getElementById("stat-verified");
+  if (verifiedEl) verifiedEl.textContent = verified.toLocaleString();
+
+  const verifiedSub = document.getElementById("stat-verified-sub");
+  if (verifiedSub) {
+    const pct = total > 0 ? Math.round((verified / total) * 100) : 0;
+    verifiedSub.textContent = total > 0
+      ? `${pct}% · Approved after admin review`
+      : "Approved after admin review";
+  }
+
+  const readyEl = document.getElementById("stat-ready");
+  if (readyEl) readyEl.textContent = readyNow.toLocaleString();
+
+  const readyCountEl = document.getElementById("ready-count");
+  if (readyCountEl) readyCountEl.textContent = readyNow.toLocaleString();
+}
+
+function renderStatsFallback() {
+  const dash = (id, txt = "0") => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+  dash("stat-providers", "0");
+  dash("stat-verified", "0");
+  dash("stat-ready", "0");
+  dash("ready-count", "0");
+  const sub1 = document.getElementById("stat-courts");
+  if (sub1) sub1.textContent = "Across the estate";
+  const sub2 = document.getElementById("stat-verified-sub");
+  if (sub2) sub2.textContent = "Approved after admin review";
+}
+
+/* ============================================================
+   GATE CLEARANCE
+   ============================================================ */
+async function renderGateClearance() {
+  const pill = document.getElementById("gate-clearance-pill");
+  if (!pill) return;
+
+  const data = await safeApi("getGateStatus", null);
+
+  if (!data || !data.status) {
+    const nowEAT = new Date(new Date().toLocaleString("en-US", {
+      timeZone: "Africa/Nairobi",
+    }));
+    const h = nowEAT.getHours();
+    if (h >= 6 && h < 22) {
+      pill.className = "pill pill--live";
+      pill.textContent = "Gate: Live";
+    } else {
+      pill.className = "pill pill--closed";
+      pill.textContent = "Gate 2 Closed";
+    }
+    return;
+  }
+
+  const map = { live: "pill--live", busy: "pill--busy", closed: "pill--closed" };
+  pill.className = `pill ${map[data.status] || "pill--live"}`;
+  pill.textContent = data.label || "Gate: Live";
+  pill.dataset.status = data.status;
+
+  let tooltip;
+  switch (data.status) {
+    case "live":
+      tooltip = `Gate 2 open. Closes in ${data.nextChangeMinutes || "?"} min (22:00 EAT). Gate 1 open 24/7.`;
+      break;
+    case "busy":
+      tooltip = `Gate 2 closing in ${data.nextChangeMinutes || "?"} min. Gate 1 remains open.`;
+      break;
+    case "closed":
+      tooltip = `Gate 2 reopens in ${data.nextChangeMinutes || "?"} min (06:00 EAT). Gate 1 open 24/7.`;
+      break;
+    default:
+      tooltip = "Gate status unavailable";
+  }
+  pill.title = tooltip;
+
+  if (data.nextChangeMinutes != null && data.nextChangeMinutes > 0) {
+    const msUntilChange = data.nextChangeMinutes * 60 * 1000;
+    const delay = Math.min(msUntilChange + 5000, 60000);
+    clearTimeout(renderGateClearance._timer);
+    renderGateClearance._timer = setTimeout(renderGateClearance, delay);
+  }
+}
+
+/* ============================================================
    CATEGORY TILES
    ============================================================ */
 function renderCategoryTiles() {
   const el = document.getElementById("category-tiles");
-  const loadMoreBtn  = document.getElementById("btn-load-more-categories");
-  const showFewerBtn = document.getElementById("btn-show-fewer-categories");
   if (!el) return;
 
-  const totalCategories   = _state.categories.length;
-  const visibleCategories = _state.categories.slice(0, VISIBLE_CATEGORY_COUNT);
+  const allActive = _state.activeCategory === null;
 
-  const tiles = visibleCategories.map((c) => {
+  const countsById = {};
+  _state.allProviders.forEach((p) => {
+    const cid = p.category;
+    if (cid != null) countsById[cid] = (countsById[cid] || 0) + 1;
+  });
+
+  const totalProviders = _state.allProviders.length ||
+    _state.categories.reduce((sum, c) => sum + (c.count || 0), 0);
+
+  const INITIAL_COUNT = 5;
+  const visibleCats = _state.categoriesExpanded
+    ? _state.categories
+    : _state.categories.slice(0, INITIAL_COUNT);
+
+  let html = `
+    <button type="button" class="category-tile ${allActive ? "is-active" : ""}" data-cat="">
+      <div class="category-tile_icon">📋</div>
+      <div class="category-tile_label">All Providers</div>
+      <div class="category-tile_count">${totalProviders || 0}</div>
+    </button>
+  `;
+
+  html += visibleCats.map((c) => {
     const isActive = _state.activeCategory === c.id;
+    const count = c.count ?? countsById[c.id] ?? 0;
     return `
-      <button type="button" class="category-tile ${isActive ? "is-active" : ""}"
-              data-cat="${c.id}">
-        <div class="category-tile__icon">${escapeHtml(iconForCategory(c))}</div>
-        <div class="category-tile__label">${escapeHtml(c.label)}</div>
+      <button type="button" class="category-tile ${isActive ? "is-active" : ""}" data-cat="${c.id}">
+        <div class="category-tile_icon">${categoryIcon(c)}</div>
+        <div class="category-tile_label">${escapeHtml(c.label)}</div>
+        <div class="category-tile_count">${count}</div>
       </button>
     `;
   }).join("");
 
-  const allActive = _state.activeCategory === null;
-  const allTile = `
-    <button type="button" class="category-tile ${allActive ? "is-active" : ""}"
-            data-cat="">
-      <div class="category-tile__icon">🌐</div>
-      <div class="category-tile__label">All Providers</div>
-    </button>
-  `;
-
-  el.innerHTML = tiles + allTile;
+  el.innerHTML = html;
 
   el.querySelectorAll(".category-tile").forEach((btn) => {
     btn.addEventListener("click", () => {
       const raw = btn.dataset.cat;
       _state.activeCategory = raw === "" ? null : parseInt(raw, 10);
-
       renderCategoryTiles();
       updateResultsHeading();
-
       discoverState.page = 1;
       discoverState.accumulated = [];
       renderResults();
-
-      document.getElementById("results-heading")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 
-  if (loadMoreBtn) {
-    if (VISIBLE_CATEGORY_COUNT < totalCategories) {
-      loadMoreBtn.style.display = "inline-flex";
-      loadMoreBtn.textContent = "View more categories";
-    } else {
-      loadMoreBtn.style.display = "none";
-    }
-  }
+  updateViewAllLink();
+}
 
-  if (showFewerBtn) {
-    if (VISIBLE_CATEGORY_COUNT > INITIAL_CATEGORY_COUNT) {
-      showFewerBtn.style.display = "inline-block";
-    } else {
-      showFewerBtn.style.display = "none";
-    }
+function updateViewAllLink() {
+  const link = document.getElementById("view-all-categories");
+  if (!link) return;
+
+  const total = _state.categories.length;
+  if (total <= 5) { link.style.display = "none"; return; }
+  link.style.display = "inline-block";
+
+  if (_state.categoriesExpanded) {
+    link.classList.add("is-expanded");
+    link.textContent = "Show fewer categories ▴";
+  } else {
+    link.classList.remove("is-expanded");
+    link.textContent = `View more categories (${total - 5}) ▾`;
   }
 }
 
+function setupViewAllToggle() {
+  const link = document.getElementById("view-all-categories");
+  if (!link) return;
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    _state.categoriesExpanded = !_state.categoriesExpanded;
+    renderCategoryTiles();
+  });
+}
+
+/* ============================================================
+   RESULTS HEADING
+   ============================================================ */
 function updateResultsHeading() {
   const h = document.getElementById("results-heading");
   if (!h) return;
@@ -190,62 +382,51 @@ function updateResultsHeading() {
   }
 }
 
-/* ---------------- populate ---------------- */
+/* ============================================================
+   POPULATE FILTERS + STATS
+   ============================================================ */
 async function populateFilters() {
-  try {
-    _state.categories = typeof loadCategoryCache === "function"
-      ? await loadCategoryCache()
-      : await Api.getCategories();
-    renderCategoryTiles();
-  } catch (err) {
-    console.error("[home] categories failed:", err);
+  /* Categories */
+  let counted = await safeApi("getCategoryCounts", null);
+  if (!Array.isArray(counted) || !counted.length) {
+    counted = await safeApi("getCategories", []);
   }
+  _state.categories = Array.isArray(counted) ? counted : [];
+  renderCategoryTiles();
 
-  try {
-    _state.courts = await Api.getCourts();
-    buildPhaseOptions(_state.courts);
-    filterCourtsByPhase("");
-  } catch (err) {
-    console.error("[home] courts failed:", err);
-  }
+  /* Courts */
+  const courts = await safeApi("getCourts", []);
+  _state.courts = Array.isArray(courts) ? courts : [];
+  buildPhaseOptions(_state.courts);
+  filterCourtsByPhase("");
 
-  try {
-    const all = await Api.getProviders();
-    renderStats(all);
-  } catch (err) {
-    console.error("[home] stats failed:", err);
-  }
+  /* Hero eyebrow */
+  await renderHeroEyebrow();
 
-  /* ----- Optional routes: never let a 404 kill the page ----- */
-  if (typeof Api.getPhaseRange === "function") {
-    try { await Api.getPhaseRange(); } catch (e) { /* ignore */ }
-  }
-  if (typeof Api.getNotice === "function") {
-    try { await Api.getNotice(); } catch (e) { /* ignore */ }
-  }
-  if (typeof Api.getGateRules === "function") {
-    try { await Api.getGateRules(); } catch (e) { /* ignore */ }
-  }
+  /* Providers — used for stats + category count fallback */
+  const all = await safeApi("getProviders", [], { limit: 9999 });
+  const list = Array.isArray(all) ? all : (all?.data || []);
+  _state.allProviders = list;
+
+  renderCategoryTiles();
+  if (list.length) renderStats(list);
+  else             renderStatsFallback();
+
+  /* Notice + gate */
+  await renderNotice();
+  await renderGateClearance();
 }
 
-/* ---------------- hero stats ---------------- */
-function renderStats(providers) {
-  const arr = Array.isArray(providers) ? providers : (providers?.data || []);
-  const pEl = document.getElementById("stat-providers");
-  const vEl = document.getElementById("stat-verified");
-  if (pEl) pEl.textContent = arr.length;
-  if (vEl) vEl.textContent = arr.filter((p) => p.verified).length;
-}
-
-/* ---------------- provider card ---------------- */
+/* ============================================================
+   PROVIDER CARD
+   ============================================================ */
 function providerCard(p) {
   const initials = initialsOf(p.name);
-  const cat = p.categoryLabel
-    || (typeof categoryLabel === "function" ? categoryLabel(p.category) : "—");
+  const cat = p.categoryLabel || "Service";
 
-  const verifiedPill = typeof verifiedBadge === "function"
-    ? verifiedBadge(p.verified)
-    : (p.verified ? `<span class="badge badge--verified">Verified</span>` : "");
+  const verifiedPill = p.verified
+    ? `<span class="badge badge--verified">Verified</span>`
+    : "";
 
   const availabilityPill = p.isAvailable === false
     ? `<span class="badge" style="background:#e74c3c;color:white;">Busy</span>`
@@ -259,8 +440,8 @@ function providerCard(p) {
   const price       = Number(p.priceFrom || 0);
 
   const locParts = [];
-  if (p.courtName)      locParts.push(escapeHtml(p.courtName));
-  if (p.phase != null)  locParts.push(`Phase ${p.phase}`);
+  if (p.courtName)     locParts.push(escapeHtml(p.courtName));
+  if (p.phase != null) locParts.push(`Phase ${p.phase}`);
   const loc = locParts.join(" · ");
 
   let busyLine = "";
@@ -275,17 +456,7 @@ function providerCard(p) {
       text = "⏸️ Busy · not accepting bookings";
     }
     busyLine = `
-      <div class="busy-countdown"
-           data-until="${p.unavailableUntil || ""}"
-           style="
-             font-size: 0.78rem;
-             color: #c0392b;
-             background: #fdecea;
-             border-left: 3px solid #e74c3c;
-             padding: 4px 8px;
-             border-radius: 4px;
-             margin-top: 6px;
-           ">
+      <div class="busy-countdown busy-line" data-until="${p.unavailableUntil || ""}">
         ${text}
       </div>`;
   }
@@ -293,7 +464,7 @@ function providerCard(p) {
   return `
     <a class="card" href="provider.html?id=${encodeURIComponent(p.id)}">
       <div class="card-top">
-        <div style="display:flex; gap:12px; align-items:center;">
+        <div class="card-top_left">
           <div class="avatar">${escapeHtml(initials)}</div>
           <div>
             <h3>${escapeHtml(p.name)}</h3>
@@ -324,26 +495,24 @@ function providerCard(p) {
   `;
 }
 
-/* ---------------- Build current filters ---------------- */
+/* ============================================================
+   FILTERS + RESULTS
+   ============================================================ */
 function buildDiscoverFilters() {
-  const $q    = document.getElementById("q");
-  const $ph   = document.getElementById("phase");
-  const $ct   = document.getElementById("court");
-  const $mp   = document.getElementById("maxPrice");
-
   return {
-    verified: true,
-    search:   $q ? $q.value.trim() : "",
-    phase:    $ph ? $ph.value : "",
-    courtId:  $ct ? $ct.value : "",
+    verified: _state.quickFilter === "all",
+    available: _state.quickFilter === "available" ? true : "",
+    search:   (document.getElementById("q")?.value || "").trim(),
+    phase:    document.getElementById("phase")?.value || "",
+    courtId:  document.getElementById("court")?.value || "",
     category: _state.activeCategory ?? "",
-    maxPrice: $mp ? $mp.value : "",
+    maxPrice: document.getElementById("maxPrice")?.value || "",
+    sort:     document.getElementById("sort-by")?.value || "rating",
     page:     discoverState.page,
     limit:    discoverState.limit,
   };
 }
 
-/* ---------------- results ---------------- */
 async function renderResults({ append = false } = {}) {
   const grid = document.getElementById("provider-grid");
   if (!grid) return;
@@ -353,26 +522,16 @@ async function renderResults({ append = false } = {}) {
     discoverState.accumulated = [];
   }
 
-  let result;
-  try {
-    result = await Api.getProviders(buildDiscoverFilters());
-  } catch (err) {
-    console.error("[home] providers failed:", err);
-    if (!append) grid.innerHTML = `<div class="empty-state">Could not load providers.</div>`;
-    return;
-  }
+  const result = await safeApi("getProviders", { data: [], total: 0 }, buildDiscoverFilters());
+  const providers = Array.isArray(result) ? result : (result?.data || []);
 
-  const providers = Array.isArray(result) ? result : (result.data || []);
-  discoverState.total      = result.total      ?? providers.length;
-  discoverState.page       = result.page       ?? 1;
-  discoverState.limit      = result.limit      ?? discoverState.limit;
-  discoverState.totalPages = result.totalPages ?? 1;
+  discoverState.total      = result?.total      ?? providers.length;
+  discoverState.page       = result?.page       ?? 1;
+  discoverState.limit      = result?.limit      ?? discoverState.limit;
+  discoverState.totalPages = result?.totalPages ?? 1;
 
-  if (append) {
-    discoverState.accumulated.push(...providers);
-  } else {
-    discoverState.accumulated = providers;
-  }
+  if (append) discoverState.accumulated.push(...providers);
+  else        discoverState.accumulated = providers;
 
   const countEl = document.getElementById("results-count");
   if (countEl) {
@@ -380,7 +539,7 @@ async function renderResults({ append = false } = {}) {
       countEl.textContent = "No providers found";
     } else {
       countEl.textContent =
-        `Showing ${discoverState.accumulated.length} of ${discoverState.total} provider${discoverState.total === 1 ? "" : "s"}`;
+        `${discoverState.accumulated.length} of ${discoverState.total} provider${discoverState.total === 1 ? "" : "s"}`;
     }
   }
 
@@ -394,7 +553,6 @@ async function renderResults({ append = false } = {}) {
   renderLoadMoreButton();
 }
 
-/* ---------------- Load More button ---------------- */
 function renderLoadMoreButton() {
   let btn = document.getElementById("load-more-btn");
 
@@ -402,10 +560,7 @@ function renderLoadMoreButton() {
   const total   = discoverState.total;
   const hasMore = shown < total;
 
-  if (!hasMore) {
-    if (btn) btn.remove();
-    return;
-  }
+  if (!hasMore) { if (btn) btn.remove(); return; }
 
   if (!btn) {
     btn = document.createElement("button");
@@ -413,36 +568,31 @@ function renderLoadMoreButton() {
     btn.type = "button";
     btn.className = "btn btn--ghost";
     btn.style.cssText =
-      "display:block; margin: 24px auto 8px; min-height:44px; padding: 12px 32px;";
+      "display:block; margin:24px auto 8px; min-height:44px; padding:12px 32px;";
     btn.addEventListener("click", handleLoadMore);
     document.getElementById("provider-grid").insertAdjacentElement("afterend", btn);
   }
 
-  const remaining = total - shown;
-  btn.textContent = `Load more (${remaining} remaining)`;
+  btn.textContent = `Load more (${total - shown} remaining)`;
   btn.disabled = false;
 }
 
 async function handleLoadMore() {
   const btn = document.getElementById("load-more-btn");
   if (!btn) return;
-
   btn.disabled = true;
   btn.textContent = "Loading…";
-
   discoverState.page++;
   await renderResults({ append: true });
 }
 
-/* ---------------- Live countdown ticker ---------------- */
+/* ---------------- Countdown ticker ---------------- */
 function startCountdownTicker() {
   if (startCountdownTicker._id) clearInterval(startCountdownTicker._id);
-
   startCountdownTicker._id = setInterval(() => {
     document.querySelectorAll(".busy-countdown").forEach((el) => {
       const until = el.dataset.until;
       if (!until) return;
-
       const t = formatTimeUntil(until);
       el.textContent = (t && t.backTime)
         ? `⏸️ Busy until ${t.backTime} · ${t.relative}`
@@ -452,45 +602,170 @@ function startCountdownTicker() {
 }
 
 /* ============================================================
-   CATEGORY PAGINATION
+   QUICK FILTER CHIPS
    ============================================================ */
-function setupCategoryLoadMore() {
-  const moreBtn  = document.getElementById("btn-load-more-categories");
-  const fewerBtn = document.getElementById("btn-show-fewer-categories");
-
-  if (moreBtn) {
-    moreBtn.addEventListener("click", () => {
-      VISIBLE_CATEGORY_COUNT += CATEGORIES_PER_PAGE;
-      renderCategoryTiles();
+function setupQuickFilters() {
+  const chips = document.querySelectorAll(".dx-chip--btn[data-quick]");
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chips.forEach((c) => c.classList.remove("is-active"));
+      chip.classList.add("is-active");
+      _state.quickFilter = chip.dataset.quick || "all";
+      discoverState.page = 1;
+      discoverState.accumulated = [];
+      renderResults();
     });
-  }
-
-  if (fewerBtn) {
-    fewerBtn.addEventListener("click", () => {
-      VISIBLE_CATEGORY_COUNT = Math.max(
-        INITIAL_CATEGORY_COUNT,
-        VISIBLE_CATEGORY_COUNT - CATEGORIES_PER_PAGE
-      );
-      renderCategoryTiles();
-    });
-  }
+  });
 }
 
-/* ---------------- init ---------------- */
+/* ============================================================
+   LIVE SYNC INDICATOR
+   ============================================================ */
+async function fetchLastSyncTime() {
+  const iso = await safeApi("getLastSync", null);
+  return iso || new Date().toISOString();
+}
+
+function classifyFreshness(iso) {
+  const diffMin = (Date.now() - new Date(iso).getTime()) / 60000;
+  if (diffMin < 15)  return "fresh";
+  if (diffMin < 120) return "recent";
+  if (diffMin < 720) return "stale";
+  return "offline";
+}
+
+function formatTimeEAT(iso) {
+  return new Date(iso).toLocaleTimeString("en-KE", {
+    hour: "2-digit", minute: "2-digit", hour12: false,
+    timeZone: "Africa/Nairobi",
+  });
+}
+
+async function renderSyncIndicator() {
+  const el = document.getElementById("sync-indicator");
+  const t  = document.getElementById("sync-time");
+  if (!el || !t) return;
+
+  const tick = async () => {
+    const iso    = await fetchLastSyncTime();
+    const status = classifyFreshness(iso);
+    t.textContent = formatTimeEAT(iso);
+    t.setAttribute("datetime", iso);
+
+    el.classList.remove(
+      "sync-indicator--recent",
+      "sync-indicator--stale",
+      "sync-indicator--offline"
+    );
+    if (status !== "fresh") el.classList.add(`sync-indicator--${status}`);
+    el.title = `Last synced at ${formatTimeEAT(iso)} EAT. Click to refresh.`;
+  };
+
+  await tick();
+
+  el.addEventListener("click", async () => {
+    if (el.classList.contains("is-refreshing")) return;
+    el.classList.add("is-refreshing");
+    await Promise.all([tick(), new Promise((r) => setTimeout(r, 500))]);
+    el.classList.remove("is-refreshing");
+    if (typeof toast === "function") toast("Directory refreshed.");
+  });
+
+  setInterval(tick, 60000);
+}
+
+/* ============================================================
+   GATE RULES MODAL
+   ============================================================ */
+async function setupGateRulesModal() {
+  const triggers = document.querySelectorAll('[data-open="gate-rules"]');
+  const modal   = document.getElementById("gate-rules-modal");
+  if (!triggers.length || !modal) return;
+
+  const tbody   = document.getElementById("gate-rules-body");
+  const updated = document.getElementById("gate-rules-updated");
+
+  const data = await safeApi("getGateRules", null);
+
+  const open = async (e) => {
+    if (e) e.preventDefault();
+
+    if (tbody) {
+      if (data?.rules?.length) {
+        tbody.innerHTML = data.rules.map((r) => `
+          <tr><th>${escapeHtml(r.label)}</th><td>${escapeHtml(r.body)}</td></tr>
+        `).join("");
+      } else {
+        tbody.innerHTML = `
+          <tr><th>Gate 1</th><td>Open 24/7 for residents and registered visitors.</td></tr>
+          <tr><th>Gate 2</th><td>Open 06:00 – 22:00 EAT daily.</td></tr>
+          <tr><th>Visitors</th><td>Must be pre-registered or announced at the control desk.</td></tr>
+        `;
+      }
+    }
+
+    if (updated) {
+      const iso = data?.updatedAt || await fetchLastSyncTime();
+      updated.textContent = `${formatTimeEAT(iso)} EAT`;
+      updated.setAttribute("datetime", iso);
+    }
+
+    modal.classList.add("is-open");
+    document.body.style.overflow = "hidden";
+
+    const btn = modal.querySelector("[data-close-modal]");
+    if (btn) btn.focus();
+  };
+
+  const close = () => {
+    modal.classList.remove("is-open");
+    document.body.style.overflow = "";
+  };
+
+  triggers.forEach((t) => t.addEventListener("click", open));
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.matches("[data-close-modal]")) close();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("is-open")) close();
+  });
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
-  // Discover is public — no auth gate.
+  /* NOTE: Discover is a public page. We do NOT hard-gate on
+     requireAuth() — otherwise nothing renders for guests and
+     the page stays on "Loading…". */
 
   try {
     await populateFilters();
-    setupCategoryLoadMore();
+    setupQuickFilters();
+    setupViewAllToggle();
     updateResultsHeading();
     await renderResults();
     startCountdownTicker();
+
+    renderSyncIndicator();
+    setupGateRulesModal();
   } catch (err) {
     console.error("[home] init failed:", err);
+    // Last-resort: make sure the grid is never stuck on "Loading…"
+    const grid = document.getElementById("provider-grid");
+    if (grid && grid.querySelector(".empty-state")) {
+      grid.innerHTML = `<div class="empty-state">Could not load providers. Please refresh.</div>`;
+    }
+    renderStatsFallback();
   }
 
+  renderGateClearance();
+  setInterval(renderGateClearance, 60000);
+
   let searchTimer = null;
+
   const $q = document.getElementById("q");
   if ($q) {
     $q.addEventListener("input", () => {
@@ -522,15 +797,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  const $max = document.getElementById("maxPrice");
-  if ($max) {
-    $max.addEventListener("input", () => {
+  const $maxPrice = document.getElementById("maxPrice");
+  if ($maxPrice) {
+    $maxPrice.addEventListener("input", () => {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
         discoverState.page = 1;
         discoverState.accumulated = [];
         renderResults();
       }, 200);
+    });
+  }
+
+  const $sort = document.getElementById("sort-by");
+  if ($sort) {
+    $sort.addEventListener("change", () => {
+      discoverState.page = 1;
+      discoverState.accumulated = [];
+      renderResults();
     });
   }
 
@@ -544,19 +828,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  const resetBtn = document.getElementById("reset-search");
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      if ($q) $q.value = "";
-      if ($phase) $phase.value = "";
-      if ($court) $court.value = "";
-      if ($max) $max.value = "";
+  const $reset = document.getElementById("reset-search");
+  if ($reset) {
+    $reset.addEventListener("click", () => {
+      if ($q)        $q.value = "";
+      if ($phase)    $phase.value = "";
+      if ($court)    $court.value = "";
+      if ($maxPrice) $maxPrice.value = "";
 
       _state.activeCategory = null;
+      _state.quickFilter    = "all";
+
+      document.querySelectorAll(".dx-chip--btn[data-quick]").forEach((c) => {
+        c.classList.toggle("is-active", c.dataset.quick === "all");
+      });
+
       renderCategoryTiles();
       updateResultsHeading();
-
       filterCourtsByPhase("");
+
       discoverState.page = 1;
       discoverState.accumulated = [];
       renderResults();

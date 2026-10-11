@@ -1,102 +1,168 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pending Approvals · AthiEstateAccessSokoConnectProjectAmalgamated</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="icon" href="data:,"> 
+  <title>Pending Approvals · Athi Soko Connect</title>
+
+  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+  <!-- Shared stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Page-specific styles -->
+  <link rel="stylesheet" href="css/pending.css">
+
+  <link rel="icon" href="data:,">
 </head>
-<body>
+<body class="discover-body has-sidebar">
 
-<main class="container section">
-  <div class="page-head">
-    <h1>Pending approvals</h1>
-    <p>Review and approve new residents and vendor applications. Approving a resident sends them a welcome email.</p>
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+
+    <a href="about.html" data-nav="about.html">
+      <i class="fas fa-circle-info" aria-hidden="true"></i>
+      <span>About AHE</span>
+    </a>
+
+    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden>
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+
+    <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden>
+      <i class="fas fa-store" aria-hidden="true"></i>
+      <span>My Profile</span>
+    </a>
+
+    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-friends" aria-hidden="true"></i>
+      <span>My Visitors</span>
+    </a>
+
+    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+      <span>My Billing &amp; Payments</span>
+    </a>
+
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+
+    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
+      <i class="fas fa-shield-halved" aria-hidden="true"></i>
+      <span>Security &mdash; Visitors</span>
+    </a>
+
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden>
+      <i class="fas fa-user-shield" aria-hidden="true"></i>
+      <span>Admin</span>
+    </a>
+
+    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden>
+      <i class="fas fa-crown" aria-hidden="true"></i>
+      <span>Super Admin</span>
+    </a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
   </div>
+</aside>
 
-  <!-- Tabs -->
-  <div class="tab-row" id="pendingTabs">
-    <button class="tab-btn is-active" data-tab="residents">
-      Residents <span id="count-residents">…</span>
-    </button>
-    <button class="tab-btn" data-tab="vendors">
-      Vendors <span id="count-vendors">…</span>
-    </button>
-  </div>
+<!-- Mobile toggle -->
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
 
-  <!-- Residents panel -->
-  <div class="tab-panel is-active" id="tab-residents">
-    <div id="residents-list" class="pending-list">
-      <div class="empty-state">Loading pending residents…</div>
+<!-- ============================================================
+     PAGE CONTENT
+     ============================================================ -->
+<div class="side-rail__content">
+
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
     </div>
   </div>
 
-  <!-- Vendors panel -->
-  <div class="tab-panel" id="tab-vendors">
-    <div id="vendors-list" class="pending-list">
-      <div class="empty-state">Loading pending vendors…</div>
+  <main class="container dx-main section">
+
+    <div class="page-head">
+      <div class="page-head__text">
+        <h1>Pending approvals</h1>
+        <p>Review and approve new residents and vendor applications. Approving a resident sends them a welcome email.</p>
+      </div>
     </div>
-  </div>
-</main>
 
-<style>
-  .pending-list { display: flex; flex-direction: column; gap: 14px; }
+    <!-- Tabs -->
+    <div class="tab-row" id="pendingTabs">
+      <button class="tab-btn is-active" data-tab="residents">
+        Residents <span id="count-residents">…</span>
+      </button>
+      <button class="tab-btn" data-tab="vendors">
+        Vendors <span id="count-vendors">…</span>
+      </button>
+    </div>
 
-  .pending-card {
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-m);
-    padding: 20px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 16px;
-    align-items: center;
-    transition: box-shadow 0.15s ease;
-  }
-  .pending-card:hover {
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  }
+    <!-- Residents panel -->
+    <div class="tab-panel is-active" id="tab-residents">
+      <div id="residents-list" class="pending-list">
+        <div class="empty-state">Loading pending residents…</div>
+      </div>
+    </div>
 
-  .pending-card .name {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 1.1rem;
-    margin-bottom: 4px;
-  }
-  .pending-card .meta {
-    font-size: 0.88rem;
-    color: var(--ink-70);
-    margin-bottom: 2px;
-  }
-  .pending-card .meta i {
-    color: var(--ink-40);
-    width: 16px;
-    display: inline-block;
-  }
-  .pending-card .when {
-    font-size: 0.8rem;
-    color: var(--ink-40);
-    margin-top: 6px;
-  }
+    <!-- Vendors panel -->
+    <div class="tab-panel" id="tab-vendors">
+      <div id="vendors-list" class="pending-list">
+        <div class="empty-state">Loading pending vendors…</div>
+      </div>
+    </div>
+  </main>
 
-  .pending-card .actions {
-    display: flex;
-    gap: 8px;
-  }
+  <footer class="site-footer">
+    <div class="container" style="width:100%; text-align:center;">
+      Athi Soko Connect — a service of Athi Highway Estate management.
+    </div>
+  </footer>
+</div>
 
-  @media (max-width: 640px) {
-    .pending-card { grid-template-columns: 1fr; }
-    .pending-card .actions { justify-content: flex-start; }
-  }
-</style>
-
-<script src="js/auth.js"></script>
-<script src="js/api.js"></script>
-<script src="js/main.js"></script>
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/main.js?v=7"></script>
+<script src="js/notices.js"></script>
 <script src="js/pending.js"></script>
-  <script src="js/sidebar.js"></script>
+<!-- js/sidebar.js intentionally removed -->
 </body>
 </html>

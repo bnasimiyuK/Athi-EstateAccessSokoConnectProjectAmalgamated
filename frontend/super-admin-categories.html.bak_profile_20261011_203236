@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Categories — Super Admin</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+<link rel="stylesheet" href="css/styles.css" />
+<link rel="icon" href="data:,">
+</head>
+<body class="discover-body has-sidebar">
+
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+
+    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden>
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+
+    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-friends" aria-hidden="true"></i>
+      <span>My Visitors</span>
+    </a>
+
+    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+      <span>My Billing &amp; Payments</span>
+    </a>
+
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+
+    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
+      <i class="fas fa-shield-halved" aria-hidden="true"></i>
+      <span>Security &mdash; Visitors</span>
+    </a>
+
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden>
+      <i class="fas fa-user-shield" aria-hidden="true"></i>
+      <span>Admin</span>
+    </a>
+
+    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden>
+      <i class="fas fa-crown" aria-hidden="true"></i>
+      <span>Super Admin</span>
+    </a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile toggle -->
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+
+<div class="side-rail__content">
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+
+  <main class="container dx-main" style="padding: 40px 24px;">
+
+  <!-- ================= PAGE HEAD ================= -->
+  <div class="page-head" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+      <h1>Manage categories</h1>
+      <p>Add, edit, or remove service categories. Paste any emoji as the icon.</p>
+    </div>
+    <button id="btn-new-category" class="btn btn--accent" type="button">
+      <i class="fas fa-plus"></i> New category
+    </button>
+  </div>
+
+  <!-- ================= LIST ================= -->
+  <div id="categories-list"></div>
+
+</main>
+</div>
+
+<!-- ============================================================
+     ADD / EDIT MODAL
+     ============================================================ -->
+<div id="cat-modal-backdrop"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
+            z-index:1000; align-items:center; justify-content:center; padding:20px;">
+
+  <div style="background:#fff; border-radius:10px; padding:24px;
+              width:min(460px, 100%); box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+
+    <h3 id="cat-modal-title" style="margin-top:0;">New category</h3>
+
+    <!-- Label -->
+    <div class="field" style="margin-bottom:14px;">
+      <label for="cat-label">Label</label>
+      <input type="text"
+             id="cat-label"
+             placeholder="e.g. Plumbing"
+             style="width:100%; padding:10px 12px;
+                    border:1px solid var(--line, #dcd8cd);
+                    border-radius:6px; font-size:1rem;" />
+    </div>
+
+    <!-- Icon (text input only, no hardcoded emoji) -->
+    <div class="field" style="margin-bottom:8px;">
+      <label for="cat-icon">Icon (emoji)</label>
+      <div style="display:flex; gap:8px; align-items:stretch;">
+        <input type="text"
+               id="cat-icon"
+               placeholder="🔧"
+               style="flex:1; padding:10px 12px;
+                      border:1px solid var(--line, #dcd8cd);
+                      border-radius:6px; font-size:1.4rem;
+                      text-align:center;
+                      font-family: 'Segoe UI Emoji', 'Apple Color Emoji',
+                                   'Noto Color Emoji', sans-serif;" />
+        <button type="button"
+                id="cat-icon-clear"
+                class="btn btn--ghost btn--small"
+                style="min-width:70px;">Clear</button>
+      </div>
+      <small style="color:var(--ink-70, #4a5670); display:block;
+                    margin-top:6px; line-height:1.5;">
+        Paste any emoji you like. Sources:
+        <a href="https://getemoji.com/" target="_blank" rel="noopener">getemoji.com</a>,
+        <a href="https://emojipedia.org/" target="_blank" rel="noopener">emojipedia.org</a>,
+        or copy from your phone&rsquo;s keyboard.
+      </small>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+      <button type="button" id="cat-cancel" class="btn btn--ghost">Cancel</button>
+      <button type="button" id="cat-save" class="btn btn--accent">Save</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     SCRIPTS (order matters)
+     ============================================================ -->
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/main.js?v=7"></script>
+<script src="js/super-admin.js"></script>
+
+</body>
+</html>

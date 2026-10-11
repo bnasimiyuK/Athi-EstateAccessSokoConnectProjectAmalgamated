@@ -1,105 +1,227 @@
 /* ============================================================
-   register.js — vendor application (two-step flow)
-   1. Verify the applicant is a registered + verified resident
+   register.js — Vendor application (login-first flow)
+
+   1. Require an authenticated resident (session-based)
    2. Only then show the vendor listing form
+   3. Backend MUST also enforce this — see backend/routes/providers.js
    ============================================================ */
 
 let verifiedResident = null;
 
-/* ------------------------------------------------------------
-   STEP 1 — Verify residency by phone
-   ------------------------------------------------------------ */
-async function handleVerifyResident(e) {
-  e.preventDefault();
-
-  const phone = document.getElementById("r-phone").value.trim();
-  const msgEl = document.getElementById("check-message");
-
-  if (!phone) {
-    showCheckMessage("Please enter your phone number.", true);
-    return;
-  }
-
-  showCheckMessage("Checking…", false);
-
-  try {
-    // Fetch all residents with this phone (backend filters by q)
-    const list = await Api.getResidents({ q: phone });
-
-    // Exact match on phone (backend q does partial match, we need exact)
-    const match = list.find((r) => r.phone === phone);
-
-    if (!match) {
-      showCheckMessage(
-        "❌ No resident found with that phone number. Please sign up as a resident first.",
-        true
-      );
-      return;
-    }
-
-    if (!match.verified) {
-      showCheckMessage(
-        "⏳ Your resident account is still pending admin approval. Please try again once approved.",
-        true
-      );
-      return;
-    }
-
-    // ✅ Resident exists and is verified
-    verifiedResident = match;
-    showCheckMessage("", false); // clear
-
-    // Populate the read-only info banner
-    document.getElementById("resident-info").innerHTML =
-      `✅ Verified resident: <strong>${match.fullName}</strong> — Phase ${match.phase}, ${match.courtName} (${match.phone})`;
-
-    // Swap forms
-    document.getElementById("resident-check-form").style.display = "none";
-    document.getElementById("register-form").style.display = "block";
-
-    // Load category dropdown for step 2
-    await populateCategorySelect();
-  } catch (err) {
-    console.error("[register] resident check failed:", err);
-    showCheckMessage("Could not verify. Please try again.", true);
-  }
+/* ---------------- progress step helper ---------------- */
+function setStep(n) {
+  document.querySelectorAll(".reg-steps li[data-step]").forEach((li) => {
+    const step = Number(li.dataset.step);
+    li.classList.toggle("is-done",    step < n);
+    li.classList.toggle("is-current", step === n);
+  });
 }
 
-/* ------------------------------------------------------------
-   Show inline message under Step 1
-   ------------------------------------------------------------ */
+/* ---------------- show/hide panels ---------------- */
+function showPanel(which) {
+  const checkForm = document.getElementById("resident-check-form");
+  const regForm   = document.getElementById("register-form");
+  const doneCard  = document.getElementById("done-card");
+  const preview   = document.getElementById("listing-preview");
+  const layout    = document.getElementById("reg-layout");
+
+  if (checkForm) checkForm.hidden = which !== "check";
+  if (regForm)   regForm.hidden   = which !== "form";
+  if (doneCard)  doneCard.hidden  = which !== "done";
+  if (preview)   preview.hidden   = which !== "form";
+  if (layout)    layout.classList.toggle("reg-layout--split", which === "form");
+}
+
+/* ---------------- inline messages ---------------- */
 function showCheckMessage(text, isError) {
   const el = document.getElementById("check-message");
+  if (!el) return;
   if (!text) {
-    el.style.display = "none";
+    el.hidden = true;
     el.textContent = "";
     return;
   }
-  el.style.display = "block";
+  el.hidden = false;
   el.textContent = text;
-  el.style.color = isError ? "var(--clay)" : "var(--ink-70)";
+  el.classList.toggle("msg--error", !!isError);
+  el.classList.toggle("msg--info",  !isError);
 }
+
+/* ------------------------------------------------------------
+   Session helper — reads the current user from whichever
+   mechanism the rest of the app uses.
+   Order of preference:
+     1. getUser()          — defined in main.js / auth.js
+     2. Auth.currentUser() — alternate convention
+     3. Auth.getUser()
+     4. Auth.user
+     5. localStorage       — legacy keys
+   ------------------------------------------------------------ */
+function getSessionUser() {
+  try {
+    if (typeof getUser === "function") {
+      const u = getUser();
+      if (u && (u.id || u.email || u.role)) return u;
+    }
+  } catch { /* ignore */ }
+
+  try {
+    if (typeof Auth !== "undefined") {
+      if (typeof Auth.currentUser === "function") {
+        const u = Auth.currentUser();
+        if (u) return u;
+      }
+      if (typeof Auth.getUser === "function") {
+        const u = Auth.getUser();
+        if (u) return u;
+      }
+      if (Auth.user) return Auth.user;
+    }
+  } catch { /* ignore */ }
+
+  try {
+    const keys = ["asc_user", "athi_user", "user", "currentUser"];
+    for (const k of keys) {
+      const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
+      if (raw) {
+        const u = JSON.parse(raw);
+        if (u && (u.id || u.email || u.role)) return u;
+      }
+    }
+  } catch { /* ignore */ }
+
+  return null;
+}
+
+/* ------------------------------------------------------------
+   Server-side session check — source of truth.
+   Falls back to the cached session if the call fails.
+   ------------------------------------------------------------ */
+async function fetchMe() {
+  if (typeof Api === "undefined") return null;
+  try {
+    if (typeof Api.me === "function")               return await Api.me();
+    if (typeof Api.getMe === "function")            return await Api.getMe();
+    if (typeof Api.getCurrentResident === "function") return await Api.getCurrentResident();
+  } catch (err) {
+    console.warn("[register] fetchMe failed:", err);
+  }
+  return null;
+}
+
+/* ---------------- boot ---------------- */
+document.addEventListener("DOMContentLoaded", async () => {
+  const checkForm = document.getElementById("resident-check-form");
+  const regForm   = document.getElementById("register-form");
+  const backBtn   = document.getElementById("back-btn");
+  const againBtn  = document.getElementById("again-btn");
+
+  if (regForm)  regForm.addEventListener("submit", handleSubmitVendor);
+  if (backBtn)  backBtn.addEventListener("click", resetFlow);
+  if (againBtn) againBtn.addEventListener("click", resetFlow);
+
+  // Live preview listeners
+  ["r-name", "r-category", "r-hours", "r-price", "r-price-unit", "r-bio", "r-services"]
+    .forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("input",  updatePreview);
+      el.addEventListener("change", updatePreview);
+    });
+
+  /* ---------- 1. Require a session ---------- */
+  const cachedUser = getSessionUser();
+
+  // Ask the server who we are — this is the authoritative check.
+  const meFromServer = await fetchMe();
+  const me = meFromServer || cachedUser;
+
+  if (!me) {
+    // Not logged in — bounce to login with a return URL
+    const next = encodeURIComponent(location.pathname + location.search);
+    window.location.replace(`/login.html?next=${next}`);
+    return;
+  }
+
+  /* ---------- 2. Role check ---------- */
+  const role = String(me.role || "").toLowerCase().replace(/[_\s]/g, "-");
+
+  if (role && !["resident", "provider", "vendor", "admin", "super-admin"].includes(role)) {
+    // Unknown role — send to a safe page
+    window.location.replace("/index.html");
+    return;
+  }
+
+  /* ---------- 3. Admin / super-admin: send to admin panel ---------- */
+  if (role === "admin" || role === "super-admin") {
+    window.location.replace("/admin.html");
+    return;
+  }
+
+  /* ---------- 4. Verification check ---------- */
+  // If `verified` is explicitly false → block. If undefined/null → allow.
+  if (me.verified === false || me.verified === 0) {
+    showPanel("check");
+    setStep(1);
+    if (checkForm) {
+      checkForm.innerHTML = `
+        <h2>Step 1 — Account pending</h2>
+        <p class="form-card_lead">
+          Hi ${me.fullName || me.name || "resident"} — your resident account is
+          still waiting for admin approval. You'll be able to list a service
+          once it's verified.
+        </p>
+        <div class="form-actions">
+          <a href="/index.html" class="btn btn--ghost">Back to Discover</a>
+        </div>`;
+    }
+    return;
+  }
+
+  /* ---------- 5. Signed in + eligible → show the form ---------- */
+  verifiedResident = me;
+
+  // Skip the phone-verification step — we already know who this is.
+  if (checkForm) checkForm.hidden = true;
+
+  const info = document.getElementById("resident-info");
+  if (info) {
+    info.innerHTML =
+      `✅ Signed in as <strong>${me.fullName || me.name || "Resident"}</strong>`
+      + (me.phase     != null ? ` — Phase ${me.phase}`    : "")
+      + (me.courtName        ? `, ${me.courtName}`         : "")
+      + (me.phone            ? ` (${me.phone})`             : "");
+  }
+
+  await populateCategorySelect();
+  showPanel("form");
+  setStep(2);
+  updatePreview();
+});
 
 /* ------------------------------------------------------------
    Load categories into the Step 2 dropdown
    ------------------------------------------------------------ */
 async function populateCategorySelect() {
   const select = document.getElementById("r-category");
+  if (!select) return;
   if (select.options.length > 0) return; // already populated
 
   try {
-    const categories = await loadCategoryCache();
-    select.innerHTML = "";
+    if (typeof Api === "undefined" || typeof Api.getCategories !== "function") return;
+    const categories = await Api.getCategories();
+    const arr = Array.isArray(categories) ? categories : (categories?.data || []);
 
-    categories.forEach((c) => {
+    select.innerHTML = "";
+    arr.forEach((c) => {
       const opt = document.createElement("option");
       opt.value = c.id;
-      opt.textContent = c.label;
+      opt.textContent = c.label || c.name || "Category";
       select.appendChild(opt);
     });
   } catch (err) {
     console.error("[register] failed to load categories:", err);
-    toast("Could not load service categories.");
+    if (typeof toast === "function") toast("Could not load service categories.");
   }
 }
 
@@ -110,73 +232,133 @@ async function handleSubmitVendor(e) {
   e.preventDefault();
 
   if (!verifiedResident) {
-    alert(
-      "❌ You haven't verified your residency yet.\n\n" +
-      "Please scroll up, enter your phone number, and click 'Verify residency' first."
-    );
+    showCheckMessage("Please sign in as a resident first.", true);
     return;
   }
 
-  const services = document
-    .getElementById("r-services")
-    .value.split(",")
+  const services = (document.getElementById("r-services")?.value || "")
+    .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
   if (!services.length) {
-    toast("Add at least one service, separated by commas.");
+    if (typeof toast === "function") toast("Add at least one service, separated by commas.");
     return;
   }
 
-  const payload = {
-    // Inherited from verified resident
-    residentId: verifiedResident.id,
-    phone:      verifiedResident.phone,
-    // phase + court come from the resident record on the backend
-    // (only include here if backend requires them explicitly)
-    // phase: verifiedResident.phase,
-    // courtId: verifiedResident.courtId,
+  // The backend derives identity from the session; we send residentId
+  // as a convenience but the server MUST ignore it and use the session.
+  const residentId =
+    verifiedResident.id       ||
+    verifiedResident.residentId ||
+    verifiedResident.userId;
 
-    // Vendor-specific fields
-    name:      document.getElementById("r-name").value.trim(),
-    category:  document.getElementById("r-category").value,
-    hours:     document.getElementById("r-hours").value.trim(),
-    priceFrom: Number(document.getElementById("r-price").value),
-    priceUnit: document.getElementById("r-price-unit").value,
-    bio:       document.getElementById("r-bio").value.trim(),
+  const payload = {
+    residentId,
+    phone:      verifiedResident.phone,
+    name:       document.getElementById("r-name").value.trim(),
+    category:   document.getElementById("r-category").value,
+    hours:      document.getElementById("r-hours").value.trim(),
+    priceFrom:  Number(document.getElementById("r-price").value),
+    priceUnit:  document.getElementById("r-price-unit").value,
+    bio:        document.getElementById("r-bio").value.trim(),
     services,
   };
 
-  const btn = e.target.querySelector("button[type=submit]");
-  btn.disabled = true;
+  const btn   = document.getElementById("submit-btn");
+  const msgEl = document.getElementById("submit-message");
+  if (btn) btn.disabled = true;
+  if (msgEl) msgEl.hidden = true;
 
   try {
-    await Api.registerProvider(payload);
-    toast(`Thanks, ${payload.name}! Your listing is pending admin verification.`);
+    if (typeof Api === "undefined" || typeof Api.registerProvider !== "function") {
+      throw new Error("Registration service unavailable.");
+    }
 
-    // Reset the whole flow
-    e.target.reset();
-    document.getElementById("register-form").style.display = "none";
-    document.getElementById("resident-check-form").style.display = "block";
-    document.getElementById("r-phone").value = "";
-    verifiedResident = null;
+    await Api.registerProvider(payload);
+
+    // Populate confirmation details
+    const doneResident = document.getElementById("done-resident");
+    const doneTime     = document.getElementById("done-time");
+    if (doneResident) {
+      doneResident.textContent =
+        verifiedResident.fullName || verifiedResident.name || "";
+    }
+    if (doneTime) {
+      doneTime.textContent = new Date().toLocaleString();
+    }
+
+    showPanel("done");
+    setStep(3);
+
+    if (typeof toast === "function") {
+      toast(`Thanks, ${payload.name}! Your listing is pending admin verification.`);
+    }
+
   } catch (err) {
     console.error("[register] submit failed:", err);
-    toast(err.message || "Couldn't submit your listing. Please try again.");
+    if (msgEl) {
+      msgEl.textContent = err.message || "Couldn't submit your listing. Please try again.";
+      msgEl.hidden = false;
+      msgEl.classList.add("msg--error");
+    }
   } finally {
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
   }
 }
 
 /* ------------------------------------------------------------
-   Init
+   Live Preview Logic
    ------------------------------------------------------------ */
-document.addEventListener("DOMContentLoaded", () => {
-  document
-    .getElementById("resident-check-form")
-    .addEventListener("submit", handleVerifyResident);
+function updatePreview() {
+  const nameEl = document.getElementById("r-name");
+  if (!nameEl) return; // preview not on this page
 
-  document
-    .getElementById("register-form")
-    .addEventListener("submit", handleSubmitVendor);
-});
+  const name      = nameEl.value.trim();
+  const catSelect = document.getElementById("r-category");
+  const catText   = catSelect?.options[catSelect.selectedIndex]?.text || "Category";
+  const hours     = document.getElementById("r-hours").value.trim();
+  const price     = document.getElementById("r-price").value;
+  const priceUnit = document.getElementById("r-price-unit").value;
+  const bio       = document.getElementById("r-bio").value.trim();
+  const services  = document.getElementById("r-services").value
+                      .split(",").map((s) => s.trim()).filter(Boolean);
+
+  const set = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  set("p-name",  name || "Your Business Name");
+  set("p-cat",   catText);
+  set("p-bio",   bio || "Your short description will appear here.");
+  set("p-hours", hours || "Working hours");
+  set("p-price", price ? `KSh ${price} ${priceUnit}` : "Price");
+
+  const tags = document.getElementById("p-tags");
+  if (tags) {
+    tags.innerHTML = "";
+    services.forEach((s) => {
+      const span = document.createElement("span");
+      span.className = "listing-card_tag";
+      span.textContent = s;
+      tags.appendChild(span);
+    });
+  }
+
+  if (verifiedResident) {
+    const parts = [];
+    if (verifiedResident.phase     != null) parts.push(`Phase ${verifiedResident.phase}`);
+    if (verifiedResident.courtName) parts.push(verifiedResident.courtName);
+    set("p-loc", parts.join(", "));
+  }
+}
+
+/* ------------------------------------------------------------
+   Reset the flow — in the login-first design, "reset" just
+   means: go back to Discover and start over.
+   ------------------------------------------------------------ */
+function resetFlow() {
+  verifiedResident = null;
+  window.location.href = "/index.html";
+}

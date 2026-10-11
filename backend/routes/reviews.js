@@ -58,7 +58,7 @@ router.get("/provider/:providerId", async (req, res, next) => {
    ------------------------------------------------------------ */
 router.get("/",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res, next) => {
     try {
       // Parse + clamp pagination params
@@ -169,7 +169,7 @@ router.post("/",
    ------------------------------------------------------------ */
 router.patch("/:id",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res, next) => {
     try {
       const id = parseInt(req.params.id, 10);
@@ -216,7 +216,7 @@ router.patch("/:id",
    ------------------------------------------------------------ */
 router.delete("/:id",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res, next) => {
     try {
       const id = parseInt(req.params.id, 10);

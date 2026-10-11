@@ -501,4 +501,37 @@ const Api = {
   }
   return res.json();
 },
+// In your Api object:
+/* ============================================================
+   OPTIONAL DISCOVER-PAGE ENDPOINTS (live, not silenced)
+   ============================================================ */
+getCategoryCounts: () => request(`${API_BASE}/categories/counts`),
+getPhaseRange:     () => request(`${API_BASE}/phase-range`),
+getNotice:         () => request(`${API_BASE}/notice`),
+getGateStatus:     () => request(`${API_BASE}/gate/status`),
+getLastSync:       () => request(`${API_BASE}/last-sync`),
+getGateRules:      () => request(`${API_BASE}/gate/rules`),
+  /* ============================================================
+     NOTICE BOARD (CRUD)
+     ============================================================ */
+  getNotices: (params = {}) =>
+    request(`${API_BASE}/notices${qsOf(params)}`),
+
+  getNoticeById: (id) =>
+    request(`${API_BASE}/notices/${id}`),
+
+  createNotice: (payload) =>
+    request(`${API_BASE}/notices`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  updateNotice: (id, patch) =>
+    request(`${API_BASE}/notices/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  deleteNotice: (id) =>
+    request(`${API_BASE}/notices/${id}`, { method: "DELETE" }),
 };

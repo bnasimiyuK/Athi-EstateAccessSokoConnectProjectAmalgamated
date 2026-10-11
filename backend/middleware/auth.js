@@ -37,7 +37,7 @@ function requireAuth(req, res, next) {
 /* ------------------------------------------------------------
    requireRole — allows one or more roles
    Usage:
-     router.delete("/:id", requireAuth, requireRole("admin"), handler)
+     router.delete("/:id", requireAuth, requireRole("super-admin"), handler)
      router.post("/",     requireAuth, requireRole("resident", "vendor"), handler)
 
    Special case:

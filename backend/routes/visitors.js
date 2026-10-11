@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    routes/visitors.js — Visitor Pre-Registration
    2-stage approval: Admin → Security
    Code generated only after both approve.
@@ -489,7 +489,7 @@ router.post("/:id/cancel", requireAuth, requireRole("resident"), async (req, res
    ADMIN + SECURITY — paginated pending lists
    ============================================================ */
 
-router.get("/pending-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.get("/pending-admin", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const pageNum  = Math.max(1, parseInt(req.query.page || "1", 10));
     const limitNum = Math.min(200, Math.max(1, parseInt(req.query.limit || "50", 10)));
@@ -528,7 +528,7 @@ router.get("/pending-admin", requireAuth, requireRole("admin"), async (req, res,
   } catch (err) { next(err); }
 });
 
-router.get("/pending-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+router.get("/pending-security", requireAuth, requireRole("security", "admin", "super-admin"), async (req, res, next) => {
   try {
     const pageNum  = Math.max(1, parseInt(req.query.page || "1", 10));
     const limitNum = Math.min(200, Math.max(1, parseInt(req.query.limit || "50", 10)));
@@ -567,7 +567,7 @@ router.get("/pending-security", requireAuth, requireRole("security", "admin"), a
   } catch (err) { next(err); }
 });
 
-router.get("/pending-counts", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+router.get("/pending-counts", requireAuth, requireRole("admin", "security", "super-admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
     const r = await pool.request().query(`
@@ -583,7 +583,7 @@ router.get("/pending-counts", requireAuth, requireRole("admin", "security"), asy
    BULK APPROVAL ENDPOINTS
    ============================================================ */
 
-router.post("/bulk-approve-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/bulk-approve-admin", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const raw = Array.isArray(req.body.groupIds) ? req.body.groupIds : [];
     const ids = [...new Set(raw.map((x) => parseInt(x, 10)).filter(Number.isFinite))];
@@ -610,7 +610,7 @@ router.post("/bulk-approve-admin", requireAuth, requireRole("admin"), async (req
   } catch (err) { next(err); }
 });
 
-router.post("/bulk-approve-all-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/bulk-approve-all-admin", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const { confirm, max } = req.body;
     if (confirm !== "APPROVE ALL") {
@@ -651,7 +651,7 @@ router.post("/bulk-approve-all-admin", requireAuth, requireRole("admin"), async 
   } catch (err) { next(err); }
 });
 
-router.post("/bulk-approve-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+router.post("/bulk-approve-security", requireAuth, requireRole("security", "admin", "super-admin"), async (req, res, next) => {
   try {
     const raw = Array.isArray(req.body.groupIds) ? req.body.groupIds : [];
     const ids = [...new Set(raw.map((x) => parseInt(x, 10)).filter(Number.isFinite))];
@@ -697,7 +697,7 @@ router.post("/bulk-approve-security", requireAuth, requireRole("security", "admi
   } catch (err) { next(err); }
 });
 
-router.post("/bulk-approve-all-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+router.post("/bulk-approve-all-security", requireAuth, requireRole("security", "admin", "super-admin"), async (req, res, next) => {
   try {
     const { confirm, max } = req.body;
     if (confirm !== "APPROVE ALL") {
@@ -757,7 +757,7 @@ router.post("/bulk-approve-all-security", requireAuth, requireRole("security", "
   } catch (err) { next(err); }
 });
 
-router.post("/bulk-deny", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+router.post("/bulk-deny", requireAuth, requireRole("admin", "security", "super-admin"), async (req, res, next) => {
   try {
     const raw = Array.isArray(req.body.groupIds) ? req.body.groupIds : [];
     const ids = [...new Set(raw.map((x) => parseInt(x, 10)).filter(Number.isFinite))];
@@ -821,7 +821,7 @@ router.post("/bulk-deny", requireAuth, requireRole("admin", "security"), async (
    SINGLE-ITEM APPROVAL / DENY
    ============================================================ */
 
-router.post("/:id/approve-admin", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/:id/approve-admin", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     const pool = await getPool();
@@ -831,7 +831,7 @@ router.post("/:id/approve-admin", requireAuth, requireRole("admin"), async (req,
   } catch (err) { next(err); }
 });
 
-router.post("/:id/approve-security", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+router.post("/:id/approve-security", requireAuth, requireRole("security", "admin", "super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     const pool = await getPool();
@@ -861,7 +861,7 @@ router.post("/:id/approve-security", requireAuth, requireRole("security", "admin
   } catch (err) { next(err); }
 });
 
-router.post("/:id/deny", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+router.post("/:id/deny", requireAuth, requireRole("admin", "security", "super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     const { reason } = req.body;
@@ -906,9 +906,9 @@ router.post("/:id/deny", requireAuth, requireRole("admin", "security"), async (r
    FULL LIST + REGISTER
    ============================================================ */
 
-router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+router.get("/", requireAuth, requireRole("admin", "super-admin", "security"), async (req, res, next) => {
   try {
-    const { status, date, houseNumber, q, page = 1, limit = 50 } = req.query;
+    const { status, date, from, to, houseNumber, q, page = 1, limit = 50 } = req.query;
     const pageNum  = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
     const offset   = (pageNum - 1) * limitNum;
@@ -917,6 +917,8 @@ router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, 
     const bind = (r) => {
       if (status)      { where.push("g.status = @status"); r.input("status", status); }
       if (date)        { where.push("g.visit_date = @date"); r.input("date", date); }
+      if (from)        { where.push("g.visit_date >= @from"); r.input("from", from); }
+      if (to)          { where.push("g.visit_date <= @to");   r.input("to",   to); }
       if (houseNumber) { where.push("g.house_number = @houseNumber"); r.input("houseNumber", houseNumber); }
       if (q && q.trim()) {
         where.push("(r.full_name LIKE @q OR g.house_number LIKE @q OR g.access_code LIKE @q)");
@@ -940,7 +942,11 @@ router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, 
       SELECT g.*,
              CONVERT(VARCHAR(5), g.expected_time, 108) AS expected_time_hhmm,
              r.full_name AS resident_name,
-             r.phone     AS resident_phone
+             r.phone     AS resident_phone,
+             (SELECT COUNT(*) FROM visitors v
+                WHERE v.group_id = g.id AND v.status = 'checked_in')  AS inside_count,
+             (SELECT COUNT(*) FROM visitors v
+                WHERE v.group_id = g.id AND v.status = 'checked_out') AS checked_out_count
       FROM visitor_groups g
       JOIN Residents r ON r.id = g.resident_id
       ${whereSql}
@@ -958,7 +964,7 @@ router.get("/", requireAuth, requireRole("admin", "security"), async (req, res, 
   } catch (err) { next(err); }
 });
 
-router.get("/register", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+router.get("/register", requireAuth, requireRole("admin", "security", "super-admin"), async (req, res, next) => {
   try {
     const { date } = req.query;
     if (!date) return res.status(400).json({ error: "date is required." });
@@ -1003,7 +1009,7 @@ router.get("/register", requireAuth, requireRole("admin", "security"), async (re
    GATE — CHECK IN / CHECK OUT
    ============================================================ */
 
-router.post("/checkin", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+router.post("/checkin", requireAuth, requireRole("security", "admin", "super-admin"), async (req, res, next) => {
   try {
     const { groupId, visitorId, plateNumber, gateName } = req.body;
     if (!groupId) return res.status(400).json({ error: "groupId is required." });
@@ -1085,7 +1091,7 @@ router.post("/checkin", requireAuth, requireRole("security", "admin"), async (re
   } catch (err) { next(err); }
 });
 
-router.post("/checkout", requireAuth, requireRole("security", "admin"), async (req, res, next) => {
+router.post("/checkout", requireAuth, requireRole("security", "admin", "super-admin"), async (req, res, next) => {
   try {
     const { groupId, visitorId, gateName } = req.body;
     if (!groupId) return res.status(400).json({ error: "groupId is required." });
@@ -1152,7 +1158,7 @@ router.post("/checkout", requireAuth, requireRole("security", "admin"), async (r
    ANALYTICS + LIVE STATS + EXPIRY
    ============================================================ */
 
-router.get("/analytics", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+router.get("/analytics", requireAuth, requireRole("admin", "security", "super-admin"), async (req, res, next) => {
   try {
     const to   = req.query.to   || new Date().toISOString().slice(0, 10);
     const from = req.query.from || new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
@@ -1218,7 +1224,7 @@ router.get("/analytics", requireAuth, requireRole("admin", "security"), async (r
   } catch (err) { next(err); }
 });
 
-router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/expire-stale", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
     const r = await pool.request().query(`
@@ -1239,7 +1245,7 @@ router.post("/expire-stale", requireAuth, requireRole("admin"), async (req, res,
   } catch (err) { next(err); }
 });
 
-router.get("/live-stats", requireAuth, requireRole("admin", "security"), async (req, res, next) => {
+router.get("/live-stats", requireAuth, requireRole("admin", "security", "super-admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
     const today = new Date().toISOString().slice(0, 10);
@@ -1266,7 +1272,7 @@ router.get("/live-stats", requireAuth, requireRole("admin", "security"), async (
 /* ============================================================
    SINGLE GROUP — must be the LAST route
    ============================================================ */
-router.get("/:id", requireAuth, requireRole("admin", "security", "resident"), async (req, res, next) => {
+router.get("/:id", requireAuth, requireRole("admin", "security", "resident", "super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });

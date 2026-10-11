@@ -1,106 +1,266 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Become a provider — AthiEstateAccessSokoConnectProjectAmalgamated</title>
-<link rel="stylesheet" href="css/styles.css" />
-<link rel="icon" href="data:,"> 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+<title>Become a provider - Athi Soko Connect</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link rel="stylesheet" href="/css/styles.css" />
+<link rel="icon" href="data:,">
 </head>
-<body>
+<body class="discover-body has-sidebar">
 
-<main class="container">
-  <div class="page-head">
-    <h1>List your service to the whole estate</h1>
-    <p>One profile, always visible. Only <strong>registered residents</strong> can become vendors. An estate admin reviews new listings before they go live.</p>
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+
+  <a href="/index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+
+    <a href="about.html" data-nav="about.html">
+      <i class="fas fa-circle-info" aria-hidden="true"></i>
+      <span>About AHE</span>
+    </a>
+
+    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden>
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+
+    <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden>
+      <i class="fas fa-store" aria-hidden="true"></i>
+      <span>My Profile</span>
+    </a>
+
+    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-friends" aria-hidden="true"></i>
+      <span>My Visitors</span>
+    </a>
+
+    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+      <span>My Billing &amp; Payments</span>
+    </a>
+
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+
+    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
+      <i class="fas fa-shield-halved" aria-hidden="true"></i>
+      <span>Security &mdash; Visitors</span>
+    </a>
+
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden>
+      <i class="fas fa-user-shield" aria-hidden="true"></i>
+      <span>Admin</span>
+    </a>
+
+    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden>
+      <i class="fas fa-crown" aria-hidden="true"></i>
+      <span>Super Admin</span>
+    </a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile toggle -->
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+<!-- ============================================================
+     PAGE CONTENT
+     ============================================================ -->
+<div class="side-rail__content">
+<div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+  <div class="side-rail__content">
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
   </div>
 
-  <!-- STEP 1: Verify resident by phone -->
-  <form class="form-card" id="resident-check-form" style="max-width:640px;">
-    <h2>Step 1 — Verify you're a resident</h2>
-    <p style="margin-top:6px;">Enter the phone number you used when signing up.</p>
-    <div class="form-grid" style="margin-top:16px;">
-      <div class="field field--full">
-        <label for="r-phone">Phone number</label>
-        <input type="tel" id="r-phone" placeholder="07XX XXX XXX" required />
-      </div>
-    </div>
-    <div style="margin-top:16px; display:flex; gap:12px; align-items:center;">
-      <button type="submit" class="btn btn--primary">Verify residency</button>
-      <a href="resident.html" style="font-size:0.85rem;">Not a resident yet? Sign up →</a>
-    </div>
-    <div id="check-message" style="margin-top:14px; display:none;"></div>
-  </form>
-
-  <!-- STEP 2: Vendor application (hidden until verified) -->
-  <form class="form-card" id="register-form" style="display:none; margin-top:32px; max-width:800px;">
-    <h2>Step 2 — Your vendor listing</h2>
-
-    <!-- Resident info (read-only) -->
-    <div class="notice" id="resident-info" style="margin-top:14px;"></div>
-
-    <div class="form-grid" style="margin-top:16px;">
-      <div class="field field--full">
-        <label for="r-name">Business / display name</label>
-        <input type="text" id="r-name" required placeholder="e.g. Grace's Cleaning Services" />
-      </div>
-
-      <div class="field">
-        <label for="r-category">Category</label>
-        <select id="r-category" required></select>
-      </div>
-      <div class="field">
-        <label for="r-hours">Working hours</label>
-        <input type="text" id="r-hours" placeholder="e.g. Mon–Sat, 8am–5pm" required />
-      </div>
-
-      <div class="field">
-        <label for="r-price">Starting price (KSh)</label>
-        <input type="number" id="r-price" min="0" required />
-      </div>
-      <div class="field">
-        <label for="r-price-unit">Price unit</label>
-        <select id="r-price-unit">
-          <option>per visit</option>
-          <option>per hour</option>
-          <option>per day</option>
-          <option>per session</option>
-          <option>per trip</option>
-        </select>
-      </div>
-
-      <div class="field field--full">
-        <label for="r-bio">Short description</label>
-        <textarea id="r-bio" rows="3" required placeholder="What you do and your experience in the estate"></textarea>
-      </div>
-
-      <div class="field field--full">
-        <label for="r-services">Services offered (comma-separated)</label>
-        <input type="text" id="r-services" placeholder="e.g. Leak repair, Drain unblocking" required />
-      </div>
-
-      <fieldset class="field--full">
-        <legend>Before you submit</legend>
-        <label class="check-row"><input type="checkbox" id="r-accurate" required /> The details above are accurate to the best of my knowledge.</label>
-        <label class="check-row"><input type="checkbox" id="r-terms" required /> I understand payment is arranged directly with residents — the platform does not process payments.</label>
-      </fieldset>
+  <main class="container dx-main">
+    <div class="page-head">
+      <h1>List your service to the whole estate</h1>
+      <p>One profile, always visible. Only <strong>registered residents</strong> can become vendors. An estate admin reviews new listings before they go live.</p>
     </div>
 
-    <div style="margin-top:20px; display:flex; gap:12px; align-items:center;">
-      <button type="submit" class="btn btn--accent">Submit for verification</button>
-      <span style="font-size:0.85rem; color:var(--ink-70);">Usually reviewed within 2 business days.</span>
-    </div>
-  </form>
-</main>
+    <!-- Progress -->
+    <ol class="reg-steps" id="reg-steps" aria-label="Progress">
+      <li class="is-current" data-step="1"><span class="reg-steps_dot">1</span> Verify residency</li>
+      <li class="reg-steps_bar" aria-hidden="true"></li>
+      <li data-step="2"><span class="reg-steps_dot">2</span> Your listing</li>
+      <li class="reg-steps_bar" aria-hidden="true"></li>
+      <li data-step="3"><span class="reg-steps_dot">3</span> Admin review</li>
+    </ol>
 
-<footer class="site-footer">
-  <div class="container" style="width:100%;">Verification confirms submitted information only, not the quality of future work.</div>
-</footer>
-<script src="js/auth.js"></script>
-<script src="js/api.js"></script>
-<script src="js/main.js"></script>
-<script src="js/register.js"></script>
-  <script src="js/sidebar.js"></script>
+    <div class="reg-layout" id="reg-layout">
+      <div class="reg-main">
+
+        <!-- STEP 1: Verify resident by phone -->
+        <form class="form-card form-card--narrow" id="resident-check-form" novalidate>
+          <h2>Step 1 - Verify you're a resident</h2>
+          <p class="form-card_lead">Enter the phone number you used when signing up.</p>
+          <div class="form-grid">
+            <div class="field field--full">
+              <label for="r-phone">Phone number</label>
+              <input type="tel" id="r-phone" placeholder="07XX XXX XXX" autocomplete="tel" inputmode="tel" required />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="verify-btn">Verify residency</button>
+            <a href="/residents.html" class="form-actions_link">Not a resident yet? Sign up</a>
+          </div>
+          <div id="check-message" class="msg" role="status" hidden></div>
+        </form>
+
+        <!-- STEP 2: Vendor application (hidden until verified) -->
+        <form class="form-card form-card--wide" id="register-form" novalidate hidden>
+          <h2>Step 2 - Your vendor listing</h2>
+
+          <!-- Resident info (read-only) -->
+          <div class="notice notice--spaced" id="resident-info"></div>
+
+          <div class="form-grid">
+            <div class="field field--full">
+              <label for="r-name">Business / display name</label>
+              <input type="text" id="r-name" required autocomplete="off" placeholder="e.g. Grace's Cleaning Services" />
+            </div>
+
+            <div class="field">
+              <label for="r-category">Category</label>
+              <select id="r-category" required></select>
+            </div>
+            <div class="field">
+              <label for="r-hours">Working hours</label>
+              <input type="text" id="r-hours" autocomplete="off" placeholder="e.g. Mon-Sat, 8am-5pm" required />
+            </div>
+
+            <div class="field">
+              <label for="r-price">Starting price (KSh)</label>
+              <input type="number" id="r-price" min="0" inputmode="numeric" placeholder="e.g. 1500" required />
+            </div>
+            <div class="field">
+              <label for="r-price-unit">Price unit</label>
+              <select id="r-price-unit">
+                <option>per visit</option>
+                <option>per hour</option>
+                <option>per day</option>
+                <option>per session</option>
+                <option>per trip</option>
+              </select>
+            </div>
+
+            <div class="field field--full">
+              <label for="r-bio">Short description</label>
+              <textarea id="r-bio" rows="3" required placeholder="What you do and your experience in the estate"></textarea>
+            </div>
+
+            <div class="field field--full">
+              <label for="r-services">Services offered (comma-separated)</label>
+              <input type="text" id="r-services" autocomplete="off" placeholder="e.g. Leak repair, Drain unblocking" required />
+              <span class="field_hint">Each service becomes a tag on your listing.</span>
+            </div>
+
+            <fieldset class="field--full">
+              <legend>Before you submit</legend>
+              <label class="check-row"><input type="checkbox" id="r-accurate" required /> The details above are accurate to the best of my knowledge.</label>
+              <label class="check-row"><input type="checkbox" id="r-terms" required /> I understand payment is arranged directly with residents - the platform does not process payments.</label>
+            </fieldset>
+          </div>
+
+          <div id="submit-message" class="msg msg--error" role="alert" hidden></div>
+
+          <div class="form-actions form-actions--spaced">
+            <button type="submit" class="btn btn--accent" id="submit-btn">Submit for verification</button>
+            <button type="button" class="btn btn--ghost" id="back-btn">Use a different number</button>
+            <span class="form-actions_note">Usually reviewed within 2 business days.</span>
+          </div>
+        </form>
+
+        <!-- CONFIRMATION -->
+        <section class="form-card form-card--wide" id="done-card" aria-live="polite" hidden>
+          <h2 id="done-title">Application sent</h2>
+          <p class="form-card_lead">Your listing is now with the estate admin. You will get a notification when it goes live.</p>
+          <ul class="timeline">
+            <li class="is-done"><span class="timeline_pt"></span><div><b>Residency verified</b><span id="done-resident"></span></div></li>
+            <li class="is-done"><span class="timeline_pt"></span><div><b>Listing submitted</b><span id="done-time"></span></div></li>
+            <li class="is-current"><span class="timeline_pt"></span><div><b>Admin review</b><span>Usually within 2 business days.</span></div></li>
+            <li><span class="timeline_pt"></span><div><b>Live on Discover</b><span>Residents can find and book you.</span></div></li>
+          </ul>
+          <div class="form-actions form-actions--spaced">
+            <button type="button" class="btn btn--primary" id="again-btn">Register another listing</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Live listing preview (visible during Step 2) -->
+      <aside class="listing-preview" id="listing-preview" aria-label="Listing preview" hidden>
+        <h3 class="listing-preview_title">How residents will see it</h3>
+        <div class="listing-card">
+          <span class="listing-card_cat" id="p-cat">Category</span>
+          <h3 class="listing-card_name" id="p-name"></h3>
+          <span class="listing-card_loc" id="p-loc"></span>
+          <p class="listing-card_bio" id="p-bio"></p>
+          <div class="listing-card_tags" id="p-tags"></div>
+          <div class="listing-card_meta">
+            <span id="p-hours"></span>
+            <span class="listing-card_price" id="p-price"></span>
+          </div>
+          <span class="listing-card_status">Pending admin verification</span>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      Verification confirms submitted information only, not the quality of future work.
+    </div>
+  </footer>
+</div>
+
+<script src="/js/auth.js?v=8"></script>
+<script src="/js/api.js?v=10"></script>
+<script src="/js/main.js?v=7"></script>
+<script src="/js/register.js"></script>
 </body>
 </html>

@@ -29,7 +29,7 @@ const { startReconciler } = require("./jobs/reconcilePending");
 const app = express();
 const PORT = process.env.PORT || 4050;
 const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
-
+const discoverRoutes = require("./routes/discover");
 /* ------------------------------------------------------------
    CORS â€” accept requests from one or more origins listed in
    ALLOW_ORIGIN (comma-separated). Falls back to localhost:3000
@@ -72,12 +72,15 @@ app.use("/api/invoices", invoicesRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/house-numbers", houseNumbersRouter);
 app.use("/api/visitors", visitorsRouter);
+const noticesRouter = require("./routes/notices");
+app.use("/api/notices", noticesRouter);
 app.use("/api/events", require("./routes/events"));
 app.use("/api/mpesa", require("./routes/mpesa"));
 app.use("/api/ahewa", require("./routes/ahewa"));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/auth", require("./routes/google-auth"));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/api", discoverRoutes);
 
 /* ---------- Static frontend ---------- */
 app.use(express.static(FRONTEND_DIR));

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -8,9 +8,105 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 </head>
-<body>
+<body class="discover-body has-sidebar">
 
-<main class="container">
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+
+    <a href="about.html" data-nav="about.html">
+      <i class="fas fa-circle-info" aria-hidden="true"></i>
+      <span>About AHE</span>
+    </a>
+
+    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden>
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+
+    <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden>
+      <i class="fas fa-store" aria-hidden="true"></i>
+      <span>My Profile</span>
+    </a>
+
+    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-friends" aria-hidden="true"></i>
+      <span>My Visitors</span>
+    </a>
+
+    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+      <span>My Billing &amp; Payments</span>
+    </a>
+
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+
+    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
+      <i class="fas fa-shield-halved" aria-hidden="true"></i>
+      <span>Security &mdash; Visitors</span>
+    </a>
+
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden>
+      <i class="fas fa-user-shield" aria-hidden="true"></i>
+      <span>Admin</span>
+    </a>
+
+    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden>
+      <i class="fas fa-crown" aria-hidden="true"></i>
+      <span>Super Admin</span>
+    </a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile toggle -->
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+
+<div class="side-rail__content">
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+
+  <main class="container dx-main">
   <div class="page-head page-head--with-actions">
     <div class="page-head__text">
       <h1>Approved residents</h1>
@@ -80,6 +176,7 @@
 
   <div id="residents-pagination"></div>
 </main>
+</div>
 
 <footer class="site-footer">
   <div class="container" style="width:100%;">
@@ -87,10 +184,9 @@
   </div>
 </footer>
 
-<script src="js/auth.js"></script>
-<script src="js/api.js"></script>
-<script src="js/main.js"></script>
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/main.js?v=7"></script>
 <script src="js/admin-residents.js"></script>
-  <script src="js/sidebar.js"></script>
 </body>
 </html>

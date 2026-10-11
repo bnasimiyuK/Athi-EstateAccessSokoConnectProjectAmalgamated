@@ -115,7 +115,7 @@ async function loadOutstandingBanner() {
       // Remove any previous state
       tile.style.cursor = "";
       tile.onclick = null;
-      const oldHint = tile.querySelector(".stat-tile__pay-hint");
+      const oldHint = tile.querySelector(".stat-tile_pay-hint");
       if (oldHint) oldHint.remove();
 
       if (total <= 0) return;                 // fully paid → not clickable
@@ -125,7 +125,7 @@ async function loadOutstandingBanner() {
 
       // Add a small visual hint under the label
       const hint = document.createElement("div");
-      hint.className = "stat-tile__pay-hint";
+      hint.className = "stat-tile_pay-hint";
       hint.style.cssText = "font-size:0.72rem;color:var(--ink-70);margin-top:4px;";
       hint.textContent = "💳 Click to pay";
       tile.appendChild(hint);

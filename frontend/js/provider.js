@@ -1,7 +1,7 @@
 /* ============================================================
    frontend/js/provider.js — Provider profile + booking + report + refer
-   Reads ?id=N, renders profile, submits booking, opens modal.
-   + Live countdown for busy vendors
+   Reads ?id=N  →  public view (provider.html)
+   No ?id       →  own profile mode (provider-profile.html)
    ============================================================ */
 
 /* ---------------- helpers ---------------- */
@@ -72,7 +72,25 @@ function isLoggedIn() {
 }
 
 /* ============================================================
-   NEW: time-until formatter — used by the live countdown
+   MODE DETECTION
+   - provider.html?id=N  →  public view (someone else's profile)
+   - provider-profile.html  →  own view (logged-in vendor)
+   ============================================================ */
+function detectMode() {
+  const page = window.location.pathname.split("/").pop();
+  return page === "provider-profile.html" ? "own" : "public";
+}
+
+function getCurrentRole() {
+  try {
+    const u = getCurrentUser();
+    if (u && u.role) return String(u.role).toLowerCase().replace(/[_\s]/g, "-");
+  } catch { /* ignore */ }
+  return "";
+}
+
+/* ============================================================
+   time-until formatter — used by the live countdown
    ============================================================ */
 function formatTimeUntil(iso) {
   if (!iso) return null;
@@ -113,9 +131,8 @@ function renderError(msg) {
 
 /* ============================================================
    HEADER — includes the out-of-office banner + Busy badge
-   UPDATED: uses formatTimeUntil() + class="busy-countdown"
    ============================================================ */
-function headerHtml(p) {
+function headerHtml(p, isOwnMode) {
   const initials = initialsOf(p.name);
   const locParts = [];
   if (p.courtName) locParts.push(escapeHtml(p.courtName));
@@ -140,25 +157,17 @@ function headerHtml(p) {
   const unavailableBanner = p.isAvailable === false
     ? `
       <div class="out-of-office"
-           style="
-             background: #fff8e1;
-             border: 1px solid #f0c040;
-             border-left: 4px solid #f39c12;
-             border-radius: 8px;
-             padding: 14px 18px;
-             margin-bottom: 22px;
-             display: flex;
-             gap: 12px;
-             align-items: flex-start;
-           ">
-        <span style="font-size: 1.5rem; line-height: 1; flex-shrink: 0;">⏸️</span>
+           style="background:#fff8e1;border:1px solid #f0c040;border-left:4px solid #f39c12;
+                  border-radius:8px;padding:14px 18px;margin-bottom:22px;display:flex;
+                  gap:12px;align-items:flex-start;">
+        <span style="font-size:1.5rem;line-height:1;flex-shrink:0;">⏸️</span>
         <div>
-          <strong style="color: #a86c1c; display: block; margin-bottom: 3px;">
+          <strong style="color:#a86c1c;display:block;margin-bottom:3px;">
             Currently not accepting new bookings
           </strong>
           <span class="busy-countdown"
                 data-until="${p.unavailableUntil || ""}"
-                style="color: #7a5a20; font-size: 0.9rem; line-height: 1.45;">
+                style="color:#7a5a20;font-size:0.9rem;line-height:1.45;">
             ${bannerMessage}
           </span>
         </div>
@@ -167,6 +176,10 @@ function headerHtml(p) {
 
   const availabilityBadge = p.isAvailable === false
     ? `<span class="badge" style="background:#e74c3c;color:white;margin-left:6px;">Busy</span>`
+    : "";
+
+  const ownBadge = isOwnMode
+    ? `<span class="badge" style="background:var(--ink);color:#fff;margin-left:6px;">Your profile</span>`
     : "";
 
   return `
@@ -192,12 +205,13 @@ function headerHtml(p) {
           ? `<span class="badge badge--verified">Verified</span>`
           : `<span class="badge badge--pending">Pending</span>`}
         ${availabilityBadge}
+        ${ownBadge}
       </div>
     </div>`;
 }
 
 /* ---------------- left column ---------------- */
-function leftColumnHtml(p, reviews) {
+function leftColumnHtml(p, reviews, isOwnMode) {
   const services = servicesArray(p.services);
   const showPhone = isLoggedIn();
 
@@ -214,6 +228,43 @@ function leftColumnHtml(p, reviews) {
           ${r.text ? `<p style="margin:6px 0 0;">${escapeHtml(r.text)}</p>` : ""}
         </div>`).join("")
     : `<div class="empty-state" style="padding:20px;">No reviews yet.</div>`;
+
+  /* In own mode, don't show the "share with neighbors" / report options to yourself */
+  const shareBlock = isOwnMode
+    ? ""
+    : `
+      <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--line);">
+        <h3 style="margin:0 0 12px;">Share with a neighbor</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn btn--accent btn--small" id="refer-provider">
+            🔗 Refer this provider
+          </button>
+          <button type="button" class="btn btn--ghost btn--small" id="open-report">
+            Report this provider
+          </button>
+        </div>
+
+        <div id="refer-panel" style="
+          display:none;margin-top:12px;padding:14px;
+          border:1px solid var(--line);border-radius:8px;
+          background:var(--paper);
+        ">
+          <p style="margin:0 0 10px;font-size:0.9rem;">
+            Help your neighbors find <b>${escapeHtml(p.name)}</b>:
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn--primary btn--small" id="refer-copy">
+              📋 Copy link
+            </button>
+            <button type="button" class="btn btn--ghost btn--small" id="refer-whatsapp">
+              💬 Share on WhatsApp
+            </button>
+            <button type="button" class="btn btn--ghost btn--small" id="refer-close">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>`;
 
   return `
     <div>
@@ -247,48 +298,47 @@ function leftColumnHtml(p, reviews) {
       <h2 style="margin-top:28px;">Reviews (${reviews.length})</h2>
       ${reviewsHtml}
 
-      <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--line);">
-        <h3 style="margin:0 0 12px;">Share with a neighbor</h3>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button type="button" class="btn btn--accent btn--small" id="refer-provider">
-            🔗 Refer this provider
-          </button>
-          <button type="button" class="btn btn--ghost btn--small" id="open-report">
-            Report this provider
-          </button>
-        </div>
-
-        <div id="refer-panel" style="
-          display:none; margin-top:12px; padding:14px;
-          border:1px solid var(--line); border-radius:8px;
-          background:var(--paper);
-        ">
-          <p style="margin:0 0 10px; font-size:0.9rem;">
-            Help your neighbors find <b>${escapeHtml(p.name)}</b>:
-          </p>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn btn--primary btn--small" id="refer-copy">
-              📋 Copy link
-            </button>
-            <button type="button" class="btn btn--ghost btn--small" id="refer-whatsapp">
-              💬 Share on WhatsApp
-            </button>
-            <button type="button" class="btn btn--ghost btn--small" id="refer-close">
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
+      ${shareBlock}
     </div>`;
 }
 
 /* ============================================================
-   RIGHT COLUMN — booking form
-   When the vendor is unavailable, the form is REPLACED with a
-   disabled card. Residents can still read the profile, reviews,
-   and contact details, but they cannot book.
-   UPDATED: uses formatTimeUntil() + class="busy-countdown"
+   RIGHT COLUMN — booking form (public) / edit panel (own)
    ============================================================ */
+function rightColumnHtml(p, isOwnMode) {
+  if (isOwnMode) return ownProfilePanelHtml(p);
+  return bookingFormHtml(p);
+}
+
+/* ---------- own profile side panel ---------- */
+function ownProfilePanelHtml(p) {
+  return `
+    <div class="booking-box" id="own-panel" style="border-top:4px solid var(--teal);">
+      <h3 style="margin-top:0;">Your listing</h3>
+      <p style="font-size:0.9rem;color:var(--ink-70);">
+        This is how residents see your profile. Keep it up to date.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
+        <button class="btn btn--accent" id="btn-toggle-availability">
+          ${p.isAvailable === false ? "✅ Mark as available" : "⏸️ Mark as unavailable"}
+        </button>
+        <button class="btn btn--ghost" id="btn-edit-profile">
+          ✏️ Edit profile details
+        </button>
+        <button class="btn btn--ghost" id="btn-view-public">
+          👁️ View public page
+        </button>
+      </div>
+
+      <p style="font-size:0.8rem;color:var(--ink-40);margin-top:16px;text-align:center;">
+        Verified status: ${p.verified ? "Verified ✅" : "Pending admin review"}
+      </p>
+    </div>
+  `;
+}
+
+/* ---------- public booking form ---------- */
 function bookingFormHtml(p) {
   /* ---------- Not logged in ---------- */
   if (!isLoggedIn()) {
@@ -303,10 +353,9 @@ function bookingFormHtml(p) {
       </div>`;
   }
 
-  /* ---------- Vendor is unavailable: show disabled card ---------- */
+  /* ---------- Vendor unavailable ---------- */
   if (p.isAvailable === false) {
     let backMessage = "The vendor is currently not accepting new bookings.";
-
     if (p.unavailableUntil) {
       const t = formatTimeUntil(p.unavailableUntil);
       backMessage = (t && t.backTime)
@@ -318,25 +367,25 @@ function bookingFormHtml(p) {
 
     return `
       <div class="booking-box" id="booking-box" style="text-align:center;">
-        <div style="font-size:2.5rem; line-height:1; margin-bottom:12px;">⏸️</div>
+        <div style="font-size:2.5rem;line-height:1;margin-bottom:12px;">⏸️</div>
         <h3 style="margin:0 0 8px;">Currently unavailable</h3>
         <p class="busy-countdown"
            data-until="${p.unavailableUntil || ""}"
-           style="font-size:0.9rem; color:var(--ink-70); margin-bottom:16px; line-height:1.5;">
+           style="font-size:0.9rem;color:var(--ink-70);margin-bottom:16px;line-height:1.5;">
           ${backMessage}
         </p>
         <button class="btn" disabled
-                style="width:100%; cursor:not-allowed; opacity:0.55; background:#ccc; color:#666; border:none;">
+                style="width:100%;cursor:not-allowed;opacity:0.55;background:#ccc;color:#666;border:none;">
           Booking disabled
         </button>
-        <p style="font-size:0.82rem; color:var(--ink-40); margin-top:14px;">
-          You can still browse their <a href="#reviews-heading" style="text-decoration:underline; color:var(--ink-70);">reviews</a>
-          or explore other providers on the <a href="index.html" style="text-decoration:underline; color:var(--ink-70);">Discover page</a>.
+        <p style="font-size:0.82rem;color:var(--ink-40);margin-top:14px;">
+          You can still browse their <a href="#reviews-heading" style="text-decoration:underline;color:var(--ink-70);">reviews</a>
+          or explore other providers on the <a href="index.html" style="text-decoration:underline;color:var(--ink-70);">Discover page</a>.
         </p>
       </div>`;
   }
 
-  /* ---------- Vendor is available: normal booking form ---------- */
+  /* ---------- Normal booking form ---------- */
   const user = getCurrentUser() || {};
   const name  = user.name  || "";
   const phone = user.phone || "";
@@ -399,7 +448,7 @@ function renderBookingSuccess(p) {
       Your request has been sent to <b>${escapeHtml(p.name)}</b>.
       They'll confirm shortly. Track it from your bookings page.
     </p>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <a class="btn btn--primary" href="dashboard.html">View my bookings</a>
       <button type="button" class="btn btn--ghost" id="book-again">Book another</button>
     </div>`;
@@ -459,6 +508,44 @@ function wireBookingForm(p) {
   });
 }
 
+/* ---------------- wire own-profile side panel ---------------- */
+function wireOwnPanel(p) {
+  const toggleBtn = document.getElementById("btn-toggle-availability");
+  const editBtn   = document.getElementById("btn-edit-profile");
+  const viewBtn   = document.getElementById("btn-view-public");
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", async () => {
+      const newVal = p.isAvailable !== false;   // toggle
+      toggleBtn.disabled = true;
+      const old = toggleBtn.textContent;
+      toggleBtn.textContent = "Updating…";
+      try {
+        await Api.updateProvider(p.id, { isAvailable: newVal });
+        toast(newVal ? "✅ Marked as available." : "⏸️ Marked as unavailable.");
+        location.reload();
+      } catch (err) {
+        toast(err.message || "Could not update availability.");
+        toggleBtn.disabled = false;
+        toggleBtn.textContent = old;
+      }
+    });
+  }
+
+  if (editBtn) {
+    editBtn.addEventListener("click", () => {
+      toast("Edit modal coming soon — for now, use the admin panel or contact support.");
+      // TODO: open an edit modal that PATCHes Api.updateProvider
+    });
+  }
+
+  if (viewBtn) {
+    viewBtn.addEventListener("click", () => {
+      window.open(`provider.html?id=${p.id}`, "_blank");
+    });
+  }
+}
+
 /* ---------------- wire report modal ---------------- */
 function wireReportModal(provider) {
   const openBtn = document.getElementById("open-report");
@@ -503,7 +590,7 @@ function wireReferPanel(provider) {
 
   if (!referBtn || !panel || !copyBtn || !whatsappBtn || !closeBtn) return;
 
-  const providerUrl = `${window.location.origin}${window.location.pathname}?id=${provider.id}`;
+  const providerUrl = `${window.location.origin}/provider.html?id=${provider.id}`;
   const shareMessage =
     `Check out ${provider.name} on Athi Soko Connect — ` +
     `${provider.categoryLabel || "a service provider"} in Phase ${provider.phase || "?"}. ` +
@@ -550,6 +637,57 @@ async function initProviderPage() {
   const root = document.getElementById("provider-root");
   if (!root) return;
 
+  const mode = detectMode();
+
+  /* ============================================================
+     OWN MODE — provider-profile.html
+     ============================================================ */
+  if (mode === "own") {
+    const role = getCurrentRole();
+    if (!["vendor", "provider", "admin", "super-admin"].includes(role)) {
+      return renderError("You don't have permission to view this page.");
+    }
+
+    renderLoading();
+
+    /* Find the logged-in user's provider record */
+    const u = getCurrentUser();
+    if (!u) return renderError("Please log in.");
+
+    let provider;
+    try {
+      const all  = await Api.getProviders({ limit: 500 });
+      const list = Array.isArray(all) ? all : (all.data || []);
+      provider   = list.find((p) => String(p.residentId) === String(u.residentId))
+                || list.find((p) => String(p.phone) === String(u.phone));
+    } catch (err) {
+      console.error("[provider] own-mode load failed:", err);
+      return renderError("Could not load your profile.");
+    }
+
+    if (!provider) {
+      return renderError("You don't have a vendor profile yet. Apply from the register page.");
+    }
+
+    let reviews = [];
+    try {
+      reviews = await Api.getReviews(provider.id);
+    } catch { /* empty ok */ }
+
+    root.innerHTML = `
+      ${headerHtml(provider, true)}
+      <div class="detail-grid">
+        ${leftColumnHtml(provider, reviews || [], true)}
+        ${rightColumnHtml(provider, true)}
+      </div>`;
+
+    wireOwnPanel(provider);
+    return;
+  }
+
+  /* ============================================================
+     PUBLIC MODE — provider.html?id=N
+     ============================================================ */
   const id = getProviderId();
   if (!id) return renderError("No provider specified.");
 
@@ -569,20 +707,17 @@ async function initProviderPage() {
   if (!provider) return renderError("Provider not found.");
 
   root.innerHTML = `
-    ${headerHtml(provider)}
+    ${headerHtml(provider, false)}
     <div class="detail-grid">
-      ${leftColumnHtml(provider, reviews || [])}
-      ${bookingFormHtml(provider)}
+      ${leftColumnHtml(provider, reviews || [], false)}
+      ${rightColumnHtml(provider, false)}
     </div>`;
 
   wireBookingForm(provider);
   wireReportModal(provider);
   wireReferPanel(provider);
 
-  /* ============================================================
-     NEW: Live countdown ticker — updates every 30 seconds
-     Only runs when the vendor is busy with a timer set
-     ============================================================ */
+  /* Live countdown ticker — updates every 30 seconds */
   if (provider.isAvailable === false && provider.unavailableUntil) {
     setInterval(() => {
       document.querySelectorAll(".busy-countdown").forEach((el) => {
@@ -598,7 +733,7 @@ async function initProviderPage() {
           el.textContent = `Expected back around ${t.backTime} (${t.relative}).`;
         }
       });
-    }, 30000); // 30 seconds
+    }, 30000);
   }
 }
 

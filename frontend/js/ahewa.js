@@ -51,9 +51,9 @@ async function loadSignatories(members) {
 
   el.innerHTML = sigs.map(s => `
     <div class="signatory-pill">
-      <div class="signatory-pill__role">${escapeHtml(s.signatory_role || "Signatory")}</div>
-      <div class="signatory-pill__name">${escapeHtml(s.full_name)}</div>
-      <div class="signatory-pill__house">${escapeHtml(s.house_number || "—")}</div>
+      <div class="signatory-pill_role">${escapeHtml(s.signatory_role || "Signatory")}</div>
+      <div class="signatory-pill_name">${escapeHtml(s.full_name)}</div>
+      <div class="signatory-pill_house">${escapeHtml(s.house_number || "—")}</div>
     </div>
   `).join("");
 }

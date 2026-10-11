@@ -582,6 +582,7 @@ router.post(
           .query(`SELECT avatar FROM ${table} WHERE id = @id`);
         const prevUrl = prev.recordset[0] && prev.recordset[0].avatar;
         if (prevUrl && prevUrl.startsWith("/uploads/")) {
+          // FIX: was `__dirname` (typo) — Node's global is `__dirname`
           const oldPath = path.join(__dirname, "..", prevUrl.replace(/^\//, ""));
           fs.unlink(oldPath, () => {});
         }

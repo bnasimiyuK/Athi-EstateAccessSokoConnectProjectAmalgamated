@@ -152,12 +152,12 @@ function renderDelta(elId, current, previous, lowerIsBetter = false) {
   const diff = (current || 0) - (previous || 0);
   if (diff === 0) {
     el.textContent = "no change vs last month";
-    el.className = "stat-tile__delta";
+    el.className = "stat-tile_delta";
     return;
   }
   const isGood = lowerIsBetter ? diff < 0 : diff > 0;
   el.textContent = `${diff > 0 ? "+" : ""}${diff} vs last month`;
-  el.className = "stat-tile__delta " + (isGood ? "is-good" : "is-bad");
+  el.className = "stat-tile_delta " + (isGood ? "is-good" : "is-bad");
 }
 
 /* ------------------------------------------------------------

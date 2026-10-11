@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log In · AthiEstateAccessSokoConnectProjectAmalgamated</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:,"> 
+</head>
+<body class="discover-body has-sidebar">
+
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+
+    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden>
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+
+    <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden>
+      <i class="fas fa-store" aria-hidden="true"></i>
+      <span>My Profile</span>
+    </a>
+
+    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-friends" aria-hidden="true"></i>
+      <span>My Visitors</span>
+    </a>
+
+    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+      <span>My Billing &amp; Payments</span>
+    </a>
+
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+
+    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
+      <i class="fas fa-shield-halved" aria-hidden="true"></i>
+      <span>Security &mdash; Visitors</span>
+    </a>
+
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden>
+      <i class="fas fa-user-shield" aria-hidden="true"></i>
+      <span>Admin</span>
+    </a>
+
+    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden>
+      <i class="fas fa-crown" aria-hidden="true"></i>
+      <span>Super Admin</span>
+    </a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile toggle -->
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+
+<div class="side-rail__content">
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+
+  <main class="container dx-main" style="padding: 60px 24px; display:flex; justify-content:center;">
+  <div class="register-container" style="max-width:480px;">
+    <div class="register-header">
+      <span class="role-badge"><i class="fas fa-sign-in-alt"></i> LOG IN</span>
+      <h1>
+        <i class="fas fa-user-circle"></i>
+        Welcome back
+      </h1>
+      <p>Choose your role and sign in to continue.</p>
+    </div>
+
+    <!-- Role tabs -->
+    <div class="tab-row" id="roleTabs" style="margin-bottom:20px;">
+  <button type="button" class="tab-btn" data-role="super-admin">Super Admin</button>
+  <button type="button" class="tab-btn" data-role="admin">Admin</button>
+  <button type="button" class="tab-btn" data-role="security">Security</button>
+  <button type="button" class="tab-btn is-active" data-role="resident">Resident</button>
+  <button type="button" class="tab-btn" data-role="vendor">Vendor</button>
+</div>
+
+    <form id="loginForm" novalidate>
+      <div class="input-group">
+        <label for="identifier" id="identifierLabel">
+          <i class="fas fa-phone-alt"></i> Phone number
+        </label>
+        <input type="text"
+               id="identifier"
+               placeholder="07XX XXX XXX"
+               autocomplete="username"
+               required />
+      </div>
+
+      <div class="input-group">
+        <label for="password">
+          <i class="fas fa-lock"></i> Password
+        </label>
+        <input type="password"
+               id="password"
+               placeholder="Enter your password"
+               autocomplete="current-password"
+               required />
+      </div>
+<div style="text-align:right; margin-top:6px;">
+  <a href="forgot-password.html" style="font-size:0.85rem; color:var(--ochre-dark);">
+    Forgot password?
+  </a>
+</div>
+      <div class="actions" style="margin-top:24px;">
+        <button type="submit" class="btn-primary" id="loginBtn" style="width:100%;">
+          <i class="fas fa-sign-in-alt"></i> Log in
+        </button>
+      </div>
+    </form>
+<!-- Social login -->
+<div style="margin-top:24px;">
+  <div style="display:flex; align-items:center; gap:12px; color:#6b7280; font-size:0.85rem;">
+    <hr style="flex:1; border:none; border-top:1px solid #e5e7eb;">
+    <span>or continue with</span>
+    <hr style="flex:1; border:none; border-top:1px solid #e5e7eb;">
+  </div>
+
+  <div style="margin-top:14px;">
+    <button type="button" data-social="google" class="btn btn--ghost"
+            style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; width:100%;">
+      <i class="fab fa-google"></i> Continue with Google
+    </button>
+  </div>
+</div>
+    <div id="loginMessage" class="backend-message hidden" style="margin-top:16px;">
+      <i class="fas fa-info-circle"></i>
+      <span id="loginMessageText"></span>
+    </div>
+
+    <div class="login-link" style="margin-top:20px;">
+      Not registered? <a href="residents.html">Sign up as resident →</a>
+    </div>
+  </div>
+</main>
+</div>
+
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/main.js?v=7"></script>
+<script src="js/validators.js"></script>
+<script src="js/login.js"></script>
+<script src="js/social-auth.js"></script>
+</body>
+</html>

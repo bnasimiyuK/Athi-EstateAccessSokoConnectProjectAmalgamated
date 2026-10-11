@@ -80,7 +80,7 @@ async function allocateToInvoice(pool, houseNumber, amount, txReq) {
    Body: { houseNumber, amount, mpesaReceipt?, mpesaPhone?, paymentDate?, notes?, type? }
    Creates payment with status=pending (admin still verifies).
    ============================================================ */
-router.post("/manual", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/manual", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const {
       houseNumber, amount, mpesaReceipt, mpesaPhone,
@@ -180,7 +180,7 @@ router.post("/self-report", requireAuth, async (req, res, next) => {
    GET /api/payments   (admin — filter + paginate)
    Query: status, houseNumber, month, q, page, limit
    ============================================================ */
-router.get("/", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.get("/", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const { status, type, houseNumber, month, q, page = 1, limit = 20 } = req.query;
 
@@ -270,7 +270,7 @@ router.get("/mine", requireAuth, async (req, res, next) => {
                     for the current month, send welcome email.
    - AHEWA_REG    → mark invoice paid, mark payment verified.
    ============================================================ */
-router.post("/:id/verify", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/:id/verify", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -423,7 +423,7 @@ router.post("/:id/verify", requireAuth, requireRole("admin"), async (req, res, n
    POST /api/payments/:id/reject   (admin)
    Body: { reason }
    ============================================================ */
-router.post("/:id/reject", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/:id/reject", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });

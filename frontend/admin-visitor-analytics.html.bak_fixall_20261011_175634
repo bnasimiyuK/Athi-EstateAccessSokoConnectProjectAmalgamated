@@ -1,0 +1,141 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Visitor analytics — Athi Estate Access</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+</head>
+<body class="discover-body has-sidebar">
+
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+    <a href="register.html" data-roles="resident,admin,super-admin" hidden data-nav="register.html">
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+    <a href="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden data-nav="dashboard.html">
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+    <a href="security-visitors.html" data-roles="security,admin,super-admin" hidden data-nav="security-visitors.html">
+      <i class="fas fa-shield-halved" aria-hidden="true"></i>
+      <span>Security — Visitors</span>
+    </a>
+    <a href="admin.html" data-roles="admin,super-admin" hidden data-nav="admin.html">
+      <i class="fas fa-user-shield" aria-hidden="true"></i>
+      <span>Admin</span>
+    </a>
+    <a href="super-admin.html" data-roles="super-admin" hidden data-nav="super-admin.html">
+      <i class="fas fa-crown" aria-hidden="true"></i>
+      <span>Super Admin</span>
+    </a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile toggle -->
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+
+<div class="side-rail__content">
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+
+  <main class="container dx-main">
+  <div class="page-head page-head--with-actions">
+    <div class="page-head__text">
+      <h1>Visitor analytics</h1>
+      <p>Traffic, approvals, denials and cancellations at a glance.</p>
+    </div>
+    <div class="admin-actions">
+      <input type="date" id="an-from" class="input" />
+      <input type="date" id="an-to"   class="input" />
+      <button type="button" id="an-refresh" class="btn btn--accent">Refresh</button>
+    </div>
+  </div>
+
+  <section class="stat-section">
+    <div class="stat-tiles">
+      <div class="stat-tile stat-tile--info"><div class="stat-tile__value" id="an-total">—</div><div class="stat-tile__label">Total pre-registrations</div></div>
+      <div class="stat-tile stat-tile--ok"><div class="stat-tile__value" id="an-approved">—</div><div class="stat-tile__label">Approved</div></div>
+      <div class="stat-tile stat-tile--danger"><div class="stat-tile__value" id="an-denied">—</div><div class="stat-tile__label">Denied</div></div>
+      <div class="stat-tile stat-tile--warn"><div class="stat-tile__value" id="an-cancelled">—</div><div class="stat-tile__label">Cancelled</div></div>
+      <div class="stat-tile stat-tile--danger"><div class="stat-tile__value" id="an-expired">—</div><div class="stat-tile__label">Expired</div></div>
+      <div class="stat-tile stat-tile--ok"><div class="stat-tile__value" id="an-checkedin">—</div><div class="stat-tile__label">Checked in</div></div>
+    </div>
+  </section>
+
+  <section class="stat-section">
+    <h3 class="stat-section__title">Traffic</h3>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card__head">Daily visits</div>
+        <div class="chart-card__body"><canvas id="chart-daily"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card__head">Arrival hours</div>
+        <div class="chart-card__body"><canvas id="chart-hourly"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card__head">Top hosts (by house)</div>
+        <div class="chart-card__body"><canvas id="chart-hosts"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card__head">Outcomes</div>
+        <div class="chart-card__body"><canvas id="chart-outcome"></canvas></div>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+
+<footer class="site-footer">
+  <div class="container" style="width:100%;">Data from visitor_groups + visitor_events.</div>
+</footer>
+
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/main.js?v=7"></script>
+<script src="js/admin-visitor-analytics.js"></script>
+</body>
+</html>

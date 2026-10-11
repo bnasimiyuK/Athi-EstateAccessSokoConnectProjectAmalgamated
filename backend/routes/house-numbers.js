@@ -24,7 +24,7 @@ function buildHouseNumber(courtName, side, seq) {
    GET /api/house-numbers/summary
    Admin — counts of residents with/without house numbers
    ------------------------------------------------------------ */
-router.get("/summary", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.get("/summary", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
     const r = await pool.request().query(`
@@ -49,7 +49,7 @@ router.get("/summary", requireAuth, requireRole("admin"), async (req, res, next)
    Admin — list verified residents with house-number status
    Query: q, courtId, status (assigned|unassigned), page, limit
    ------------------------------------------------------------ */
-router.get("/residents", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.get("/residents", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const { q, courtId, status, page = 1, limit = 20 } = req.query;
     const pageNum  = Math.max(1, parseInt(page, 10) || 1);
@@ -117,7 +117,7 @@ router.get("/residents", requireAuth, requireRole("admin"), async (req, res, nex
    Admin — assign or clear a single house number
    Body: { houseNumber }  (empty string → clears)
    ------------------------------------------------------------ */
-router.patch("/residents/:id", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.patch("/residents/:id", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -175,7 +175,7 @@ router.patch("/residents/:id", requireAuth, requireRole("admin"), async (req, re
    Body: { rows: [{ phone, houseNumber }, ...] }
    Matches residents by phone (last 9 digits, tolerant of +254/07...)
    ------------------------------------------------------------ */
-router.post("/bulk", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/bulk", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const rows = Array.isArray(req.body.rows) ? req.body.rows : null;
     if (!rows || !rows.length) {
@@ -255,7 +255,7 @@ router.post("/bulk", requireAuth, requireRole("admin"), async (req, res, next) =
    Admin — return a CSV-ready proposal (resident, court, suggestion)
    Format: {CourtName}-{A|B}{NN}  — best-effort guess, admin edits
    ------------------------------------------------------------ */
-router.get("/proposal", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.get("/proposal", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
     const r = await pool.request().query(`
@@ -296,7 +296,7 @@ router.get("/proposal", requireAuth, requireRole("admin"), async (req, res, next
    GET /api/house-numbers/assigned
    List all house numbers currently in use (for dropdown greying).
    ------------------------------------------------------------ */
-router.get("/assigned", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.get("/assigned", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
     const r = await pool.request().query(`

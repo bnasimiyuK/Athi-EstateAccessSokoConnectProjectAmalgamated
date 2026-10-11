@@ -29,7 +29,7 @@ function eventToJson(r) {
    GET /api/events   (admin)
    List all events, newest first.
    ============================================================ */
-router.get("/", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.get("/", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const pool = await getPool();
     const r = await pool.request().query(`
@@ -46,7 +46,7 @@ router.get("/", requireAuth, requireRole("admin"), async (req, res, next) => {
    POST /api/events   (admin)
    Body: { title, eventMonth: "YYYY-MM", amount, dueDate: "YYYY-MM-DD" }
    ============================================================ */
-router.post("/", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const { title, eventMonth, amount, dueDate } = req.body;
 
@@ -102,7 +102,7 @@ router.post("/", requireAuth, requireRole("admin"), async (req, res, next) => {
    For now: skip if the resident already has an AHEWA_EVENT
    invoice with the same amount in the same billing_month.
    ============================================================ */
-router.post("/:id/generate-invoices", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.post("/:id/generate-invoices", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const eventId = parseInt(req.params.id, 10);
     if (isNaN(eventId)) return res.status(400).json({ error: "Invalid event id." });
@@ -186,7 +186,7 @@ router.post("/:id/generate-invoices", requireAuth, requireRole("admin"), async (
 /* ============================================================
    GET /api/events/:id   (admin)
    ============================================================ */
-router.get("/:id", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.get("/:id", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id." });
@@ -210,7 +210,7 @@ router.get("/:id", requireAuth, requireRole("admin"), async (req, res, next) => 
    Deletes the event. Does NOT delete invoices already generated —
    those are the residents' liabilities once billed.
    ============================================================ */
-router.delete("/:id", requireAuth, requireRole("admin"), async (req, res, next) => {
+router.delete("/:id", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id." });

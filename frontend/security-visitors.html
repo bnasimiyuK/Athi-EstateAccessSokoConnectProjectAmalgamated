@@ -1,107 +1,247 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Security — Visitors — Athi Estate Access</title>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+  <!-- Single stylesheet (sidebar + page styles) -->
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 </head>
-<body>
+<body class="discover-body has-sidebar">
 
-<main class="container">
-  <div class="page-head">
-    <div class="page-head__text">
-      <h1>Security — Visitor control</h1>
-      <p>Approve pre-registrations, verify codes at the gate, and monitor traffic.</p>
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+
+    <a href="about.html" data-nav="about.html">
+      <i class="fas fa-circle-info" aria-hidden="true"></i>
+      <span>About AHE</span>
+    </a>
+
+    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden>
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+
+    <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden>
+      <i class="fas fa-store" aria-hidden="true"></i>
+      <span>My Profile</span>
+    </a>
+
+    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-user-friends" aria-hidden="true"></i>
+      <span>My Visitors</span>
+    </a>
+
+    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden>
+      <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
+      <span>My Billing &amp; Payments</span>
+    </a>
+
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+
+    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
+      <i class="fas fa-shield-halved" aria-hidden="true"></i>
+      <span>Security &mdash; Visitors</span>
+    </a>
+
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden>
+      <i class="fas fa-user-shield" aria-hidden="true"></i>
+      <span>Admin</span>
+    </a>
+
+    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden>
+      <i class="fas fa-crown" aria-hidden="true"></i>
+      <span>Super Admin</span>
+    </a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile toggle -->
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+<!-- ============================================================
+     PAGE CONTENT
+     ============================================================ -->
+<div class="side-rail__content">
+
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
     </div>
   </div>
 
-  <section class="stat-section">
-    <div class="stat-tiles">
-      <div class="stat-tile stat-tile--warn">
-        <div class="stat-tile__value" id="tile-pending">—</div>
-        <div class="stat-tile__label">Pending security approval</div>
-      </div>
-      <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="tile-today">—</div>
-        <div class="stat-tile__label">Expected today</div>
-      </div>
-      <div class="stat-tile stat-tile--ok">
-        <div class="stat-tile__value" id="tile-checked-in">—</div>
-        <div class="stat-tile__label">Currently on-site</div>
-      </div>
-      <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="tile-completed">—</div>
-        <div class="stat-tile__label">Completed today</div>
+  <main class="container dx-main">
+
+    <div class="page-head">
+      <div class="page-head__text">
+        <h1>Security — Visitor control</h1>
+        <p>Approve pre-registrations, verify codes at the gate, and monitor traffic.</p>
       </div>
     </div>
-  </section>
 
-  <div class="tab-row">
-    <button class="tab-btn is-active" data-tab="approvals">
-      Pending approval <span id="count-approvals"></span>
+<section class="stat-section">
+  <div class="stat-tiles">
+    <button type="button" class="stat-tile stat-tile--warn" id="tile-link-pending" title="View pending security approvals">
+      <div class="stat-tile__value" id="tile-pending">—</div>
+      <div class="stat-tile__label">Pending security approval</div>
     </button>
-    <button class="tab-btn" data-tab="today">Today's visitors</button>
-    <button class="tab-btn" data-tab="checkin">Check in / out</button>
+    <button type="button" class="stat-tile stat-tile--info" id="tile-link-today" title="View today's expected visitors">
+      <div class="stat-tile__value" id="tile-today">—</div>
+      <div class="stat-tile__label">Expected today</div>
+    </button>
+    <button type="button" class="stat-tile stat-tile--ok" id="tile-link-checkedin" title="View visitors currently on-site">
+      <div class="stat-tile__value" id="tile-checked-in">—</div>
+      <div class="stat-tile__label">Currently on-site</div>
+    </button>
+    <button type="button" class="stat-tile stat-tile--info" id="tile-link-completed" title="View visitors who have checked out today">
+      <div class="stat-tile__value" id="tile-completed">—</div>
+      <div class="stat-tile__label">Completed today</div>
+    </button>
   </div>
+</section>
 
-  <!-- Tab: Pending approvals -->
-  <div class="tab-panel is-active" id="tab-approvals">
-
-    <!-- Bulk action bar -->
-    <div id="bulk-bar"
-         style="display:none;background:#16233f;color:#fff;padding:12px 18px;border-radius:8px;margin-bottom:16px;align-items:center;gap:14px;flex-wrap:wrap;">
-      <span style="font-weight:600;"><span id="bulk-count">0</span> selected</span>
-      <button class="btn btn--accent btn--small" id="bulk-approve-btn">✓ Approve selected (sends codes)</button>
-      <button class="btn btn--danger btn--small" id="bulk-deny-btn">✕ Deny selected</button>
-      <button class="btn btn--ghost btn--small" id="bulk-clear-btn" style="color:#fff;border-color:#fff;">Clear</button>
-      <span style="margin-left:auto;font-size:0.85rem;color:#dcd8cd;">
-        Max 200 per click
-      </span>
-    </div>
-
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
-      <button class="btn btn--danger btn--small" id="btn-approve-all" type="button" style="display:none;">
-        ⚠️ Approve ALL pending
+    <div class="tab-row">
+      <button class="tab-btn is-active" data-tab="approvals">
+        Pending approval <span id="count-approvals"></span>
       </button>
+      <button class="tab-btn" data-tab="today">Today's visitors</button>
+      <button class="tab-btn" data-tab="checkin">Check in / out</button>
+      <button class="tab-btn" data-tab="onsite">Currently on-site <span id="count-onsite"></span></button>
     </div>
 
-    <div id="approvals-list">
-      <div class="empty-state">Loading…</div>
+    <!-- Tab: Pending approvals -->
+    <div class="tab-panel is-active" id="tab-approvals">
+
+      <!-- Bulk action bar -->
+      <div id="bulk-bar"
+           style="display:none;background:#16233f;color:#fff;padding:12px 18px;border-radius:8px;margin-bottom:16px;align-items:center;gap:14px;flex-wrap:wrap;">
+        <span style="font-weight:600;"><span id="bulk-count">0</span> selected</span>
+        <button class="btn btn--accent btn--small" id="bulk-approve-btn">✓ Approve selected (sends codes)</button>
+        <button class="btn btn--danger btn--small" id="bulk-deny-btn">✕ Deny selected</button>
+        <button class="btn btn--ghost btn--small" id="bulk-clear-btn" style="color:#fff;border-color:#fff;">Clear</button>
+        <span style="margin-left:auto;font-size:0.85rem;color:#dcd8cd;">
+          Max 200 per click
+        </span>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+        <button class="btn btn--danger btn--small" id="btn-approve-all" type="button" style="display:none;">
+          ⚠️ Approve ALL pending
+        </button>
+      </div>
+
+      <div id="approvals-list">
+        <div class="empty-state">Loading…</div>
+      </div>
+      <div id="approvals-pagination"></div>
     </div>
-    <div id="approvals-pagination"></div>
+
+    <!-- Tab: Today's visitors -->
+<div class="tab-panel" id="tab-today">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+    <select id="today-range" class="input" style="min-width:180px;">
+      <option value="today">Today</option>
+      <option value="7d">Last 7 days</option>
+      <option value="30d" selected>Last 30 days</option>
+      <option value="month">This month</option>
+      <option value="custom">Custom range…</option>
+    </select>
+
+    <input type="text" id="today-q" class="input" placeholder="Search by code, house, plate, name…" style="min-width:260px;" />
+
+    <button type="button" id="btn-refresh-today" class="btn btn--accent">Refresh</button>
+    <button type="button" id="btn-print-register" class="btn btn--ghost">🖨️ Print register</button>
   </div>
 
-  <!-- Tab: Today's visitors -->
-  <div class="tab-panel" id="tab-today">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
-      <input type="date" id="today-date" class="input" style="min-width:180px;" />
-      <input type="text" id="today-q" class="input" placeholder="Search by code, house, plate, name…" style="min-width:280px;" />
-      <button type="button" id="btn-refresh-today" class="btn btn--accent">Refresh</button>
-      <button type="button" id="btn-print-register" class="btn btn--ghost">🖨️ Print register</button>
-    </div>
-    <div id="today-list">
-      <div class="empty-state">Pick a date and click Refresh…</div>
-    </div>
+  <!-- Custom-range row — hidden unless "Custom" is selected -->
+  <div id="today-custom-range" style="display:none;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
+    <label style="font-size:0.85rem;color:var(--ink-70);">From</label>
+    <input type="date" id="today-from" class="input" style="min-width:160px;" />
+    <label style="font-size:0.85rem;color:var(--ink-70);">To</label>
+    <input type="date" id="today-to" class="input" style="min-width:160px;" />
   </div>
 
-  <!-- Tab: Check in / out -->
-  <div class="tab-panel" id="tab-checkin">
-    <div class="alert-card" style="max-width:640px;">
-      <div class="alert-card__head">Find a visit to check in / out</div>
-      <div class="alert-card__body">
-        <p style="margin-top:0;">Enter the visitor's 6-digit code, house number, or plate number.</p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <input type="text" id="ci-search" class="input" placeholder="e.g. 482915 or Riverside-A01 or KDA 123X" style="flex:1;min-width:260px;" />
-          <button type="button" id="btn-ci-search" class="btn btn--accent">Find</button>
+  <div id="today-list">
+    <div class="empty-state">Loading…</div>
+  </div>
+</div>
+
+    <!-- Tab: Check in / out -->
+    <div class="tab-panel" id="tab-checkin">
+      <div class="alert-card" style="max-width:640px;">
+        <div class="alert-card__head">Find a visit to check in / out</div>
+        <div class="alert-card__body">
+          <p style="margin-top:0;">Enter the visitor's 6-digit code, house number, or plate number.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <input type="text" id="ci-search" class="input" placeholder="e.g. 482915 or Riverside-A01 or KDA 123X" style="flex:1;min-width:260px;" />
+            <button type="button" id="btn-ci-search" class="btn btn--accent">Find</button>
+          </div>
         </div>
       </div>
+      <div id="ci-result" style="margin-top:18px;"></div>
     </div>
-    <div id="ci-result" style="margin-top:18px;"></div>
-  </div>
-</main>
+
+    <!-- Tab: Currently on-site -->
+    <div class="tab-panel" id="tab-onsite">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+        <button type="button" id="btn-refresh-onsite" class="btn btn--accent">↻ Refresh</button>
+        <span id="onsite-summary" style="color:var(--ink-70);font-size:0.9rem;"></span>
+      </div>
+      <div id="onsite-list">
+        <div class="empty-state">Loading…</div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container" style="width:100%;">
+      Every check-in, check-out and cancellation is logged for admin analytics.
+    </div>
+  </footer>
+</div>
 
 <!-- Typed confirmation modal -->
 <div id="confirm-all-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center;">
@@ -125,16 +265,9 @@
   </div>
 </div>
 
-<footer class="site-footer">
-  <div class="container" style="width:100%;">
-    Every check-in, check-out and cancellation is logged for admin analytics.
-  </div>
-</footer>
-
-<script src="js/auth.js"></script>
-<script src="js/api.js?v=4"></script>
-<script src="js/main.js"></script>
-<script src="js/security-visitors.js?v=4"></script>
-  <script src="js/sidebar.js"></script>
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/main.js?v=7"></script>
+<script src="js/security-visitors.js?v=6"></script>
 </body>
 </html>

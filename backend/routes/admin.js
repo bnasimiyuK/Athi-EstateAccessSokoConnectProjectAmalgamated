@@ -252,7 +252,7 @@ async function getAdminStats() {
    ============================================================ */
 router.get("/stats",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res, next) => {
     try {
       res.json(await getAdminStats());
@@ -267,7 +267,7 @@ router.get("/stats",
    ============================================================ */
 router.get("/dashboard",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res) => {
     try {
       res.json(await getDashboardData());
@@ -419,7 +419,7 @@ function buildWorkbookWithChartImages(stats, images = {}) {
    ============================================================ */
 router.post("/export.xlsx",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   express.json({ limit: "25mb" }),
   async (req, res) => {
     try {
@@ -452,7 +452,7 @@ router.post("/export.xlsx",
    ============================================================ */
 router.get("/export.pdf",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res) => {
     try {
       const data = await getDashboardData();
@@ -606,7 +606,7 @@ function residentRowToExportShape(r) {
    ============================================================ */
 router.get("/residents/export.xlsx",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res) => {
     try {
       const rows = await fetchResidentsForExport(req.query);
@@ -665,7 +665,7 @@ router.get("/residents/export.xlsx",
    ============================================================ */
 router.get("/residents/export.pdf",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res) => {
     try {
       const rows = await fetchResidentsForExport(req.query);
@@ -870,7 +870,7 @@ function providerRowToExportShape(p) {
 /* GET /api/admin/providers/export.xlsx */
 router.get("/providers/export.xlsx",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res) => {
     try {
       const rows = await fetchProvidersForExport(req.query);
@@ -920,7 +920,7 @@ router.get("/providers/export.xlsx",
 /* GET /api/admin/providers/export.pdf */
 router.get("/providers/export.pdf",
   requireAuth,
-  requireRole("admin"),
+  requireRole("super-admin"),
   async (req, res) => {
     try {
       const rows = await fetchProvidersForExport(req.query);

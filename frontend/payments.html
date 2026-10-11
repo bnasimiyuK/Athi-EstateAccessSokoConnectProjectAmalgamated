@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Athi Estate | Payments</title>
+ <link rel="stylesheet" href="css/tailwind-output.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col h-screen overflow-hidden">
+
+  <!-- Header -->
+  <div id="header"></div>
+
+  <!-- Dashboard Summary -->
+  <section id="dashboardSummary" class="p-2 max-w-7xl mx-auto grid grid-cols-3 gap-2 text-xs mb-2"></section>
+
+  <!-- Main -->
+  <main class="flex-1 overflow-auto p-2 max-w-7xl mx-auto grid grid-cols-3 gap-2 text-xs">
+
+    <!-- Make Payment -->
+    <section class="bg-white rounded-xl shadow p-2 col-span-1 flex flex-col">
+      <h2 class="text-indigo-700 font-bold mb-1 text-sm">💳 Make Payment</h2>
+      <form id="makePaymentForm" class="space-y-1 flex-1 flex flex-col justify-between">
+
+        <!-- Resident Select -->
+        <div id="residentDiv">
+          <label for="residentId" class="block mb-1">Resident ID</label>
+          <select id="residentId" required class="w-full border rounded px-1 py-1 text-xs">
+            <option value="">Select Resident ID</option>
+          </select>
+        </div>
+
+        <!-- Phone Number (for Mpesa) -->
+        <div>
+          <label for="phoneNumber" class="block mb-1">Phone Number</label>
+          <input id="phoneNumber" type="text" placeholder="2547XXXXXXXX" class="w-full border rounded px-1 py-1 text-xs"/>
+        </div>
+
+        <!-- Amount -->
+        <div>
+          <label for="amount" class="block mb-1">Amount (KSh)</label>
+          <input id="amount" type="number" required class="w-full border rounded px-1 py-1 text-xs"/>
+        </div>
+
+        <!-- Payment Method -->
+        <div>
+          <label for="paymentMethod" class="block mb-1">Payment Method</label>
+          <select id="paymentMethod" required class="w-full border rounded px-1 py-1 text-xs">
+            <option value="">Select</option>
+            <option value="Mpesa">Mpesa</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="Cash">Cash</option>
+          </select>
+        </div>
+
+        <!-- Reference (Optional, hidden for Mpesa) -->
+        <div id="referenceDiv">
+          <label for="reference" class="block mb-1">Reference</label>
+          <input id="reference" type="text" placeholder="e.g. Bank123" class="w-full border rounded px-1 py-1 text-xs"/>
+        </div>
+
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-1 rounded text-xs mt-1">Submit Payment</button>
+      </form>
+      <div id="msg" class="text-gray-700 mt-1 text-xs"></div>
+    </section>
+
+    <!-- Payment History -->
+    <section class="bg-white rounded-xl shadow p-2 col-span-2 flex flex-col">
+      <h3 class="text-indigo-700 font-semibold mb-1 text-sm">📋 Payment History</h3>
+      <div class="flex justify-between mb-1 text-xs">
+        <input type="text" id="filterInput" placeholder="Filter by Resident ID" class="border rounded px-1 py-1"/>
+        <div class="space-x-1">
+          <button id="exportCsv" class="bg-green-500 hover:bg-green-600 px-2 py-0.5 rounded text-white">CSV</button>
+          <button id="exportExcel" class="bg-blue-500 hover:bg-blue-600 px-2 py-0.5 rounded text-white">Excel</button>
+        </div>
+      </div>
+      <div class="overflow-auto max-h-60 border rounded">
+        <table id="paymentsTable" class="min-w-full text-xs">
+          <thead class="bg-indigo-100 text-indigo-800">
+            <tr>
+              <th class="px-1 py-0.5 text-left">Payment ID</th>
+              <th class="px-1 py-0.5 text-left">Resident ID</th>
+              <th class="px-1 py-0.5 text-left">Amount</th>
+              <th class="px-1 py-0.5 text-left">Payment Date</th>
+              <th class="px-1 py-0.5 text-left">Status</th>
+              <th class="px-1 py-0.5 text-left">Reference</th>
+              <th class="px-1 py-0.5 text-left">Method</th>
+              <th class="px-1 py-0.5 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody id="paymentsBody" class="divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Verified Payments -->
+    <section class="bg-white rounded-xl shadow p-2 col-span-3 flex flex-col">
+      <h3 class="text-green-700 font-semibold mb-1 text-sm">✅ Verified Payments</h3>
+      <div class="flex justify-between mb-1 text-xs">
+        <input type="text" id="verifiedFilterInput" placeholder="Filter by Resident ID" class="border rounded px-1 py-1"/>
+        <div class="space-x-1">
+          <button id="exportVerifiedCsv" class="bg-green-500 hover:bg-green-600 px-2 py-0.5 rounded text-white">CSV</button>
+          <button id="exportVerifiedExcel" class="bg-blue-500 hover:bg-blue-600 px-2 py-0.5 rounded text-white">Excel</button>
+        </div>
+      </div>
+      <div class="overflow-auto max-h-40 border rounded">
+        <table id="verifiedTable" class="min-w-full text-xs">
+          <thead class="bg-green-100 text-green-800">
+            <tr>
+              <th class="px-1 py-0.5 text-left">Resident</th>
+              <th class="px-1 py-0.5 text-left">Amount</th>
+              <th class="px-1 py-0.5 text-left">Reference</th>
+              <th class="px-1 py-0.5 text-left">Verified Date</th>
+            </tr>
+          </thead>
+          <tbody id="verifiedBody" class="divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Balances -->
+    <section class="bg-white rounded-xl shadow p-2 col-span-3 flex flex-col">
+      <h3 class="text-yellow-700 font-semibold mb-1 text-sm">💰 Balances</h3>
+      <div class="flex justify-end mb-1 text-xs">
+        <button id="exportBalancesCsv" class="bg-green-500 hover:bg-green-600 px-2 py-0.5 rounded text-white">CSV</button>
+        <button id="exportBalancesExcel" class="bg-blue-500 hover:bg-blue-600 px-2 py-0.5 rounded text-white">Excel</button>
+      </div>
+      <div class="overflow-auto max-h-40 border rounded">
+        <table id="balanceTable" class="min-w-full text-xs">
+          <thead class="bg-yellow-100 text-yellow-800">
+            <tr>
+              <th class="px-1 py-0.5 text-left">Resident</th>
+              <th class="px-1 py-0.5 text-left">Total Paid</th>
+              <th class="px-1 py-0.5 text-left">Total Due</th>
+              <th class="px-1 py-0.5 text-left">Balance</th>
+            </tr>
+          </thead>
+          <tbody id="balanceBody" class="divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Scripts -->
+  <script src="js/payment.js"></script>
+  <script src="js/navbar.js"></script>
+</body>
+</html>
