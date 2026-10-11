@@ -9,8 +9,7 @@
      Resolve API base the same way api.js does
      ------------------------------------------------------------ */
   const API_SUPER_BASE = (function () {
-    const proto = window.location.protocol;
-    const host  = window.location.hostname;
+    const host = window.location.hostname;
     if (host === "localhost" || host === "127.0.0.1") {
       return "http://localhost:4050/api/super-admin";
     }
@@ -21,12 +20,10 @@
      Auth guard (belt-and-braces)
      ------------------------------------------------------------ */
   function currentUser() {
-    // Prefer the app's auth helper
     if (typeof getUser === "function") {
       const u = getUser();
       if (u) return u;
     }
-    // Fallback: read the raw key directly
     try {
       const raw = localStorage.getItem("asc_user");
       return raw ? JSON.parse(raw) : null;
@@ -61,7 +58,10 @@
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      const err  = new Error(`HTTP ${res.status}: ${body}`);
+      // Try to extract a JSON error message
+      let msg = body;
+      try { const j = JSON.parse(body); if (j && j.error) msg = j.error; } catch {}
+      const err = new Error(msg || `HTTP ${res.status}`);
       err.status = res.status;
       err.body   = body;
       throw err;
@@ -175,14 +175,18 @@
         loadAdminsPage();
       } catch (err) {
         console.error("[super-admin] create admin failed:", err);
-        if (typeof toast === "function") toast("Could not create admin.");
+        if (typeof toast === "function") toast(err.message || "Could not create admin.");
       }
     });
   }
 
   /* ============================================================
-     CATEGORIES
+     CATEGORIES (with icon + full CRUD)
      ============================================================ */
+
+  // Cache for mapping category_id → label (used by providers page)
+  let _catCache = [];
+
   async function loadCategoriesPage() {
     const el = document.getElementById("categories-list");
     if (!el) return;
@@ -198,6 +202,8 @@
       return;
     }
 
+    _catCache = cats;
+
     if (!cats.length) {
       el.innerHTML = emptyState("No categories yet.");
       return;
@@ -206,14 +212,26 @@
     el.innerHTML = `
       <div class="table-wrap">
         <table>
-          <thead><tr><th>ID</th><th>Label</th><th>Actions</th></tr></thead>
+          <thead>
+            <tr><th>ID</th><th>Icon</th><th>Label</th><th>Actions</th></tr>
+          </thead>
           <tbody>
             ${cats.map((c) => `
               <tr>
                 <td>${esc(c.id)}</td>
+                <td style="font-size:1.5rem; text-align:center;
+                           font-family: 'Segoe UI Emoji', 'Apple Color Emoji',
+                                        'Noto Color Emoji', sans-serif;">
+                  ${esc(c.icon || "—")}
+                </td>
                 <td>${esc(c.label)}</td>
                 <td class="row-actions">
-                  <button class="btn btn--small btn--danger" data-del="${esc(c.id)}">Delete</button>
+                  <button class="btn btn--small btn--ghost" data-edit="${esc(c.id)}">
+                    <i class="fas fa-pen"></i> Edit
+                  </button>
+                  <button class="btn btn--small btn--danger" data-del="${esc(c.id)}">
+                    <i class="fas fa-trash"></i> Delete
+                  </button>
                 </td>
               </tr>
             `).join("")}
@@ -222,6 +240,7 @@
       </div>
     `;
 
+    // Wire delete
     el.querySelectorAll("[data-del]").forEach((b) =>
       b.addEventListener("click", async () => {
         if (!confirm("Delete this category?")) return;
@@ -234,20 +253,129 @@
           if (typeof toast === "function") {
             toast(err.status === 409
               ? "Cannot delete — providers still use this category."
-              : "Could not delete category.");
+              : (err.message || "Could not delete category."));
           }
         }
       })
     );
+
+    // Wire edit
+    el.querySelectorAll("[data-edit]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const id = parseInt(b.dataset.edit, 10);
+        const cat = cats.find((c) => c.id === id);
+        if (cat) openCategoryModal(cat);
+      })
+    );
+  }
+
+  /* ------------------------------------------------------------
+     Category modal (add / edit) — no hardcoded emoji
+     ------------------------------------------------------------ */
+  let _catEditingId = null;
+
+  function openCategoryModal(cat) {
+    _catEditingId = cat ? cat.id : null;
+
+    const backdrop = document.getElementById("cat-modal-backdrop");
+    const titleEl  = document.getElementById("cat-modal-title");
+    const labelIn  = document.getElementById("cat-label");
+    const iconIn   = document.getElementById("cat-icon");
+
+    if (!backdrop) return;
+
+    titleEl.textContent = cat ? "Edit category" : "New category";
+    labelIn.value = cat ? cat.label : "";
+    iconIn.value  = cat ? (cat.icon || "") : "";
+
+    backdrop.style.display = "flex";
+    labelIn.focus();
+  }
+
+  function closeCategoryModal() {
+    const backdrop = document.getElementById("cat-modal-backdrop");
+    if (backdrop) backdrop.style.display = "none";
+    _catEditingId = null;
+  }
+
+  function wireCategoryModal() {
+    const backdrop = document.getElementById("cat-modal-backdrop");
+    if (!backdrop) return;
+
+    const btnNew    = document.getElementById("btn-new-category");
+    const btnSave   = document.getElementById("cat-save");
+    const btnCancel = document.getElementById("cat-cancel");
+    const btnClear  = document.getElementById("cat-icon-clear");
+    const iconIn    = document.getElementById("cat-icon");
+
+    if (btnNew)    btnNew.addEventListener("click", () => openCategoryModal(null));
+    if (btnCancel) btnCancel.addEventListener("click", closeCategoryModal);
+    if (btnClear)  btnClear.addEventListener("click", () => { iconIn.value = ""; iconIn.focus(); });
+
+    // Close on backdrop click
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop) closeCategoryModal();
+    });
+
+    // Escape key closes
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && backdrop.style.display === "flex") {
+        closeCategoryModal();
+      }
+    });
+
+    if (btnSave) {
+      btnSave.addEventListener("click", async () => {
+        const label = document.getElementById("cat-label").value.trim();
+        const icon  = document.getElementById("cat-icon").value.trim();
+
+        if (!label) {
+          if (typeof toast === "function") toast("Label is required.");
+          return;
+        }
+
+        btnSave.disabled = true;
+        try {
+          if (_catEditingId) {
+            await apiFetch("/categories/" + _catEditingId, {
+              method: "PATCH",
+              body: JSON.stringify({ label, icon }),
+            });
+            if (typeof toast === "function") toast("Category updated.");
+          } else {
+            await apiFetch("/categories", {
+              method: "POST",
+              body: JSON.stringify({ label, icon }),
+            });
+            if (typeof toast === "function") toast("Category created.");
+          }
+          closeCategoryModal();
+          loadCategoriesPage();
+        } catch (err) {
+          console.error("[super-admin] save category failed:", err);
+          if (typeof toast === "function") toast(err.message || "Could not save category.");
+        } finally {
+          btnSave.disabled = false;
+        }
+      });
+    }
   }
 
   /* ============================================================
-     PROVIDERS
+     PROVIDERS (with human-readable category labels)
      ============================================================ */
   async function loadProvidersPage() {
     const el = document.getElementById("providers-list");
     if (!el) return;
     el.innerHTML = emptyState("Loading providers…");
+
+    // Ensure category cache is populated
+    if (!_catCache.length) {
+      try {
+        const r = await apiFetch("/categories");
+        _catCache = Array.isArray(r && r.data) ? r.data : [];
+      } catch (e) { /* ignore */ }
+    }
 
     let providers = [];
     try {
@@ -264,6 +392,11 @@
       return;
     }
 
+    const labelOf = (id) => {
+      const c = _catCache.find((x) => x.id === id);
+      return c ? (c.icon ? c.icon + " " : "") + c.label : (id == null ? "—" : id);
+    };
+
     el.innerHTML = `
       <div class="table-wrap">
         <table>
@@ -275,7 +408,7 @@
               <tr>
                 <td>${esc(p.id)}</td>
                 <td>${esc(p.name)}</td>
-                <td>${esc(p.category_id)}</td>
+                <td>${esc(labelOf(p.category_id))}</td>
                 <td>${esc(p.phone)}</td>
                 <td>${esc(yesNo(p.verified))}</td>
                 <td class="row-actions">
@@ -372,9 +505,19 @@
   document.addEventListener("DOMContentLoaded", () => {
     if (!requireSuperAdmin()) return;
 
-    if (document.getElementById("admins-list"))      { loadAdminsPage(); wireNewAdminButton(); }
-    if (document.getElementById("categories-list"))  loadCategoriesPage();
-    if (document.getElementById("providers-list"))   loadProvidersPage();
-    if (document.getElementById("residents-list"))   loadResidentsPage();
+    if (document.getElementById("admins-list")) {
+      loadAdminsPage();
+      wireNewAdminButton();
+    }
+    if (document.getElementById("categories-list")) {
+      loadCategoriesPage();
+      wireCategoryModal();
+    }
+    if (document.getElementById("providers-list")) {
+      loadProvidersPage();
+    }
+    if (document.getElementById("residents-list")) {
+      loadResidentsPage();
+    }
   });
 })();

@@ -1,20 +1,20 @@
 ﻿/* ============================================================
-   api.js â€” thin fetch wrapper around the backend REST API.
+   api.js — thin fetch wrapper around the backend REST API.
    Now attaches the JWT (from auth.js) to every request.
 
    API base URL is resolved dynamically:
-     - Browser running at localhost         â†’ http://localhost:4050/api
-     - Browser running at LAN IP (192.168..) â†’ http://<same-host>:4050/api
-     - Capacitor mobile app (capacitor://)   â†’ falls back to LAN IP
+     - Mobile app (Android WebView)  → http://192.168.100.5:4050/api
+     - Desktop browser on localhost  → http://localhost:4050/api
+     - Browser on LAN IP             → http://<same-host>:4050/api
 
-   ðŸ”§ TO CHANGE THE LAN IP, EDIT THE `LAN_IP` CONSTANT BELOW.
+   🔧 TO CHANGE THE LAN IP, EDIT THE `LAN_IP` CONSTANT BELOW.
    ============================================================ */
 
 /* ------------------------------------------------------------
-   SETTINGS â€” edit these two values if your network changes
+   SETTINGS — edit these two values if your network changes
    ------------------------------------------------------------ */
 const BACKEND_PORT = 4050;
-const LAN_IP       = "192.168.100.5";   // â† your PC's LAN IP
+const LAN_IP       = "192.168.100.5";   // ← your PC's LAN IP
 
 /* ------------------------------------------------------------
    Resolve API base at runtime
@@ -22,39 +22,39 @@ const LAN_IP       = "192.168.100.5";   // â† your PC's LAN IP
 const API_BASE = (() => {
   const protocol = window.location.protocol;
   const host     = window.location.hostname;
+  const ua       = navigator.userAgent || "";
 
-  // Capacitor mobile app â€” runs inside a WebView with a special protocol
-  // (capacitor://localhost on iOS, http://localhost on Android)
-  // In this case, window.location.hostname is "localhost" but we're on a device,
-  // so we must use the LAN_IP.
-  // Capacitor on Android (v3+) serves the app from https://localhost.
-  // Detect: we're loaded over HTTPS on "localhost" â†’ we're in the app.
-  if (
+  // ---- Mobile app detection (Capacitor) ----
+  // Android WebView UA contains "; wv)". iOS WebView runs on "capacitor:".
+  // Both cases must use the LAN IP, never "localhost".
+  const isMobileApp =
     protocol === "capacitor:" ||
     protocol === "ionic:" ||
-    (protocol === "https:" && host === "localhost")
-  ) {
+    /; wv\)/.test(ua);
+
+  if (isMobileApp) {
     return `http://${LAN_IP}:${BACKEND_PORT}/api`;
   }
 
-  // Browser on PC â†’ use localhost
+  // ---- Desktop browser on the same PC ----
   if (host === "localhost" || host === "127.0.0.1") {
     return `http://localhost:${BACKEND_PORT}/api`;
   }
 
-  // Browser on LAN IP â†’ use the same host
+  // ---- Browser on a LAN IP (phone browser, tablet on same WiFi) ----
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
     return `http://${host}:${BACKEND_PORT}/api`;
   }
 
+  // ---- Fallback ----
   return `http://${LAN_IP}:${BACKEND_PORT}/api`;
 })();
 
-// Log it once for debugging
 console.log("[api] API_BASE resolved to:", API_BASE);
+console.log("[api] protocol:", window.location.protocol, "| host:", window.location.hostname);
 
 /* ------------------------------------------------------------
-   Core request helper â€” attaches Bearer token if present
+   Core request helper — attaches Bearer token if present
    ------------------------------------------------------------ */
 async function request(url, options = {}) {
   const headers = {
@@ -67,7 +67,26 @@ async function request(url, options = {}) {
     headers["Authorization"] = "Bearer " + token;
   }
 
-  const res = await fetch(url, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (err) {
+    // On-screen error banner — helps debug in the mobile WebView
+    const el = document.createElement("div");
+    el.style.cssText =
+      "position:fixed;top:0;left:0;right:0;background:#b00;color:#fff;" +
+      "padding:12px;font-size:12px;z-index:99999;white-space:pre-wrap;" +
+      "font-family:monospace;line-height:1.4;";
+    el.textContent =
+      "FETCH FAILED\n" +
+      "URL: " + url + "\n" +
+      "Error: " + err.message + "\n" +
+      "Page origin: " + window.location.origin + "\n" +
+      "Page protocol: " + window.location.protocol + "\n" +
+      "UA: " + navigator.userAgent.slice(0, 90);
+    document.body.appendChild(el);
+    throw err;
+  }
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
@@ -96,7 +115,7 @@ function qsOf(params = {}) {
 }
 
 /* ------------------------------------------------------------
-   Api â€” every backend endpoint exposed as a method
+   Api — every backend endpoint exposed as a method
    ------------------------------------------------------------ */
 const Api = {
   /* ---------- Auth ---------- */
@@ -365,7 +384,7 @@ const Api = {
     request(`${API_BASE}/house-numbers/assigned`),
   
   /* ============================================================
-     VISITORS â€” resident
+     VISITORS — resident
      ============================================================ */
   getVisitorConfig: () =>
     request(`${API_BASE}/visitors/config`),
@@ -386,7 +405,7 @@ const Api = {
     }),
 
   /* ============================================================
-     VISITORS â€” admin + security
+     VISITORS — admin + security
      ============================================================ */
   getVisitorPendingAdmin: (params = {}) =>
     request(`${API_BASE}/visitors/pending-admin${qsOf(params)}`),
@@ -483,7 +502,3 @@ const Api = {
   return res.json();
 },
 };
-
-
-
- 

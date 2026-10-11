@@ -95,7 +95,14 @@ const groupsHtml = GROUPS
   .filter((g) => g.key !== "super-admin" || isSuper)
   .map((g) => {
     const open = g.items.some((it) => it.href === current) ? " open" : "";
-    // ...existing logic
+    const subs = g.items.map(linkHtml).join("");
+    return '<div class="sidebar__group">' +
+      '<button type="button" class="sidebar__group-header' + open + '" data-group="' + esc(g.key) + '">' +
+        '<span><i class="fas ' + esc(g.icon) + '"></i> ' + esc(g.label) + '</span>' +
+        '<i class="fas fa-chevron-down"></i>' +
+      '</button>' +
+      '<div class="sidebar__sub' + open + '" id="group-' + esc(g.key) + '">' + subs + '</div>' +
+    '</div>';
   }).join("");
 
     return '<aside class="sidebar" id="sidebar">' +

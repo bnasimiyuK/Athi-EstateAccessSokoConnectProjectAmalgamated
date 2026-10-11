@@ -1,5 +1,6 @@
 /* ============================================================
    routes/categories.js — SQL Server version
+   Returns id, label, icon for each category.
    ============================================================ */
 
 const express = require("express");
@@ -11,7 +12,7 @@ router.get("/", async (req, res, next) => {
   try {
     const pool = await getPool();
     const result = await pool.request()
-      .query("SELECT id, label FROM Categories ORDER BY label");
+      .query("SELECT id, label, icon FROM Categories ORDER BY label");
     res.json(result.recordset);
   } catch (err) {
     next(err);

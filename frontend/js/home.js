@@ -1,6 +1,7 @@
 ﻿/* ============================================================
    home.js — Discover page with category-first landing
-   + Category tiles with "View more" / "Show fewer" pagination
+   + Category tiles use the icon from the API (DB-stored emoji)
+   + "View more" / "Show fewer" pagination
    + Provider results "Load more" pagination
    + Live "Busy until" countdown on provider cards
    ============================================================ */
@@ -44,37 +45,15 @@ function formatTimeUntil(iso) {
   return { relative, backTime };
 }
 
-/* Category icons (label → emoji) */
-function categoryIcon(label) {
-  const icons = {
-    Plumbing:          "🔧",
-    Cleaning:          "🧽",
-    Electrical:        "⚡",
-    Errands:           "🏃",
-    Gardening:         "🌿",
-    Painting:          "🎨",
-    Moving:            "📦",
-    Tutoring:          "📚",
-    Pharmacy:          "💊",
-    Cobbler:           "👞",
-    "Bicycle repairs": "🚲",
-    Mechanic:          "🔩",
-    "Car wash":        "🚗",
-    "Agro vet":        "🐄",
-    Mason:             "🧱",
-    Carpenter:         "🪚",
-    School:            "🏫",
-    Clinic:            "🩺",
-    Hospital:          "🏥",
-    Supermarket:       "🏪",
-    Poshomill:         "🌾",
-    Butchery:          "🥩",
-    "Water vendor":    "💧",
-    Exhauster:         "🚛",
-    Restaurant:        "🍽️",
-    Grocery:           "🛍️",
-  };
-  return icons[label] || "🧰";
+/* ------------------------------------------------------------
+   Category icon resolver
+   Reads the icon from the API. Falls back to 🧰 only when the
+   category has no icon set in the database.
+   ------------------------------------------------------------ */
+function iconForCategory(cat) {
+  if (!cat) return "🧰";
+  const icon = (typeof cat === "object" && cat.icon) ? String(cat.icon).trim() : "";
+  return icon || "🧰";
 }
 
 /* ---------------- state ---------------- */
@@ -147,7 +126,7 @@ function renderCategoryTiles() {
     return `
       <button type="button" class="category-tile ${isActive ? "is-active" : ""}"
               data-cat="${c.id}">
-        <div class="category-tile__icon">${categoryIcon(c.label)}</div>
+        <div class="category-tile__icon">${escapeHtml(iconForCategory(c))}</div>
         <div class="category-tile__label">${escapeHtml(c.label)}</div>
       </button>
     `;

@@ -1,5 +1,14 @@
-{
-  "appId": "com.athisokoconnect.app",
+﻿{
+  "appId": "com.athisokaconnect.app",
   "appName": "Athi Soko Connect",
-  "webDir": "frontend"
+  "webDir": "frontend",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true,
+    "allowNavigation": [
+      "192.168.100.5",
+      "localhost",
+      "127.0.0.1"
+    ]
+  }
 }
