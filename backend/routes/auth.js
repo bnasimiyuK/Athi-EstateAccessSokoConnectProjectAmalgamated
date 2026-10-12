@@ -29,7 +29,13 @@ const FEE_AHEWA = parseInt(process.env.FEE_AHEWA || "1", 10);
    ------------------------------------------------------------ */
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, role: user.role, name: user.name },
+    {
+      id:    user.id,
+      role:  user.role,
+      name:  user.name,
+      // AHEWA membership — false for admin / super-admin / security
+      ahewa: user.ahewa === true || user.ahewa === 1,
+    },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES }
   );
@@ -71,7 +77,7 @@ router.post("/login", async (req, res, next) => {
       normalizedIdentifier = phoneCheck.normalized;
     }
 
-    /* Password presence check (don't enforce strength on login — just non-empty) */
+    /* Password presence check */
     if (typeof password !== "string" || password.length === 0) {
       return res.status(400).json({ error: "Password is required." });
     }
@@ -161,12 +167,13 @@ router.post("/login", async (req, res, next) => {
         const ok = await bcrypt.compare(password, row.password_hash);
         if (ok) {
           user = {
-            id:    row.id,
-            role:  "resident",
-            name:  row.full_name,
-            phone: row.phone,
-            court: row.court_name || null,
-            phase: row.phase || null,
+            id:     row.id,
+            role:   "resident",
+            name:   row.full_name,
+            phone:  row.phone,
+            court:  row.court_name || null,
+            phase:  row.phase || null,
+            ahewa:  row.join_ahewa === true || row.join_ahewa === 1,
           };
           mustChange = !!row.must_change_password;
         }
@@ -182,6 +189,7 @@ router.post("/login", async (req, res, next) => {
             p.*,
             r.full_name,
             r.phone                AS resident_phone,
+            r.join_ahewa,
             r.password_hash        AS resident_password_hash,
             r.must_change_password,
             r.temp_password_expires,
@@ -223,6 +231,7 @@ router.post("/login", async (req, res, next) => {
             phone:      row.resident_phone,
             court:      row.court_name || null,
             phase:      row.court_phase || null,
+            ahewa:      row.join_ahewa === true || row.join_ahewa === 1,
           };
           mustChange = !!row.must_change_password;
         }
@@ -458,12 +467,12 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 
     let table = "";
     let idForUpdate = id;
-    let hashCol = "password_hash";   // most tables use this
+    let hashCol = "password_hash";
 
     if (role === "admin" || role === "security") table = "Admins";
     if (role === "super-admin") {
       table = "SuperAdmins";
-      hashCol = "passwordHash";      // SuperAdmins uses camelCase
+      hashCol = "passwordHash";
     }
     if (role === "resident") table = "Residents";
     if (role === "vendor") {
@@ -490,7 +499,6 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 
     const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
-    /* SuperAdmins has no must_change_password / temp_password_expires columns */
     if (table === "SuperAdmins") {
       await pool.request()
         .input("id",   idForUpdate)
@@ -582,7 +590,6 @@ router.post(
           .query(`SELECT avatar FROM ${table} WHERE id = @id`);
         const prevUrl = prev.recordset[0] && prev.recordset[0].avatar;
         if (prevUrl && prevUrl.startsWith("/uploads/")) {
-          // FIX: was `__dirname` (typo) — Node's global is `__dirname`
           const oldPath = path.join(__dirname, "..", prevUrl.replace(/^\//, ""));
           fs.unlink(oldPath, () => {});
         }
@@ -613,7 +620,7 @@ const RESET_ROLE_TABLE = {
   "super-admin": "SuperAdmins",
   vendor:        "Providers",
   provider:      "Providers",
-  security:      "Admins",   // security logins are stored in Admins
+  security:      "Admins",
 };
 
 /* ---------- POST /api/auth/forgot-password ---------- */
@@ -635,13 +642,12 @@ router.post("/forgot-password", async (req, res, next) => {
       .input("email", email.trim().toLowerCase())
       .query(`SELECT id FROM ${table} WHERE LOWER(email) = @email`);
 
-    // Always return success, even if user not found
     if (!found.recordset.length) {
       return res.json({ ok: true });
     }
 
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await pool.request()
       .input("email",  email.trim().toLowerCase())
@@ -668,14 +674,14 @@ ${link}
 
 If you didn't request this, you can ignore this email.
 
-— Athi Highway Estate`,
+- Athi Highway Estate`,
         html:
 `<p>Hello,</p>
 <p>You requested a password reset for your Athi Soko account.</p>
 <p><a href="${link}" style="background:#c8862a;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">Reset your password</a></p>
 <p>Or copy this URL: <br><code>${link}</code></p>
 <p>This link is valid for 1 hour. If you didn't request this, you can ignore this email.</p>
-<p>— Athi Highway Estate</p>`,
+<p>- Athi Highway Estate</p>`,
       });
     } catch (mailErr) {
       console.warn("[forgot-password] email failed:", mailErr.message);
@@ -722,7 +728,6 @@ router.post("/reset-password", async (req, res, next) => {
 
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-    /* SuperAdmins uses passwordHash; all other tables use password_hash */
     const hashCol = table === "SuperAdmins" ? "passwordHash" : "password_hash";
 
     await pool.request()

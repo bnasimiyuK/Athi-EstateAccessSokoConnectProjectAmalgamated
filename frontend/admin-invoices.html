@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Invoices — Athi Estate Access</title>
@@ -8,7 +9,7 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 </head>
-<body class="discover-body has-sidebar">
+<body class="discover-body has-sidebar" data-requires="auth admin">
 
 <!-- ============================================================
      SIDEBAR
@@ -65,6 +66,21 @@
     <a href="notices.html" data-nav="notices.html">
       <i class="fas fa-bullhorn" aria-hidden="true"></i>
       <span>Estate Notice Board</span>
+    </a>
+
+    <a href="ahewa.html" data-nav="ahewa.html" data-ahewa-only hidden>
+      <i class="fas fa-chart-pie" aria-hidden="true"></i>
+      <span>AHEWA</span>
+    </a>
+
+    <a href="ahewa-events.html" data-nav="ahewa-events.html" data-ahewa-only hidden>
+      <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+      <span>AHEWA Events</span>
+    </a>
+
+    <a href="ahewa-event.html" data-nav="ahewa-event.html" data-ahewa-only hidden>
+      <i class="fas fa-calendar-day" aria-hidden="true"></i>
+      <span>AHEWA Event</span>
     </a>
 
     <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
@@ -193,6 +209,7 @@
 <script src="js/auth.js?v=8"></script>
 <script src="js/api.js?v=10"></script>
 <script src="js/main.js?v=7"></script>
+  <script src="js/ahewa-nav.js"></script>
 <script src="js/admin-invoices.js"></script>
 </body>
 </html>

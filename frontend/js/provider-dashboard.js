@@ -243,16 +243,61 @@ async function updateStatus(id, status, reason = null) {
 /* ------------------------------------------------------------
    Init
    ------------------------------------------------------------ */
+/* ------------------------------------------------------------
+   Init
+   ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
   const user = getUser();
-  if (!user || user.role !== "vendor") {
-    window.location.href = "login.html?next=%2Fprovider-dashboard.html";
+
+  const role = String(user?.role || "")
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+
+  const isVendor = role === "vendor" || role === "provider";
+  const isAdmin  = role === "admin"  || role === "super-admin";
+
+  // ---------- Guest / resident / security → login once ----------
+  if (!user || (!isVendor && !isAdmin)) {
+    if (!/\/login\.html$/.test(location.pathname)) {
+      window.location.replace(
+        "login.html?next=" + encodeURIComponent(location.pathname)
+      );
+    }
     return;
   }
 
+  // ---------- Admin / super-admin → read-only view ----------
+  if (isAdmin) {
+    const root = document.getElementById("provider-bookings")
+              || document.querySelector(".dx-main")
+              || document.body;
+
+    root.innerHTML = `
+      <div class="empty-state" style="text-align:left; padding:28px;">
+        <h2 style="margin-top:0;">Read-only view</h2>
+        <p style="color:var(--ink-70); max-width:52ch;">
+          You are signed in as <strong>${role}</strong>.
+          This page is where providers accept and manage their own bookings.
+          To manage all providers and bookings, use the admin tools:
+        </p>
+        <p style="margin:18px 0 0; display:flex; gap:10px; flex-wrap:wrap;">
+          <a href="super-admin.html" class="btn btn--primary">Super Admin dashboard</a>
+          <a href="admin.html" class="btn btn--ghost">Admin dashboard</a>
+          <a href="provider-dashboard.html" class="btn btn--ghost" onclick="return false;">You're already here</a>
+        </p>
+      </div>
+    `;
+
+    // Optional: if the page has a title element, adjust it
+    const title = document.getElementById("page-title");
+    if (title) title.textContent = "Incoming bookings — read-only";
+    return;
+  }
+
+  // ---------- Vendor / provider → normal flow ----------
   if (user.name) {
-    document.getElementById("page-title").textContent =
-      `Incoming bookings — ${user.name}`;
+    const title = document.getElementById("page-title");
+    if (title) title.textContent = `Incoming bookings — ${user.name}`;
   }
 
   await loadBookings();

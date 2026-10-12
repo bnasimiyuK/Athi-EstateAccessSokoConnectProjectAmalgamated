@@ -68,13 +68,15 @@ function getCurrentUser() {
 }
 
 function isLoggedIn() {
-  return typeof getToken === "function" && !!getToken();
+  // Prefer the shared helper if present; fall back to user object in storage
+  if (typeof getToken === "function" && getToken()) return true;
+  return !!getCurrentUser();
 }
 
 /* ============================================================
    MODE DETECTION
-   - provider.html?id=N  →  public view (someone else's profile)
-   - provider-profile.html  →  own view (logged-in vendor)
+   - provider.html?id=N     → public view (someone else's profile)
+   - provider-profile.html  → own view (logged-in vendor)
    ============================================================ */
 function detectMode() {
   const page = window.location.pathname.split("/").pop();
@@ -229,7 +231,21 @@ function leftColumnHtml(p, reviews, isOwnMode) {
         </div>`).join("")
     : `<div class="empty-state" style="padding:20px;">No reviews yet.</div>`;
 
-  /* In own mode, don't show the "share with neighbors" / report options to yourself */
+  /* In own mode, don't show the "share with neighbors" / report options to yourself.
+     In public mode, only show the "Report" button to logged-in users — guests
+     get a "Log in to report" link instead (prevents anonymous reports). */
+  const nextUrl = encodeURIComponent(location.pathname + location.search);
+
+  const reportAction = isLoggedIn()
+    ? `<button type="button" class="btn btn--ghost btn--small" id="open-report">
+         Report this provider
+       </button>`
+    : `<a class="btn btn--ghost btn--small"
+          href="login.html?next=${nextUrl}"
+          title="Sign in to file a report — reports are logged against your account">
+         Log in to report
+       </a>`;
+
   const shareBlock = isOwnMode
     ? ""
     : `
@@ -239,9 +255,7 @@ function leftColumnHtml(p, reviews, isOwnMode) {
           <button type="button" class="btn btn--accent btn--small" id="refer-provider">
             🔗 Refer this provider
           </button>
-          <button type="button" class="btn btn--ghost btn--small" id="open-report">
-            Report this provider
-          </button>
+          ${reportAction}
         </div>
 
         <div id="refer-panel" style="
@@ -546,36 +560,83 @@ function wireOwnPanel(p) {
   }
 }
 
-/* ---------------- wire report modal ---------------- */
+/* ============================================================
+   wire report modal — AUTH-GUARDED
+   Guests cannot open the modal or submit a report.
+   The reporter's identity is attached to the payload so the
+   backend can log who filed each report.
+   ============================================================ */
 function wireReportModal(provider) {
   const openBtn = document.getElementById("open-report");
   const modal   = document.getElementById("report-modal");
   const cancel  = document.getElementById("report-cancel");
   const form    = document.getElementById("report-form");
 
+  // If the button wasn't rendered (guest sees the "Log in to report" link
+  // instead), there's nothing to wire. Guests cannot reach the modal at all.
   if (!openBtn || !modal || !cancel || !form) return;
 
-  openBtn.addEventListener("click", () => modal.classList.add("is-open"));
-  cancel.addEventListener("click",   () => modal.classList.remove("is-open"));
-  modal.addEventListener("click",    (e) => {
+  openBtn.addEventListener("click", () => {
+    // Belt-and-braces: even if the button somehow rendered for a guest,
+    // we still force a login before letting them open the modal.
+    if (!isLoggedIn()) {
+      const next = encodeURIComponent(location.pathname + location.search);
+      window.location.href = `login.html?next=${next}`;
+      return;
+    }
+    modal.classList.add("is-open");
+  });
+
+  cancel.addEventListener("click", () => modal.classList.remove("is-open"));
+  modal.addEventListener("click", (e) => {
     if (e.target === modal) modal.classList.remove("is-open");
   });
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
+    // ---------- AUTH GUARD ----------
+    const user = getCurrentUser();
+    if (!user) {
+      const next = encodeURIComponent(location.pathname + location.search);
+      toast("Please log in to report a provider.");
+      window.location.href = `login.html?next=${next}`;
+      return;
+    }
+
     const reason  = document.getElementById("report-reason").value;
     const details = document.getElementById("report-details").value.trim();
-    if (!details) return;
+
+    if (!reason) {
+      toast("Please select a reason.");
+      return;
+    }
+    if (!details) {
+      toast("Please describe what happened.");
+      return;
+    }
+
+    const submitBtn = form.querySelector("button[type=submit]");
+    if (submitBtn) submitBtn.disabled = true;
 
     try {
-      await Api.addReport({ providerId: provider.id, reason, details });
+      await Api.addReport({
+        providerId:   provider.id,
+        reason,
+        details,
+        // Traceability — backend MUST also verify these against the session.
+        reporterId:   user.id,
+        reporterName: user.name || user.full_name || "",
+      });
+
       modal.classList.remove("is-open");
       form.reset();
       toast("✅ Report submitted. The estate admin will review it.");
     } catch (err) {
       console.error("[provider] report failed:", err);
       toast(err.message || "Could not submit report.");
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 }

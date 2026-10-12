@@ -361,13 +361,49 @@ function askForDurationModal() {
 }
 
 /* ---------------- init ---------------- */
+/* ---------------- init ---------------- */
 document.addEventListener("DOMContentLoaded", async () => {
   const user = getUser();
-  if (!user || user.role !== "vendor") {
-    window.location.href = "login.html?next=%2Fprovider-profile.html";
+
+  // Roles allowed to open this page:
+  // - vendor / provider: full edit access to their own profile
+  // - admin / super-admin: read-only view (they can see the form but
+  //   edits target their own user id and will be rejected by the API)
+  const allowed = ["vendor", "provider", "admin", "super-admin"];
+  const role = String(user?.role || "").toLowerCase().replace(/[_\s]+/g, "-");
+
+  if (!user || !allowed.includes(role)) {
+    // Only redirect if we aren't already on login.html
+    if (!/\/login\.html$/.test(location.pathname)) {
+      window.location.replace(
+        "login.html?next=" + encodeURIComponent(location.pathname)
+      );
+    }
     return;
   }
 
+  // ---- Super-admin / admin: show a read-only banner and skip the edit form
+  if (role === "admin" || role === "super-admin") {
+    document.getElementById("profile-root").innerHTML = `
+      <div class="empty-state" style="text-align:left; padding:24px;">
+        <h2 style="margin-top:0;">Read-only view</h2>
+        <p style="color:var(--ink-70);">
+          You are signed in as <strong>${escapeHtml(role)}</strong>.
+          This page is used by providers to manage their own listing.
+          To manage providers as an admin, use
+          <a href="admin-providers.html">Admin &rarr; Providers</a>
+          or <a href="super-admin-providers.html">Super Admin &rarr; Providers</a>.
+        </p>
+        <p style="margin-bottom:0;">
+          <a href="super-admin.html" class="btn btn--ghost" style="margin-right:8px;">Back to Super Admin</a>
+          <a href="index.html" class="btn btn--ghost">Go to Discover</a>
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  // ---- Vendor / provider: normal flow
   try {
     const [provider, categories] = await Promise.all([
       Api.getProvider(user.id),
