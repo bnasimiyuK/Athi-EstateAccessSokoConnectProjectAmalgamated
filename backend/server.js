@@ -6,7 +6,7 @@
 
 require("dotenv").config();
 
-console.log("ðŸ”§ ALLOW_ORIGIN =", process.env.ALLOW_ORIGIN || "(not set)");
+console.log("🔧 ALLOW_ORIGIN =", process.env.ALLOW_ORIGIN || "(not set)");
 
 const express = require("express");
 const cors = require("cors");

@@ -3,7 +3,7 @@
    Now attaches the JWT (from auth.js) to every request.
 
    API base URL is resolved dynamically:
-     - Mobile app (Android WebView)  → http://192.168.100.5:4050/api
+     - Mobile app (Android WebView)  → http://192.168.100.6:4050/api
      - Desktop browser on localhost  → http://localhost:4050/api
      - Browser on LAN IP             → http://<same-host>:4050/api
 
@@ -14,7 +14,7 @@
    SETTINGS — edit these two values if your network changes
    ------------------------------------------------------------ */
 const BACKEND_PORT = 4050;
-const LAN_IP       = "192.168.100.5";   // ← your PC's LAN IP
+const LAN_IP       = "192.168.100.6";   // ← your PC's LAN IP
 
 /* ------------------------------------------------------------
    Resolve API base at runtime
