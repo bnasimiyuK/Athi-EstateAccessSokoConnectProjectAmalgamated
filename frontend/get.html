@@ -1,0 +1,93 @@
+Set-Location "C:\Users\Lenovo\OneDrive\Documents\ANU\2026\Semester 2\CSC429 Computer Project I\Project\Athi EstateAccessSokoConnectProjectAmalgamated"
+
+$html = @'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Athi Soko Connect</title>
+  <meta name="description" content="Download the Athi Soko Connect app for Athi Highway Estate. Discover services, learn about AHE, and register as a resident or provider.">
+
+  <!-- Social preview (WhatsApp, Twitter, etc.) -->
+  <meta property="og:title" content="Get Athi Soko Connect">
+  <meta property="og:description" content="Athi Highway Estate — services, notices, security, and billing in your pocket.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://athi-soko-connect.netlify.app/get.html">
+  <meta property="og:image" content="https://athi-soko-connect.netlify.app/img/get-app-qr.png">
+
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="get-body">
+
+  <main class="get-hero">
+
+    <header class="get-hero__header">
+      <div class="get-hero__brand">
+        <svg class="get-hero__mark" viewBox="0 0 44 44" aria-hidden="true">
+          <rect width="44" height="44" rx="12" fill="#16233f"/>
+          <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+        </svg>
+        <div class="get-hero__brand-text">
+          <b>Athi Soko Connect</b>
+          <span>Athi Highway Estate</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="get-hero__intro">
+      <h1>Your estate, in your pocket.</h1>
+      <p>
+        Services, notices, security, visitors, and billing — all in one app
+        for Athi Highway Estate residents and providers.
+      </p>
+
+      <a class="get-btn get-btn--primary"
+         href="athi-soko-connect.apk"
+         download="athi-soko-connect.apk">
+        Download for Android
+        <small>APK &middot; ~103 MB</small>
+      </a>
+    </section>
+
+    <section class="get-links">
+      <a href="index.html"   class="get-btn get-btn--ghost">Discover</a>
+      <a href="about.html"   class="get-btn get-btn--ghost">About AHE</a>
+      <a href="register.html" class="get-btn get-btn--ghost">Register</a>
+    </section>
+
+    <section class="get-install">
+      <h2>How to install</h2>
+      <ol>
+        <li>Tap <b>Download for Android</b> above.</li>
+        <li>Open the downloaded file.</li>
+        <li>If asked, allow <b>Install from unknown sources</b>.</li>
+        <li>Tap <b>Install</b>, then <b>Open</b>.</li>
+      </ol>
+      <p class="get-install__note">
+        iPhone users: open this page in Safari and use the app in your browser
+        for now — iOS support is coming soon.
+      </p>
+    </section>
+
+    <section class="get-share">
+      <h2>Share this app</h2>
+      <img src="img/get-app-qr.png"
+           alt="QR code linking to this page"
+           width="220" height="220"
+           class="get-share__qr">
+      <p>Point a phone camera at the code to open this page.</p>
+    </section>
+
+  </main>
+
+  <footer class="get-footer">
+    <p>&copy; Athi Highway Estate &middot; <a href="about.html">About</a></p>
+  </footer>
+
+</body>
+</html>
+'@
+
+[System.IO.File]::WriteAllText("$PWD\frontend\get.html", $html, [System.Text.UTF8Encoding]::new($false))
+Write-Host "Created frontend\get.html" -ForegroundColor Green
