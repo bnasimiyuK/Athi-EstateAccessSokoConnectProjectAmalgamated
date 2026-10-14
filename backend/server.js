@@ -1,5 +1,5 @@
 ﻿/* ============================================================
-   server.js , AthiEstateAccessSokoConnectProjectAmalgamated backend
+   server.js — AthiEstateAccessSokoConnectProjectAmalgamated backend
    Serves the REST API under /api/* and the static frontend
    (../frontend) on every other path. Run with: node server.js
    ============================================================ */
@@ -24,62 +24,80 @@ const adminRouter        = require("./routes/admin");
 const invoicesRouter     = require("./routes/invoices");
 const paymentsRouter     = require("./routes/payments");
 const houseNumbersRouter = require("./routes/house-numbers");
-const visitorsRouter = require("./routes/visitors");
+const visitorsRouter     = require("./routes/visitors");
+const noticesRouter      = require("./routes/notices");
+const discoverRoutes     = require("./routes/discover");
+
 const { startReconciler } = require("./jobs/reconcilePending");
+
 const app = express();
 const PORT = process.env.PORT || 4050;
 const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
-const discoverRoutes = require("./routes/discover");
+
 /* ------------------------------------------------------------
-   CORS , accept requests from one or more origins listed in
+   CORS — accept requests from one or more origins listed in
    ALLOW_ORIGIN (comma-separated). Falls back to localhost:3000
    for local development.
+
+   Use "*" (or include "*" in the list) to allow all origins —
+   useful for tunnels (cloudflared, ngrok) and cloud deploys
+   where the origin changes between runs.
    ------------------------------------------------------------ */
 const allowedOrigins = (process.env.ALLOW_ORIGIN || "http://localhost:3000")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
-console.log("ðŸ”§ CORS allowed origins:", allowedOrigins);
+console.log("🔧 CORS allowed origins:", allowedOrigins);
 
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests with no Origin (curl, Postman, server-to-server)
       if (!origin) return callback(null, true);
+
+      // Allow all origins if "*" is present
+      if (allowedOrigins.includes("*")) return callback(null, true);
+
+      // Otherwise require an exact match
       if (allowedOrigins.includes(origin)) return callback(null, true);
-      console.warn(`ðŸš« CORS blocked: ${origin}`);
+
+      console.warn(`🚫 CORS blocked: ${origin}`);
       return callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 /* ---------- API routes ---------- */
-app.use("/api/auth",       authRouter);
-app.use("/api/categories", categoriesRouter);
-app.use("/api/providers",  providersRouter);
-app.use("/api/reviews",    reviewsRouter);
-app.use("/api/bookings",   bookingsRouter);
-app.use("/api/reports",    reportsRouter);
-app.use("/api/residents",  residentsRouter);
-app.use("/api/courts",     courtsRouter);
-app.use("/api/admin",      adminRouter);
-app.use("/api/super-admin", require("./routes/super-admin"));
+app.use("/api/auth",         authRouter);
+app.use("/api/categories",   categoriesRouter);
+app.use("/api/providers",    providersRouter);
+app.use("/api/reviews",      reviewsRouter);
+app.use("/api/bookings",     bookingsRouter);
+app.use("/api/reports",      reportsRouter);
+app.use("/api/residents",    residentsRouter);
+app.use("/api/courts",       courtsRouter);
+app.use("/api/admin",        adminRouter);
+app.use("/api/super-admin",  require("./routes/super-admin"));
 app.use("/api/admin/health", require("./routes/adminHealth"));
-app.use("/api/invoices", invoicesRouter);
-app.use("/api/payments", paymentsRouter);
+app.use("/api/invoices",     invoicesRouter);
+app.use("/api/payments",     paymentsRouter);
 app.use("/api/house-numbers", houseNumbersRouter);
-app.use("/api/visitors", visitorsRouter);
-const noticesRouter = require("./routes/notices");
-app.use("/api/notices", noticesRouter);
-app.use("/api/events", require("./routes/events"));
-app.use("/api/mpesa", require("./routes/mpesa"));
-app.use("/api/ahewa", require("./routes/ahewa"));
+app.use("/api/visitors",     visitorsRouter);
+app.use("/api/notices",      noticesRouter);
+app.use("/api/events",       require("./routes/events"));
+app.use("/api/mpesa",        require("./routes/mpesa"));
+app.use("/api/ahewa",        require("./routes/ahewa"));
+app.use("/api",              discoverRoutes);
+
+/* ---------- Uploads ---------- */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+/* ---------- Google auth (mounted at /auth) ---------- */
 app.use("/auth", require("./routes/google-auth"));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/api", discoverRoutes);
 
 /* ---------- Static frontend ---------- */
 app.use(express.static(FRONTEND_DIR));
@@ -89,7 +107,7 @@ app.use("/api", (req, res) => {
   res.status(404).json({ error: `No API route for ${req.method} ${req.originalUrl}` });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Athi Soko Connect backend running at http://localhost:${PORT}`);
   console.log(`Serving frontend from ${FRONTEND_DIR}`);
   startReconciler(60 * 1000);   // every 60 seconds
