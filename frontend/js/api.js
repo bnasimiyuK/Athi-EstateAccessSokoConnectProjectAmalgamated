@@ -23,7 +23,7 @@ const BACKEND_PORT = 4050;
 
 /* Public tunnel URL — used when the page is not served from localhost/LAN.
    Regenerate when cloudflared restarts (each restart gives a new URL). */
-const FORCE_API_BASE = "https://nick-discrete-keywords-choice.trycloudflare.com/api";
+const FORCE_API_BASE = "https://likely-foundations-pvc-calculators.trycloudflare.com/api";
 
 /* Candidate LAN IPs to try from the mobile app.
    2s timeout per probe, all probes run in parallel. The first
