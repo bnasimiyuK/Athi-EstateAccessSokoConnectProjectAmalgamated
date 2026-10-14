@@ -1,5 +1,5 @@
-﻿/* ============================================================
-   pending.js â€” admin approval queue for residents + vendors
+/* ============================================================
+   pending.js &mdash; admin approval queue for residents + vendors
    + Prev/Next pagination for both columns
    ============================================================ */
 
@@ -47,12 +47,12 @@ function pendingCard(item, kind) {
   const isResident = kind === "residents";
 
   const contact = isResident
-    ? `<div class="meta"><i class="fas fa-phone"></i> ${item.phone || "â€”"}</div>
-       <div class="meta"><i class="fas fa-envelope"></i> ${item.email || "â€”"}</div>
+    ? `<div class="meta"><i class="fas fa-phone"></i> ${item.phone || "&mdash;"}</div>
+       <div class="meta"><i class="fas fa-envelope"></i> ${item.email || "&mdash;"}</div>
        <div class="meta"><i class="fas fa-map-marker-alt"></i> Phase ${item.phase} Â· ${item.courtName}</div>`
     : `<div class="meta"><i class="fas fa-tag"></i> ${categoryLabel(item.category)}</div>
-       <div class="meta"><i class="fas fa-phone"></i> ${item.phone || "â€”"}</div>
-       <div class="meta"><i class="fas fa-map-marker-alt"></i> ${item.zone || "â€”"}</div>`;
+       <div class="meta"><i class="fas fa-phone"></i> ${item.phone || "&mdash;"}</div>
+       <div class="meta"><i class="fas fa-map-marker-alt"></i> ${item.zone || "&mdash;"}</div>`;
 
   const label = isResident ? item.fullName : item.name;
 
@@ -94,7 +94,7 @@ function paginationHtml(kind) {
                 gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
                 border-top:1px solid var(--line);">
       <div style="font-size:0.85rem;color:var(--ink-70);">
-        Showing <b>${startRow}â€“${endRow}</b> of <b>${total}</b>
+        Showing <b>${startRow}&ndash;${endRow}</b> of <b>${total}</b>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn--ghost btn--small" data-pending-page="${kind}:prev" ${prevDisabled}>
@@ -140,7 +140,7 @@ function wirePagination(kind) {
    ------------------------------------------------------------ */
 async function loadResidents() {
   const listEl = document.getElementById("residents-list");
-  listEl.innerHTML = `<div class="empty-state">Loadingâ€¦</div>`;
+  listEl.innerHTML = `<div class="empty-state">Loading&hellip;</div>`;
 
   let result;
   try {
@@ -182,7 +182,7 @@ async function loadResidents() {
    ------------------------------------------------------------ */
 async function loadVendors() {
   const listEl = document.getElementById("vendors-list");
-  listEl.innerHTML = `<div class="empty-state">Loadingâ€¦</div>`;
+  listEl.innerHTML = `<div class="empty-state">Loading&hellip;</div>`;
 
   let result;
   try {
@@ -229,10 +229,10 @@ async function approve(id, kind) {
   try {
     if (kind === "residents") {
       await Api.updateResident(id, { verified: true });
-      toast("âœ… Resident approved. Welcome email sent.");
+      toast("&#x2705; Resident approved. Welcome email sent.");
     } else {
       await Api.updateProvider(id, { verified: true });
-      toast("âœ… Vendor approved.");
+      toast("&#x2705; Vendor approved.");
     }
 
     // Reload the current page (pagination-aware)

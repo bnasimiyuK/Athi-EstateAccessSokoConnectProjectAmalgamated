@@ -52,3 +52,22 @@ backend/uploads/
 
 # ---- IDE / editors ----
 .idea/
+
+# ---- Recovery / rollback snapshots ----
+_broken_backup_*/
+_before_restore_*/
+_good_restore_*/
+_pre_emoji_fix_*/
+_post_emoji_fix_*/
+_final_clean_*/
+_final_snapshot_*/
+_snapshot_before_*/
+
+# ---- Capacitor build output ----
+android/app/src/main/assets/public/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+*.apk
+*.aab

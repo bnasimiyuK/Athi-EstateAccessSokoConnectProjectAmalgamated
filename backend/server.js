@@ -1,5 +1,5 @@
 ﻿/* ============================================================
-   server.js â€” AthiEstateAccessSokoConnectProjectAmalgamated backend
+   server.js , AthiEstateAccessSokoConnectProjectAmalgamated backend
    Serves the REST API under /api/* and the static frontend
    (../frontend) on every other path. Run with: node server.js
    ============================================================ */
@@ -31,7 +31,7 @@ const PORT = process.env.PORT || 4050;
 const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
 const discoverRoutes = require("./routes/discover");
 /* ------------------------------------------------------------
-   CORS â€” accept requests from one or more origins listed in
+   CORS , accept requests from one or more origins listed in
    ALLOW_ORIGIN (comma-separated). Falls back to localhost:3000
    for local development.
    ------------------------------------------------------------ */

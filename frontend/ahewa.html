@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AHEWA â€” Athi Estate Access</title>
+  <title>AHEWA &mdash; Athi Estate Access</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -145,7 +145,7 @@
   <section class="stat-section">
     <h3 class="stat-section__title">Signatories (co-authorize disbursements)</h3>
     <div id="signatories-strip" class="signatories-strip">
-      <div class="empty-state">Loading signatoriesâ€¦</div>
+      <div class="empty-state">Loading signatories&hellip;</div>
     </div>
   </section>
 
@@ -156,25 +156,25 @@
     <h3 class="stat-section__title">AHEWA members</h3>
     <div class="stat-tiles" id="member-stats">
       <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="stat-members">â€”</div>
+        <div class="stat-tile__value" id="stat-members">&mdash;</div>
         <div class="stat-tile__label">Total members</div>
       </div>
       <div class="stat-tile stat-tile--ok">
-        <div class="stat-tile__value" id="stat-collected">â€”</div>
+        <div class="stat-tile__value" id="stat-collected">&mdash;</div>
         <div class="stat-tile__label">Total collected (KSh)</div>
       </div>
       <div class="stat-tile stat-tile--warn">
-        <div class="stat-tile__value" id="stat-outstanding">â€”</div>
+        <div class="stat-tile__value" id="stat-outstanding">&mdash;</div>
         <div class="stat-tile__label">Total outstanding (KSh)</div>
       </div>
       <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="stat-events">â€”</div>
+        <div class="stat-tile__value" id="stat-events">&mdash;</div>
         <div class="stat-tile__label">Active events</div>
       </div>
     </div>
 
     <div class="table-wrap" id="members-table-wrap">
-      <div class="empty-state">Loading membersâ€¦</div>
+      <div class="empty-state">Loading members&hellip;</div>
     </div>
   </section>
 
@@ -184,7 +184,7 @@
   <section class="stat-section">
     <h3 class="stat-section__title">Welfare events</h3>
     <div class="table-wrap" id="events-table-wrap">
-      <div class="empty-state">Loading eventsâ€¦</div>
+      <div class="empty-state">Loading events&hellip;</div>
     </div>
   </section>
 </main>
@@ -192,12 +192,12 @@
 
 <footer class="site-footer">
   <div class="container" style="width:100%;">
-    AHEWA â€” managed by the three elected signatories. Disbursement requires all three approvals.
+    AHEWA &mdash; managed by the three elected signatories. Disbursement requires all three approvals.
   </div>
 </footer>
 
 <!-- ============================================================
-     Modal â€” Create welfare event
+     Modal &mdash; Create welfare event
      ============================================================ -->
 <div class="modal-backdrop" id="modal-new-event">
   <div class="modal" style="max-width: 520px;">
@@ -210,16 +210,16 @@
       <label class="field">
         <span>Affected member</span>
         <select id="ev-affected" class="input" required>
-          <option value="">Select AHEWA memberâ€¦</option>
+          <option value="">Select AHEWA member&hellip;</option>
         </select>
       </label>
 
       <label class="field">
         <span>Event type</span>
         <select id="ev-type" class="input" required>
-          <option value="">Selectâ€¦</option>
-          <option value="PRINCIPAL">Deceased principal â€” KSh 1,200</option>
-          <option value="DEPENDANT">Deceased dependant â€” KSh 700</option>
+          <option value="">Select&hellip;</option>
+          <option value="PRINCIPAL">Deceased principal &mdash; KSh 1,200</option>
+          <option value="DEPENDANT">Deceased dependant &mdash; KSh 700</option>
         </select>
       </label>
 
@@ -230,7 +230,7 @@
 
       <label class="field">
         <span>Description <small style="color:var(--ink-70);">(optional)</small></span>
-        <textarea id="ev-description" class="input" rows="2" placeholder="Brief context about the eventâ€¦"></textarea>
+        <textarea id="ev-description" class="input" rows="2" placeholder="Brief context about the event&hellip;"></textarea>
       </label>
 
       <label class="field">

@@ -1,0 +1,81 @@
+﻿/* sidebar.css — Global sidebar layout */
+.sidebar i, .topbar i, .sidebar__link i, .sidebar__group-header i {
+  display: inline-block; width: 1.1em; height: 1.1em; line-height: 1;
+  font-size: 1.1rem; text-align: center; overflow: hidden; flex-shrink: 0;
+}
+.sidebar__group-header .fa-chevron-down { width: .9em; height: .9em; font-size: .7rem; }
+.sidebar__sub .sidebar__link i { width: 1em; height: 1em; font-size: .9rem; }
+html, body { margin: 0; padding: 0; }
+body {
+  display: flex; min-height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background: #f8f6f2; color: #16233f;
+}
+.sidebar {
+  width: 270px; background: #fff; border-right: 1px solid var(--line, #e2e6ec);
+  display: flex; flex-direction: column; flex-shrink: 0;
+  height: 100vh; position: sticky; top: 0; overflow-y: auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04); z-index: 40;
+  transition: transform .2s ease;
+}
+.sidebar__header { padding: 22px 20px 18px; border-bottom: 1px solid var(--line, #e2e6ec); }
+.sidebar__logo {
+  font-size: 1.4rem; font-weight: 700; text-decoration: none;
+  color: var(--ink, #16233f); letter-spacing: -.5px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sidebar__logo span { color: var(--ochre, #c8862a); }
+.sidebar__logo small {
+  font-size: .65rem; font-weight: 400; background: #f8f6f2;
+  padding: 2px 8px; border-radius: 30px;
+  color: rgba(22,35,63,.7); margin-left: 6px;
+}
+.sidebar__nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+.sidebar__link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 10px; text-decoration: none;
+  color: var(--ink, #16233f); font-size: .92rem; font-weight: 500;
+  transition: background .15s; cursor: pointer;
+  border: none; background: none; width: 100%; text-align: left; font-family: inherit;
+}
+.sidebar__link i { color: rgba(22,35,63,.7); }
+.sidebar__link:hover { background: #f8f6f2; }
+.sidebar__link.is-active { background: rgba(200,134,42,.1); color: var(--ochre, #c8862a); font-weight: 600; }
+.sidebar__link.is-active i { color: var(--ochre, #c8862a); }
+.sidebar__group { display: flex; flex-direction: column; }
+.sidebar__group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 10px; cursor: pointer;
+  font-size: .92rem; font-weight: 500; transition: background .15s;
+  background: none; border: none; width: 100%; text-align: left;
+  font-family: inherit; color: var(--ink, #16233f);
+}
+.sidebar__group-header span { display: flex; align-items: center; gap: 12px; }
+.sidebar__group-header:hover { background: #f8f6f2; }
+.sidebar__group-header i:first-child { color: rgba(22,35,63,.7); }
+.sidebar__group-header .fa-chevron-down { transition: transform .2s; color: rgba(22,35,63,.7); }
+.sidebar__group-header.open .fa-chevron-down { transform: rotate(180deg); }
+.sidebar__sub { display: none; flex-direction: column; padding-left: 26px; margin-bottom: 4px; }
+.sidebar__sub.open { display: flex; }
+.sidebar__sub .sidebar__link { font-size: .85rem; padding: 7px 12px; font-weight: 400; }
+.sidebar__footer {
+  padding: 16px 20px; border-top: 1px solid var(--line, #e2e6ec);
+  font-size: .75rem; color: rgba(22,35,63,.7);
+}
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #f8f6f2; }
+.topbar {
+  display: none; align-items: center; justify-content: space-between;
+  padding: 12px 18px; background: #fff;
+  border-bottom: 1px solid var(--line, #e2e6ec);
+  position: sticky; top: 0; z-index: 30;
+}
+.topbar__toggle { background: none; border: none; font-size: 1.6rem; cursor: pointer; color: var(--ink, #16233f); padding: 0 6px; }
+.topbar__title { font-weight: 600; font-size: 1.1rem; }
+.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 45; }
+.sidebar-overlay.active { display: block; }
+@media (max-width: 820px) {
+  .sidebar { position: fixed; top: 0; left: 0; bottom: 0; transform: translateX(-100%); width: 280px; z-index: 50; }
+  .sidebar.open { transform: translateX(0); }
+  .topbar { display: flex; }
+  .main { width: 100%; }
+}

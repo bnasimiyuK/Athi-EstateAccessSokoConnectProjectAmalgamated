@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>My billing â€” Athi Estate Access</title>
+  <title>My billing &mdash; Athi Estate Access</title>
    <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -131,8 +131,8 @@
       </p>
     </div>
     <div class="admin-actions">
-      <button id="btn-pay-now" class="btn btn--accent" type="button">ðŸ’³ Pay via M-Pesa</button>
-      <button id="btn-report-payment" class="btn btn--ghost" type="button">ðŸ“„ I have paid</button>
+      <button id="btn-pay-now" class="btn btn--accent" type="button">&#x1F4B3; Pay via M-Pesa</button>
+      <button id="btn-report-payment" class="btn btn--ghost" type="button">&#x1F4C4; I have paid</button>
     </div>
   </div>
 
@@ -140,15 +140,15 @@
     <h3 class="stat-section__title">My household</h3>
     <div class="stat-tiles">
       <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="my-house">â€”</div>
+        <div class="stat-tile__value" id="my-house">&mdash;</div>
         <div class="stat-tile__label">House number</div>
       </div>
       <div class="stat-tile" id="my-status-tile">
-        <div class="stat-tile__value" id="my-status">â€”</div>
+        <div class="stat-tile__value" id="my-status">&mdash;</div>
         <div class="stat-tile__label">Billing status</div>
       </div>
       <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="my-balance">â€”</div>
+        <div class="stat-tile__value" id="my-balance">&mdash;</div>
         <div class="stat-tile__label">Outstanding (KSh)</div>
       </div>
     </div>
@@ -160,10 +160,10 @@
       <div class="alert-card__head">M-Pesa Paybill</div>
       <div class="alert-card__body" style="font-size:0.95rem;line-height:1.8;">
         <div><b>1.</b> M-Pesa â†’ Lipa na M-Pesa â†’ Pay Bill</div>
-        <div><b>2.</b> Business Number: <code id="pb-business">â€”</code></div>
-        <div><b>3.</b> Account Number: <code id="pb-account">â€”</code> <em>(your house number)</em></div>
-        <div><b>4.</b> Amount: <code id="pb-amount">â€”</code></div>
-        <div><b>5.</b> Name shown: <b id="pb-name">â€”</b> <em>(your estate's paybill account)</em></div>
+        <div><b>2.</b> Business Number: <code id="pb-business">&mdash;</code></div>
+        <div><b>3.</b> Account Number: <code id="pb-account">&mdash;</code> <em>(your house number)</em></div>
+        <div><b>4.</b> Amount: <code id="pb-amount">&mdash;</code></div>
+        <div><b>5.</b> Name shown: <b id="pb-name">&mdash;</b> <em>(your estate's paybill account)</em></div>
         <div style="margin-top:10px;color:var(--ink-70);font-size:0.9rem;">
           After paying, click <b>"I have paid"</b> above and enter your M-Pesa receipt. Admin will verify.
         </div>
@@ -174,14 +174,14 @@
   <section class="stat-section">
     <h3 class="stat-section__title">My invoices</h3>
     <div class="table-wrap" id="my-invoices">
-      <div class="empty-state">Loading invoicesâ€¦</div>
+      <div class="empty-state">Loading invoices&hellip;</div>
     </div>
   </section>
 
   <section class="stat-section">
     <h3 class="stat-section__title">My payments</h3>
     <div class="table-wrap" id="my-payments">
-      <div class="empty-state">Loading paymentsâ€¦</div>
+      <div class="empty-state">Loading payments&hellip;</div>
     </div>
   </section>
 </main>
@@ -198,7 +198,7 @@
       <div style="display:flex;flex-direction:column;gap:12px;">
         <label>Amount (KSh) *<input type="number" id="rp-amount" class="input" required min="1" step="1" value="2000" /></label>
         <label>M-Pesa receipt *<input type="text" id="rp-receipt" class="input" required placeholder="e.g. RKT4XYZ123" /></label>
-        <label>Phone used<input type="text" id="rp-phone" class="input" placeholder="+254â€¦" /></label>
+        <label>Phone used<input type="text" id="rp-phone" class="input" placeholder="+254&hellip;" /></label>
         <label>Payment date<input type="date" id="rp-date" class="input" /></label>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
@@ -217,7 +217,7 @@
     </p>
     <form id="pay-form">
       <div id="pay-items-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
-        <div class="empty-state">Loadingâ€¦</div>
+        <div class="empty-state">Loading&hellip;</div>
       </div>
       <div class="notice" style="margin-bottom:16px;">
         Total: <b id="pay-total">KSh 0</b>
@@ -228,7 +228,7 @@
       </label>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
         <button type="button" class="btn btn--ghost" id="pay-cancel">Cancel</button>
-        <button type="submit" class="btn btn--accent" id="pay-submit">ðŸ“± Send STK push</button>
+        <button type="submit" class="btn btn--accent" id="pay-submit">&#x1F4F1; Send STK push</button>
       </div>
       <div id="pay-status" style="margin-top:12px;font-size:0.9rem;" hidden></div>
     </form>

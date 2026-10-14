@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AHEWA Events â€” Athi Estate Access</title>
+  <title>AHEWA Events &mdash; Athi Estate Access</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -144,12 +144,12 @@
     <select id="filter-status" class="input" style="min-width:160px;">
       <option value="">All statuses</option>
       <option value="open">Open</option>
-      <option value="approved">Approved â€” pending disbursement</option>
+      <option value="approved">Approved &mdash; pending disbursement</option>
       <option value="disbursed">Disbursed</option>
     </select>
 
     <input type="text" id="filter-search" class="input"
-           placeholder="Search event title or affected memberâ€¦"
+           placeholder="Search event title or affected member&hellip;"
            style="min-width:280px;" />
 
     <button type="submit" class="btn btn--accent">Filter</button>
@@ -157,18 +157,18 @@
   </form>
 
   <div class="table-wrap" id="events-table-wrap">
-    <div class="empty-state">Loading welfare eventsâ€¦</div>
+    <div class="empty-state">Loading welfare events&hellip;</div>
   </div>
 </main>
 </div>
 
 <footer class="site-footer">
   <div class="container" style="width:100%;">
-    AHEWA â€” managed by the three elected signatories. Disbursement requires all three approvals.
+    AHEWA &mdash; managed by the three elected signatories. Disbursement requires all three approvals.
   </div>
 </footer>
 
-<!-- Modal â€” Create welfare event -->
+<!-- Modal &mdash; Create welfare event -->
 <div class="modal-backdrop" id="modal-new-event">
   <div class="modal" style="max-width: 520px;">
     <h2 style="margin-top:0;">Create welfare event</h2>
@@ -180,27 +180,27 @@
       <label class="field">
         <span>Affected member</span>
         <select id="ev-affected" class="input" required>
-          <option value="">Select AHEWA memberâ€¦</option>
+          <option value="">Select AHEWA member&hellip;</option>
         </select>
       </label>
 
       <label class="field">
         <span>Event type</span>
         <select id="ev-type" class="input" required>
-          <option value="">Selectâ€¦</option>
-          <option value="PRINCIPAL">Deceased principal â€” KSh 1,200</option>
-          <option value="DEPENDANT">Deceased dependant â€” KSh 700</option>
+          <option value="">Select&hellip;</option>
+          <option value="PRINCIPAL">Deceased principal &mdash; KSh 1,200</option>
+          <option value="DEPENDANT">Deceased dependant &mdash; KSh 700</option>
         </select>
       </label>
 
       <label class="field">
         <span>Event title</span>
-        <input type="text" id="ev-title" class="input" placeholder="e.g. AHEWA Welfare contributions update for â€¦" required />
+        <input type="text" id="ev-title" class="input" placeholder="e.g. AHEWA Welfare contributions update for &hellip;" required />
       </label>
 
       <label class="field">
         <span>Description <small style="color:var(--ink-70);">(optional)</small></span>
-        <textarea id="ev-description" class="input" rows="2" placeholder="Brief contextâ€¦"></textarea>
+        <textarea id="ev-description" class="input" rows="2" placeholder="Brief context&hellip;"></textarea>
       </label>
 
       <label class="field">
