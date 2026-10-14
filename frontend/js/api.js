@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    api.js — thin fetch wrapper around the backend REST API.
    Attaches the JWT (from auth.js) to every request.
 
@@ -20,6 +20,10 @@
    SETTINGS
    ------------------------------------------------------------ */
 const BACKEND_PORT = 4050;
+
+/* Public tunnel URL — used when the page is not served from localhost/LAN.
+   Regenerate when cloudflared restarts (each restart gives a new URL). */
+const FORCE_API_BASE = "https://nick-discrete-keywords-choice.trycloudflare.com/api";
 
 /* Candidate LAN IPs to try from the mobile app.
    2s timeout per probe, all probes run in parallel. The first
@@ -88,6 +92,11 @@ async function probeOne(ip) {
    window.discoverApiBase() to avoid self-recursion.
    ------------------------------------------------------------ */
 async function _probeDiscoverApiBase() {
+  // If a public tunnel URL is configured, use it for ALL hosts — this lets
+  // the deployed Netlify site (and any phone, anywhere) reach the backend.
+  if (typeof FORCE_API_BASE === "string" && FORCE_API_BASE) {
+    return FORCE_API_BASE;
+  }
   // ---- 1. Mobile app: probe candidates in parallel ----
   if (isMobileApp()) {
     if (FORCE_LAN_IP) {
