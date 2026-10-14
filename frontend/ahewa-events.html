@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AHEWA Events — Athi Estate Access</title>
+  <title>AHEWA Events â€” Athi Estate Access</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -135,7 +135,7 @@
     </div>
 
     <div class="admin-actions">
-      <button id="btn-new-event" class="btn btn--accent" type="button">➕ Create welfare event</button>
+      <button id="btn-new-event" class="btn btn--accent" type="button">âž• Create welfare event</button>
     </div>
   </div>
 
@@ -144,12 +144,12 @@
     <select id="filter-status" class="input" style="min-width:160px;">
       <option value="">All statuses</option>
       <option value="open">Open</option>
-      <option value="approved">Approved — pending disbursement</option>
+      <option value="approved">Approved â€” pending disbursement</option>
       <option value="disbursed">Disbursed</option>
     </select>
 
     <input type="text" id="filter-search" class="input"
-           placeholder="Search event title or affected member…"
+           placeholder="Search event title or affected memberâ€¦"
            style="min-width:280px;" />
 
     <button type="submit" class="btn btn--accent">Filter</button>
@@ -157,18 +157,18 @@
   </form>
 
   <div class="table-wrap" id="events-table-wrap">
-    <div class="empty-state">Loading welfare events…</div>
+    <div class="empty-state">Loading welfare eventsâ€¦</div>
   </div>
 </main>
 </div>
 
 <footer class="site-footer">
   <div class="container" style="width:100%;">
-    AHEWA — managed by the three elected signatories. Disbursement requires all three approvals.
+    AHEWA â€” managed by the three elected signatories. Disbursement requires all three approvals.
   </div>
 </footer>
 
-<!-- Modal — Create welfare event -->
+<!-- Modal â€” Create welfare event -->
 <div class="modal-backdrop" id="modal-new-event">
   <div class="modal" style="max-width: 520px;">
     <h2 style="margin-top:0;">Create welfare event</h2>
@@ -180,27 +180,27 @@
       <label class="field">
         <span>Affected member</span>
         <select id="ev-affected" class="input" required>
-          <option value="">Select AHEWA member…</option>
+          <option value="">Select AHEWA memberâ€¦</option>
         </select>
       </label>
 
       <label class="field">
         <span>Event type</span>
         <select id="ev-type" class="input" required>
-          <option value="">Select…</option>
-          <option value="PRINCIPAL">Deceased principal — KSh 1,200</option>
-          <option value="DEPENDANT">Deceased dependant — KSh 700</option>
+          <option value="">Selectâ€¦</option>
+          <option value="PRINCIPAL">Deceased principal â€” KSh 1,200</option>
+          <option value="DEPENDANT">Deceased dependant â€” KSh 700</option>
         </select>
       </label>
 
       <label class="field">
         <span>Event title</span>
-        <input type="text" id="ev-title" class="input" placeholder="e.g. AHEWA Welfare contributions update for …" required />
+        <input type="text" id="ev-title" class="input" placeholder="e.g. AHEWA Welfare contributions update for â€¦" required />
       </label>
 
       <label class="field">
         <span>Description <small style="color:var(--ink-70);">(optional)</small></span>
-        <textarea id="ev-description" class="input" rows="2" placeholder="Brief context…"></textarea>
+        <textarea id="ev-description" class="input" rows="2" placeholder="Brief contextâ€¦"></textarea>
       </label>
 
       <label class="field">
@@ -219,9 +219,10 @@
 </div>
 
 <script src="js/auth.js?v=8"></script>
-<script src="js/api.js?v=10"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/api.js?v=14"></script>
+<script src="js/main.js?v=11"></script>
   <script src="js/ahewa-nav.js"></script>
-<script src="js/ahewa-events.js"></script>
+<script src="js/ahewa-events.js?v=2"></script>
 </body>
 </html>
+

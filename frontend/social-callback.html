@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Signing inâ€¦ Â· Athi Soko Connect</title>
+  <title>Signing inÃ¢â‚¬Â¦ Ã‚Â· Athi Soko Connect</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="icon" href="data:,">
 </head>
@@ -105,14 +105,14 @@
   </div>
 
   <main class="container dx-main" style="padding:80px 24px; text-align:center;">
-    <h1>Signing you inâ€¦</h1>
+    <h1>Signing you inÃ¢â‚¬Â¦</h1>
     <p id="social-status">Please wait.</p>
   </main>
 </div>
 
   <script src="js/auth.js?v=8"></script>
-  <script src="js/api.js?v=10"></script>
-  <script src="js/main.js?v=7"></script>
+  <script src="js/api.js?v=14"></script>
+  <script src="js/main.js?v=11"></script>
   <script>
     (function () {
       const statusEl = document.getElementById("social-status");
@@ -130,7 +130,7 @@
       }
 
       if (!token || !userRaw) {
-        statusEl.textContent = "Missing session data. Redirecting to loginâ€¦";
+        statusEl.textContent = "Missing session data. Redirecting to loginÃ¢â‚¬Â¦";
         setTimeout(() => (window.location.href = "login.html"), 2000);
         return;
       }
@@ -138,7 +138,7 @@
       let user;
       try { user = JSON.parse(decodeURIComponent(userRaw)); }
       catch (e) {
-        statusEl.textContent = "Bad session data. Redirecting to loginâ€¦";
+        statusEl.textContent = "Bad session data. Redirecting to loginÃ¢â‚¬Â¦";
         setTimeout(() => (window.location.href = "login.html"), 2000);
         return;
       }
@@ -153,3 +153,4 @@
   </script>
 </body>
 </html>
+

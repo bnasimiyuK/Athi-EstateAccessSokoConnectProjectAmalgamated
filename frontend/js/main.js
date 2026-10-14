@@ -1,12 +1,22 @@
 ﻿/* ============================================================
-   main.js â€” shared helpers loaded on every page
+   main.js — shared helpers loaded on every page
    + side-rail auth chip (login / profile / logout)
    ============================================================ */
+
+/* Kick off API discovery immediately, before the DOM is ready.
+   Expose a promise so any later DOMContentLoaded handler can
+   `await window.__apiReady` to guarantee the API base is set. */
+window.__apiReady = (async () => {
+  if (typeof window.discoverApiBase === "function") {
+    return await window.discoverApiBase();
+  }
+})();
 
 let CATEGORY_CACHE = [];
 
 /* ---------------- API CACHE ---------------- */
 async function loadCategoryCache() {
+  await window.__apiReady;              /* never race discovery */
   if (!CATEGORY_CACHE.length) {
     CATEGORY_CACHE = await Api.getCategories();
   }
@@ -22,7 +32,7 @@ function categoryLabel(id) {
 function starString(rating) {
   if (!rating) return "No ratings yet";
   const full = Math.round(rating);
-  return "â˜…".repeat(full) + "â˜†".repeat(5 - full) + `  ${rating.toFixed(1)}`;
+  return "★".repeat(full) + "☆".repeat(5 - full) + `  ${rating.toFixed(1)}`;
 }
 
 function verifiedBadge(isVerified) {
@@ -72,7 +82,7 @@ function markActiveNav() {
 }
 
 /* ============================================================
-   AUTH CHIP â€” logged-in user badge in the topbar
+   AUTH CHIP — logged-in user badge in the topbar
    Renders into #topbar-user inside the side-rail layout.
    Falls back to the legacy .auth-slot if it ever exists.
    ============================================================ */
@@ -114,7 +124,7 @@ function renderAuthNav() {
       .toLowerCase()
       .replace(/[_\s]/g, "-");
 
-    // Role colors â€” includes super-admin (purple)
+    // Role colors — includes super-admin (purple)
     const roleColor = {
       "super-admin": "#6f0bea",   // purple
       "admin":       "#b0472e",   // clay
@@ -134,7 +144,7 @@ function renderAuthNav() {
     const roleLabel = roleLabelMap[role]
       || role.charAt(0).toUpperCase() + role.slice(1);
 
-    // Avatar â€” use photo if available, otherwise initials
+    // Avatar — use photo if available, otherwise initials
     const photo    = user?.avatarUrl || user?.photo || "";
     const initials = getInitials(name);
 
@@ -150,15 +160,15 @@ function renderAuthNav() {
 
     const chip = document.createElement("div");
     chip.className = "auth-chip";
-  chip.innerHTML = `
-  ${avatarHTML}
-  <span class="auth-chip__greet">Signed in as</span>
-  <span class="auth-chip__name">${name}</span>
-  <span class="auth-chip__role" data-role="${role}" style="background:${roleColor};">${roleLabel}</span>
-  <a href="#" class="auth-chip__logout" id="logoutLink">
-    <i class="fas fa-sign-out-alt"></i> Logout
-  </a>
-`;
+    chip.innerHTML = `
+      ${avatarHTML}
+      <span class="auth-chip__greet">Signed in as</span>
+      <span class="auth-chip__name">${name}</span>
+      <span class="auth-chip__role" data-role="${role}" style="background:${roleColor};">${roleLabel}</span>
+      <a href="#" class="auth-chip__logout" id="logoutLink">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </a>
+    `;
 
     slot.appendChild(chip);
 
@@ -217,7 +227,7 @@ function renderAuthNav() {
     }
 
   } else {
-    // Not signed in â†’ show a Log in link
+    // Not signed in → show a Log in link
     const chip = document.createElement("div");
     chip.className = "auth-chip";
     chip.innerHTML = `
@@ -262,12 +272,6 @@ function toast(message, duration = 3200) {
   toast._t = setTimeout(() => el.classList.remove("toast--visible"), duration);
 }
 
-/* ---------------- INIT ---------------- */
-document.addEventListener("DOMContentLoaded", () => {
-  markActiveNav();
-  renderAuthNav();
-  setupDropdown();
-});
 /* ---- Mobile sidebar toggle (replaces js/sidebar.js) ---- */
 function setupSideRailToggle() {
   const rail     = document.getElementById("side-rail");
@@ -294,8 +298,6 @@ function setupSideRailToggle() {
     a.addEventListener("click", close)
   );
 }
-
-document.addEventListener("DOMContentLoaded", setupSideRailToggle);
 
 /* __SIDEBAR_VISIBILITY_V1__ */
 /* ============================================================
@@ -337,3 +339,18 @@ document.addEventListener("DOMContentLoaded", setupSideRailToggle);
     console.error("[sidebar-visibility] failed:", err);
   }
 })();
+
+/* ---------------- INIT ----------------
+   Wait for API discovery before running anything. On the phone,
+   this probes LAN_IP_CANDIDATES and picks the first responding IP;
+   on the web, it uses the current hostname. Without this await,
+   Api.* calls race discovery and throw "API base not resolved yet".
+   -------------------------------------- */
+document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
+
+  markActiveNav();
+  renderAuthNav();
+  setupDropdown();
+  setupSideRailToggle();
+});

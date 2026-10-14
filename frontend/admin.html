@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin dashboard — Athi Soko Connect</title>
+  <title>Admin dashboard â€” Athi Soko Connect</title>
 
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -141,39 +141,39 @@
       </div>
 
       <div class="admin-actions">
-        <button id="btn-excel" class="btn btn-export" type="button">📥 Excel</button>
-        <button id="btn-pdf"   class="btn btn-export" type="button">📄 PDF</button>
+        <button id="btn-excel" class="btn btn-export" type="button">ðŸ“¥ Excel</button>
+        <button id="btn-pdf"   class="btn btn-export" type="button">ðŸ“„ PDF</button>
       </div>
     </div>
 
     <!-- ============================================================
-         USERS — approvals + signups
+         USERS â€” approvals + signups
          ============================================================ -->
     <section class="stat-section">
       <h3 class="stat-section__title">Users</h3>
       <div class="stat-tiles">
         <a href="pending.html" class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-pending-residents">—</div>
+          <div class="stat-tile__value" id="tile-pending-residents">â€”</div>
           <div class="stat-tile__label">Pending residents</div>
         </a>
         <a href="admin-providers.html?verified=false" class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-pending-vendors">—</div>
+          <div class="stat-tile__value" id="tile-pending-vendors">â€”</div>
           <div class="stat-tile__label">Pending vendors</div>
         </a>
         <a href="admin-residents.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-approved-residents">—</div>
+          <div class="stat-tile__value" id="tile-approved-residents">â€”</div>
           <div class="stat-tile__label">Approved residents</div>
         </a>
         <a href="admin-providers.html?verified=true" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-approved-vendors">—</div>
+          <div class="stat-tile__value" id="tile-approved-vendors">â€”</div>
           <div class="stat-tile__label">Approved vendors</div>
         </a>
         <a href="admin-residents.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-residents-joined">—</div>
+          <div class="stat-tile__value" id="tile-residents-joined">â€”</div>
           <div class="stat-tile__label">New residents (month)</div>
         </a>
         <a href="admin-providers.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-vendors-joined">—</div>
+          <div class="stat-tile__value" id="tile-vendors-joined">â€”</div>
           <div class="stat-tile__label">New vendors (month)</div>
         </a>
       </div>
@@ -186,46 +186,46 @@
       <h3 class="stat-section__title">Bookings</h3>
       <div class="stat-tiles">
         <div class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-bookings-open">—</div>
+          <div class="stat-tile__value" id="tile-bookings-open">â€”</div>
           <div class="stat-tile__label">Open (requested)</div>
         </div>
         <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-confirmed">—</div>
+          <div class="stat-tile__value" id="tile-bookings-confirmed">â€”</div>
           <div class="stat-tile__label">Confirmed</div>
         </div>
         <div class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-bookings-completed">—</div>
+          <div class="stat-tile__value" id="tile-bookings-completed">â€”</div>
           <div class="stat-tile__label">Completed</div>
         </div>
         <div class="stat-tile stat-tile--danger">
-          <div class="stat-tile__value" id="tile-bookings-cancelled">—</div>
+          <div class="stat-tile__value" id="tile-bookings-cancelled">â€”</div>
           <div class="stat-tile__label">Cancelled</div>
         </div>
         <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-total">—</div>
+          <div class="stat-tile__value" id="tile-bookings-total">â€”</div>
           <div class="stat-tile__label">Total (all time)</div>
         </div>
         <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-month">—</div>
+          <div class="stat-tile__value" id="tile-bookings-month">â€”</div>
           <div class="stat-tile__label">This month</div>
           <div class="stat-tile__delta" id="delta-bookings-month"></div>
         </div>
         <div class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-completed-month">—</div>
+          <div class="stat-tile__value" id="tile-completed-month">â€”</div>
           <div class="stat-tile__label">Completed (month)</div>
           <div class="stat-tile__delta" id="delta-completed-month"></div>
         </div>
         <div class="stat-tile stat-tile--danger">
-          <div class="stat-tile__value" id="tile-cancelled-month">—</div>
+          <div class="stat-tile__value" id="tile-cancelled-month">â€”</div>
           <div class="stat-tile__label">Cancelled (month)</div>
           <div class="stat-tile__delta" id="delta-cancelled-month"></div>
         </div>
         <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-7d">—</div>
+          <div class="stat-tile__value" id="tile-bookings-7d">â€”</div>
           <div class="stat-tile__label">Last 7 days</div>
         </div>
         <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-30d">—</div>
+          <div class="stat-tile__value" id="tile-bookings-30d">â€”</div>
           <div class="stat-tile__label">Last 30 days</div>
         </div>
       </div>
@@ -238,20 +238,20 @@
       <h3 class="stat-section__title">Quality</h3>
       <div class="stat-tiles">
         <a href="admin-reviews.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-reviews-total">—</div>
+          <div class="stat-tile__value" id="tile-reviews-total">â€”</div>
           <div class="stat-tile__label">Reviews</div>
         </a>
         <a href="admin-reviews.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-avg-rating">—</div>
+          <div class="stat-tile__value" id="tile-avg-rating">â€”</div>
           <div class="stat-tile__label">Avg estate rating</div>
         </a>
         <a href="admin-reviews.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-reviews-5star">—</div>
+          <div class="stat-tile__value" id="tile-reviews-5star">â€”</div>
           <div class="stat-tile__label">5-star reviews</div>
         </a>
         <a href="admin-reviews.html" class="stat-tile stat-tile--danger">
-          <div class="stat-tile__value" id="tile-reviews-low">—</div>
-          <div class="stat-tile__label">Low reviews (1–2★)</div>
+          <div class="stat-tile__value" id="tile-reviews-low">â€”</div>
+          <div class="stat-tile__label">Low reviews (1â€“2â˜…)</div>
         </a>
       </div>
     </section>
@@ -263,19 +263,19 @@
       <h3 class="stat-section__title">Provider health</h3>
       <div class="stat-tiles">
         <a href="admin-providers.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-vendors-active">—</div>
+          <div class="stat-tile__value" id="tile-vendors-active">â€”</div>
           <div class="stat-tile__label">Active (30 days)</div>
         </a>
         <a href="admin-providers.html" class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-vendors-dead">—</div>
+          <div class="stat-tile__value" id="tile-vendors-dead">â€”</div>
           <div class="stat-tile__label">No bookings yet</div>
         </a>
         <a href="admin-providers.html" class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-cats-empty">—</div>
+          <div class="stat-tile__value" id="tile-cats-empty">â€”</div>
           <div class="stat-tile__label">Categories w/o vendor</div>
         </a>
         <a href="admin-providers.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-courts-total">—</div>
+          <div class="stat-tile__value" id="tile-courts-total">â€”</div>
           <div class="stat-tile__label">Courts covered</div>
         </a>
       </div>
@@ -288,11 +288,11 @@
       <h3 class="stat-section__title">Resident engagement</h3>
       <div class="stat-tiles">
         <a href="admin-residents.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-distinct-bookers">—</div>
+          <div class="stat-tile__value" id="tile-distinct-bookers">â€”</div>
           <div class="stat-tile__label">Residents who booked</div>
         </a>
         <a href="admin-residents.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-repeat-bookers">—</div>
+          <div class="stat-tile__value" id="tile-repeat-bookers">â€”</div>
           <div class="stat-tile__label">Repeat bookers (2+)</div>
         </a>
       </div>
@@ -306,7 +306,7 @@
 
       <div class="chart-grid">
         <div class="chart-card">
-          <div class="chart-card__head">Bookings — last 6 months</div>
+          <div class="chart-card__head">Bookings â€” last 6 months</div>
           <div class="chart-card__body">
             <canvas id="chart-trend"></canvas>
           </div>
@@ -343,19 +343,19 @@
       <div class="alert-grid">
         <div class="alert-card" id="alert-empty-categories">
           <div class="alert-card__head">Categories with no vendors</div>
-          <div class="alert-card__body" id="alert-empty-categories-body">—</div>
+          <div class="alert-card__body" id="alert-empty-categories-body">â€”</div>
         </div>
         <div class="alert-card" id="alert-dead-vendors">
           <div class="alert-card__head">Vendors with no bookings</div>
-          <div class="alert-card__body" id="alert-dead-vendors-body">—</div>
+          <div class="alert-card__body" id="alert-dead-vendors-body">â€”</div>
         </div>
         <div class="alert-card" id="alert-top-vendors">
           <div class="alert-card__head">Top rated vendors</div>
-          <div class="alert-card__body" id="alert-top-vendors-body">—</div>
+          <div class="alert-card__body" id="alert-top-vendors-body">â€”</div>
         </div>
         <div class="alert-card" id="alert-weekday">
           <div class="alert-card__head">Bookings by weekday</div>
-          <div class="alert-card__body" id="alert-weekday-body">—</div>
+          <div class="alert-card__body" id="alert-weekday-body">â€”</div>
         </div>
       </div>
     </section>
@@ -371,7 +371,7 @@
         Reports <span id="count-reports"></span>
       </button>
       <a class="tab-btn" href="admin-providers.html">
-        All providers →
+        All providers â†’
       </a>
     </div>
 
@@ -381,17 +381,18 @@
 
   <footer class="site-footer">
     <div class="container" style="width:100%; text-align:center;">
-      Reports are logged for estate management review — this dashboard is not a dispute-resolution system.
+      Reports are logged for estate management review â€” this dashboard is not a dispute-resolution system.
     </div>
   </footer>
 </div>
 
 <script src="js/auth.js?v=8"></script>
-<script src="js/api.js?v=10"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/api.js?v=14"></script>
+<script src="js/main.js?v=11"></script>
   <script src="js/ahewa-nav.js"></script>
 <script src="js/notices.js"></script>
 <script src="js/admin.js"></script>
 <!-- js/sidebar.js intentionally removed -->
 </body>
 </html>
+

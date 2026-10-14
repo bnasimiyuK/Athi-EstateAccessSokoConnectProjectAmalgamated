@@ -741,6 +741,15 @@ document.addEventListener("DOMContentLoaded", async () => {
      requireAuth() — otherwise nothing renders for guests and
      the page stays on "Loading…". */
 
+  /* Wait for the API base to be discovered before any API call.
+     On the mobile app this can take up to ~2s while LAN
+     candidates are probed; on desktop it resolves instantly. */
+  try {
+    if (window.__apiReady) await window.__apiReady;
+  } catch (err) {
+    console.warn("[home] API discovery failed:", err);
+  }
+
   try {
     await populateFilters();
     setupQuickFilters();

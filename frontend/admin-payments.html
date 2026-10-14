@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Payments — Athi Estate Access</title>
+  <title>Payments â€” Athi Estate Access</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -135,15 +135,15 @@
     </div>
 
     <div class="admin-actions">
-      <button id="btn-manual-payment" class="btn btn--accent" type="button">➕ Record manual payment</button>
+      <button id="btn-manual-payment" class="btn btn--accent" type="button">âž• Record manual payment</button>
     </div>
   </div>
 
   <section class="stat-section">
     <div class="stat-tiles">
-      <div class="stat-tile stat-tile--warn"><div class="stat-tile__value" id="tile-pending">—</div><div class="stat-tile__label">Pending</div></div>
-      <div class="stat-tile stat-tile--ok"><div class="stat-tile__value" id="tile-verified">—</div><div class="stat-tile__label">Verified</div></div>
-      <div class="stat-tile stat-tile--danger"><div class="stat-tile__value" id="tile-rejected">—</div><div class="stat-tile__label">Rejected</div></div>
+      <div class="stat-tile stat-tile--warn"><div class="stat-tile__value" id="tile-pending">â€”</div><div class="stat-tile__label">Pending</div></div>
+      <div class="stat-tile stat-tile--ok"><div class="stat-tile__value" id="tile-verified">â€”</div><div class="stat-tile__label">Verified</div></div>
+      <div class="stat-tile stat-tile--danger"><div class="stat-tile__value" id="tile-rejected">â€”</div><div class="stat-tile__label">Rejected</div></div>
     </div>
   </section>
 
@@ -163,13 +163,13 @@
       <option value="AHEWA_EVENT">AHEWA event</option>
     </select>
 
-    <input type="text" id="filter-q" class="input" placeholder="Search name, house #, receipt…" style="min-width:260px;" />
+    <input type="text" id="filter-q" class="input" placeholder="Search name, house #, receiptâ€¦" style="min-width:260px;" />
     <button type="submit" class="btn btn--accent">Filter</button>
     <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
   </form>
 
   <div class="table-wrap" id="payments-table-wrap">
-    <div class="empty-state">Loading payments…</div>
+    <div class="empty-state">Loading paymentsâ€¦</div>
   </div>
 
   <div id="payments-pagination"></div>
@@ -195,7 +195,7 @@
         </label>
 
         <label>M-Pesa receipt<input type="text" id="mp-receipt" class="input" placeholder="e.g. RKT4XYZ123" /></label>
-        <label>Phone<input type="text" id="mp-phone" class="input" placeholder="+254…" /></label>
+        <label>Phone<input type="text" id="mp-phone" class="input" placeholder="+254â€¦" /></label>
         <label>Payment date<input type="date" id="mp-date" class="input" /></label>
         <label>Notes<textarea id="mp-notes" class="input" rows="2"></textarea></label>
       </div>
@@ -209,14 +209,15 @@
 
 <footer class="site-footer">
   <div class="container" style="width:100%;">
-    Paybill: 1024162 · Account: house number · Name on receipt: VICTOR/DOUGLAS/ISAAC
+    Paybill: 1024162 Â· Account: house number Â· Name on receipt: VICTOR/DOUGLAS/ISAAC
   </div>
 </footer>
 
 <script src="js/auth.js?v=8"></script>
-<script src="js/api.js?v=10"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/api.js?v=14"></script>
+<script src="js/main.js?v=11"></script>
   <script src="js/ahewa-nav.js"></script>
 <script src="js/admin-payments.js"></script>
 </body>
 </html>
+

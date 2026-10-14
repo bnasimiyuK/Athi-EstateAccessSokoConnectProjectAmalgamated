@@ -798,4 +798,14 @@ async function initProviderPage() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", initProviderPage);
+/* ============================================================
+   BOOT — wait for API discovery before running
+   ============================================================ */
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    if (window.__apiReady) await window.__apiReady;
+  } catch (err) {
+    console.warn("[provider] API discovery failed:", err);
+  }
+  initProviderPage();
+});

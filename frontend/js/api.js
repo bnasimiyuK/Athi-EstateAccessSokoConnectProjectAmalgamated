@@ -1,57 +1,165 @@
 ﻿/* ============================================================
    api.js — thin fetch wrapper around the backend REST API.
-   Now attaches the JWT (from auth.js) to every request.
+   Attaches the JWT (from auth.js) to every request.
 
-   API base URL is resolved dynamically:
-     - Mobile app (Android WebView)  → http://192.168.100.6:4050/api
+   API base URL is auto-discovered at runtime:
      - Desktop browser on localhost  → http://localhost:4050/api
-     - Browser on LAN IP             → http://<same-host>:4050/api
+     - Browser on a LAN IP           → http://<same-host>:4050/api
+     - Mobile app (Capacitor WebView)→ probes LAN_IP_CANDIDATES
+                                       and uses the first that responds.
 
-   🔧 TO CHANGE THE LAN IP, EDIT THE `LAN_IP` CONSTANT BELOW.
+   🔧 To add more candidate IPs for the mobile app, edit
+      LAN_IP_CANDIDATES below. No rebuild needed for IPs
+      already in the list.
+
+   🔧 To force a specific IP (skip auto-discovery), set FORCE_LAN_IP
+      to a string like "192.168.51.220". Set to null to use discovery.
    ============================================================ */
 
 /* ------------------------------------------------------------
-   SETTINGS — edit these two values if your network changes
+   SETTINGS
    ------------------------------------------------------------ */
 const BACKEND_PORT = 4050;
-const LAN_IP       = "192.168.100.6";   // ← your PC's LAN IP
+
+/* Candidate LAN IPs to try from the mobile app.
+   2s timeout per probe, all probes run in parallel. The first
+   one to respond wins. */
+const LAN_IP_CANDIDATES = [
+  "192.168.51.220",   /* PC's current IP on Ethernet 3 */
+  "192.168.100.5",    /* old Wi-Fi network */
+  "192.168.100.6",
+  "192.168.100.7",
+  "192.168.100.8",
+  "192.168.100.9",
+  "192.168.100.10",
+  "192.168.100.11",
+  "192.168.100.12",
+  "192.168.100.15",
+  "192.168.100.20",
+  "192.168.100.25",
+  "192.168.100.50",
+  "192.168.0.100",
+  "192.168.1.100",
+  "192.168.51.1",     /* possible gateway on current net */
+  "192.168.51.100",
+  "10.0.2.2",         /* Android emulator host alias */
+  "10.0.3.2",         /* Genymotion host alias */
+];
+
+/* Force a specific IP? null = use auto-discovery. */
+const FORCE_LAN_IP = null;   // e.g. "192.168.51.220" to pin it
+
 
 /* ------------------------------------------------------------
-   Resolve API base at runtime
+   Detect if we're running inside the Capacitor mobile shell
    ------------------------------------------------------------ */
-const API_BASE = (() => {
+function isMobileApp() {
   const protocol = window.location.protocol;
-  const host     = window.location.hostname;
   const ua       = navigator.userAgent || "";
-
-  // ---- Mobile app detection (Capacitor) ----
-  // Android WebView UA contains "; wv)". iOS WebView runs on "capacitor:".
-  // Both cases must use the LAN IP, never "localhost".
-  const isMobileApp =
+  return (
     protocol === "capacitor:" ||
     protocol === "ionic:" ||
-    /; wv\)/.test(ua);
+    /; wv\)/.test(ua)
+  );
+}
 
-  if (isMobileApp) {
-    return `http://${LAN_IP}:${BACKEND_PORT}/api`;
+/* ------------------------------------------------------------
+   Probe one candidate IP — resolves to the API base if reachable,
+   otherwise resolves to null.
+   ------------------------------------------------------------ */
+async function probeOne(ip) {
+  const base = `http://${ip}:${BACKEND_PORT}/api`;
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 2000);
+    const res   = await fetch(`${base}/categories`, {
+      method: "GET",
+      cache: "no-store",
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    return res.ok ? base : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------
+   Inner probe function — named differently from the public
+   window.discoverApiBase() to avoid self-recursion.
+   ------------------------------------------------------------ */
+async function _probeDiscoverApiBase() {
+  // ---- 1. Mobile app: probe candidates in parallel ----
+  if (isMobileApp()) {
+    if (FORCE_LAN_IP) {
+      return `http://${FORCE_LAN_IP}:${BACKEND_PORT}/api`;
+    }
+
+    console.log("[api] mobile app detected — probing", LAN_IP_CANDIDATES.length, "candidates");
+
+    const results = await Promise.all(LAN_IP_CANDIDATES.map(probeOne));
+    const firstOk = results.find((u) => u);
+    if (firstOk) {
+      console.log("[api] discovered backend at:", firstOk);
+      return firstOk;
+    }
+
+    console.warn("[api] no candidate responded; falling back to", LAN_IP_CANDIDATES[0]);
+    return `http://${LAN_IP_CANDIDATES[0]}:${BACKEND_PORT}/api`;
   }
 
-  // ---- Desktop browser on the same PC ----
+  // ---- 2. Desktop browser: use the hostname we're served from ----
+  const host = window.location.hostname;
   if (host === "localhost" || host === "127.0.0.1") {
     return `http://localhost:${BACKEND_PORT}/api`;
   }
-
-  // ---- Browser on a LAN IP (phone browser, tablet on same WiFi) ----
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
     return `http://${host}:${BACKEND_PORT}/api`;
   }
 
-  // ---- Fallback ----
-  return `http://${LAN_IP}:${BACKEND_PORT}/api`;
-})();
+  // ---- 3. Fallback ----
+  return `http://${LAN_IP_CANDIDATES[0]}:${BACKEND_PORT}/api`;
+}
 
-console.log("[api] API_BASE resolved to:", API_BASE);
-console.log("[api] protocol:", window.location.protocol, "| host:", window.location.hostname);
+/* ------------------------------------------------------------
+   Public API base state. `apiBase()` reads the resolved value;
+   `window.discoverApiBase()` resolves it once and caches.
+   ------------------------------------------------------------ */
+let _apiBase         = null;
+let _apiReadyPromise = null;
+
+function apiBase() {
+  if (!_apiBase) {
+    throw new Error(
+      "API base not resolved yet. Make sure to await window.discoverApiBase() " +
+      "before calling any Api.* method."
+    );
+  }
+  return _apiBase;
+}
+
+window.discoverApiBase = function () {
+  if (_apiReadyPromise) return _apiReadyPromise;
+
+  _apiReadyPromise = (async () => {
+    try {
+      _apiBase = await _probeDiscoverApiBase();
+    } catch (err) {
+      console.error("[api] discovery failed:", err);
+      _apiBase = `http://${LAN_IP_CANDIDATES[0]}:${BACKEND_PORT}/api`;
+    }
+    console.log("[api] API_BASE resolved to:", _apiBase);
+    console.log("[api] protocol:", window.location.protocol,
+                "| host:", window.location.hostname);
+    return _apiBase;
+  })();
+
+  return _apiReadyPromise;
+};
+
+/* Kick off discovery immediately. */
+window.discoverApiBase();
+
 
 /* ------------------------------------------------------------
    Core request helper — attaches Bearer token if present
@@ -71,7 +179,6 @@ async function request(url, options = {}) {
   try {
     res = await fetch(url, { ...options, headers });
   } catch (err) {
-    // On-screen error banner — helps debug in the mobile WebView
     const el = document.createElement("div");
     el.style.cssText =
       "position:fixed;top:0;left:0;right:0;background:#b00;color:#fff;" +
@@ -120,34 +227,34 @@ function qsOf(params = {}) {
 const Api = {
   /* ---------- Auth ---------- */
   login: (credentials) =>
-    request(`${API_BASE}/auth/login`, {
+    request(`${apiBase()}/auth/login`, {
       method: "POST",
       body: JSON.stringify(credentials),
     }),
 
   registerResident: (data) =>
-    request(`${API_BASE}/auth/register-resident`, {
+    request(`${apiBase()}/auth/register-resident`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  me: () => request(`${API_BASE}/auth/me`),
+  me: () => request(`${apiBase()}/auth/me`),
 
   changePassword: (payload) =>
-    request(`${API_BASE}/auth/change-password`, {
+    request(`${apiBase()}/auth/change-password`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   /* ---------- Admin ---------- */
-  getAdminStats: () => request(`${API_BASE}/admin/stats`),
-  getAdminDashboard: () => request(`${API_BASE}/admin/dashboard`),
+  getAdminStats: () => request(`${apiBase()}/admin/stats`),
+  getAdminDashboard: () => request(`${apiBase()}/admin/dashboard`),
 
   downloadAdminReport: async (kind) => {
     const token = typeof getToken === "function" ? getToken() : null;
     if (!token) throw new Error("Not logged in.");
 
-    const res = await fetch(`${API_BASE}/admin/export.${kind}`, {
+    const res = await fetch(`${apiBase()}/admin/export.${kind}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -159,65 +266,65 @@ const Api = {
   },
 
   /* ---------- Categories ---------- */
-  getCategories: () => request(`${API_BASE}/categories`),
+  getCategories: () => request(`${apiBase()}/categories`),
 
   /* ---------- Providers ---------- */
   getProviders: (params = {}) =>
-    request(`${API_BASE}/providers${qsOf(params)}`),
+    request(`${apiBase()}/providers${qsOf(params)}`),
   getProvider: (id) =>
-    request(`${API_BASE}/providers/${id}`),
+    request(`${apiBase()}/providers/${id}`),
   registerProvider: (data) =>
-    request(`${API_BASE}/providers`, { method: "POST", body: JSON.stringify(data) }),
+    request(`${apiBase()}/providers`, { method: "POST", body: JSON.stringify(data) }),
   updateProvider: (id, patch) =>
-    request(`${API_BASE}/providers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`${apiBase()}/providers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   removeProvider: (id) =>
-    request(`${API_BASE}/providers/${id}`, { method: "DELETE" }),
+    request(`${apiBase()}/providers/${id}`, { method: "DELETE" }),
 
   /* ---------- Reviews ---------- */
   getReviews: (providerId) =>
-    request(`${API_BASE}/reviews/provider/${providerId}`),
+    request(`${apiBase()}/reviews/provider/${providerId}`),
   getAllReviews: (params = {}) =>
-    request(`${API_BASE}/reviews${qsOf(params)}`),
+    request(`${apiBase()}/reviews${qsOf(params)}`),
   addReview: (review) =>
-    request(`${API_BASE}/reviews`, { method: "POST", body: JSON.stringify(review) }),
+    request(`${apiBase()}/reviews`, { method: "POST", body: JSON.stringify(review) }),
   deleteReview: (id) =>
-    request(`${API_BASE}/reviews/${id}`, { method: "DELETE" }),
+    request(`${apiBase()}/reviews/${id}`, { method: "DELETE" }),
   updateReview: (id, patch) =>
-    request(`${API_BASE}/reviews/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`${apiBase()}/reviews/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   /* ---------- Bookings ---------- */
   getBookings: (params = {}) =>
-    request(`${API_BASE}/bookings${qsOf(params)}`),
+    request(`${apiBase()}/bookings${qsOf(params)}`),
   addBooking: (booking) =>
-    request(`${API_BASE}/bookings`, { method: "POST", body: JSON.stringify(booking) }),
+    request(`${apiBase()}/bookings`, { method: "POST", body: JSON.stringify(booking) }),
   updateBooking: (id, patch) =>
-    request(`${API_BASE}/bookings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`${apiBase()}/bookings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   /* ---------- Reports ---------- */
   getReports: (params = {}) =>
-    request(`${API_BASE}/reports${qsOf(params)}`),
+    request(`${apiBase()}/reports${qsOf(params)}`),
   addReport: (report) =>
-    request(`${API_BASE}/reports`, { method: "POST", body: JSON.stringify(report) }),
+    request(`${apiBase()}/reports`, { method: "POST", body: JSON.stringify(report) }),
   updateReport: (id, patch) =>
-    request(`${API_BASE}/reports/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`${apiBase()}/reports/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   /* ---------- Courts ---------- */
   getCourts: (params = {}) =>
-    request(`${API_BASE}/courts${qsOf(params)}`),
+    request(`${apiBase()}/courts${qsOf(params)}`),
   addCourt: (data) =>
-    request(`${API_BASE}/courts`, { method: "POST", body: JSON.stringify(data) }),
+    request(`${apiBase()}/courts`, { method: "POST", body: JSON.stringify(data) }),
 
   /* ---------- Residents ---------- */
   getResidents: (params = {}) =>
-    request(`${API_BASE}/residents${qsOf(params)}`),
+    request(`${apiBase()}/residents${qsOf(params)}`),
   getResident: (id) =>
-    request(`${API_BASE}/residents/${id}`),
+    request(`${apiBase()}/residents/${id}`),
   addResident: (data) =>
-    request(`${API_BASE}/residents`, { method: "POST", body: JSON.stringify(data) }),
+    request(`${apiBase()}/residents`, { method: "POST", body: JSON.stringify(data) }),
   updateResident: (id, patch) =>
-    request(`${API_BASE}/residents/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`${apiBase()}/residents/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   removeResident: (id) =>
-    request(`${API_BASE}/residents/${id}`, { method: "DELETE" }),
+    request(`${apiBase()}/residents/${id}`, { method: "DELETE" }),
 
   /* ---------- Admin exports ---------- */
   downloadResidentsReport: async (kind, params = {}) => {
@@ -233,7 +340,7 @@ const Api = {
     ).toString();
 
     const res = await fetch(
-      `${API_BASE}/admin/residents/export.${kind}${qs ? "?" + qs : ""}`,
+      `${apiBase()}/admin/residents/export.${kind}${qs ? "?" + qs : ""}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -257,7 +364,7 @@ const Api = {
     ).toString();
 
     const res = await fetch(
-      `${API_BASE}/admin/providers/export.${kind}${qs ? "?" + qs : ""}`,
+      `${apiBase()}/admin/providers/export.${kind}${qs ? "?" + qs : ""}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -272,61 +379,64 @@ const Api = {
      BILLING
      ============================================================ */
   getBillingSettings: () =>
-    request(`${API_BASE}/invoices/settings`),
+    request(`${apiBase()}/invoices/settings`),
 
   getMyInvoices: () =>
-    request(`${API_BASE}/invoices/mine`),
-    getMyOutstanding: () =>
-    request(`${API_BASE}/residents/outstanding`),
+    request(`${apiBase()}/invoices/mine`),
+
+  getMyOutstanding: () =>
+    request(`${apiBase()}/residents/outstanding`),
 
   getMyPayments: () =>
-    request(`${API_BASE}/payments/mine`),
+    request(`${apiBase()}/payments/mine`),
 
   selfReportPayment: (payload) =>
-    request(`${API_BASE}/payments/self-report`, {
+    request(`${apiBase()}/payments/self-report`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   getInvoices: (params = {}) =>
-    request(`${API_BASE}/invoices${qsOf(params)}`),
+    request(`${apiBase()}/invoices${qsOf(params)}`),
 
   getInvoice: (id) =>
-    request(`${API_BASE}/invoices/${id}`),
+    request(`${apiBase()}/invoices/${id}`),
 
   generateInvoices: (month) =>
-    request(`${API_BASE}/invoices/generate`, {
+    request(`${apiBase()}/invoices/generate`, {
       method: "POST",
       body: JSON.stringify({ month }),
     }),
 
   markInvoicesOverdue: () =>
-    request(`${API_BASE}/invoices/mark-overdue`, { method: "POST" }),
+    request(`${apiBase()}/invoices/mark-overdue`, { method: "POST" }),
 
-    setInvoiceStatus: (id, status, reason) =>
-    request(`${API_BASE}/invoices/${id}/set-status`, {
+  setInvoiceStatus: (id, status, reason) =>
+    request(`${apiBase()}/invoices/${id}/set-status`, {
       method: "POST",
       body: JSON.stringify({ status, reason }),
     }),
+
   bulkSetInvoiceStatus: (ids, status, reason) =>
-    request(`${API_BASE}/invoices/bulk-set-status`, {
+    request(`${apiBase()}/invoices/bulk-set-status`, {
       method: "POST",
       body: JSON.stringify({ ids, status, reason }),
     }),
+
   getPayments: (params = {}) =>
-    request(`${API_BASE}/payments${qsOf(params)}`),
+    request(`${apiBase()}/payments${qsOf(params)}`),
 
   recordManualPayment: (payload) =>
-    request(`${API_BASE}/payments/manual`, {
+    request(`${apiBase()}/payments/manual`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   verifyPayment: (id) =>
-    request(`${API_BASE}/payments/${id}/verify`, { method: "POST" }),
+    request(`${apiBase()}/payments/${id}/verify`, { method: "POST" }),
 
   rejectPayment: (id, reason) =>
-    request(`${API_BASE}/payments/${id}/reject`, {
+    request(`${apiBase()}/payments/${id}/reject`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
@@ -335,71 +445,73 @@ const Api = {
      M-PESA STK
      ============================================================ */
   stkPush: (payload) =>
-    request(`${API_BASE}/mpesa/stkpush`, {
+    request(`${apiBase()}/mpesa/stkpush`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   stkQuery: (checkoutRequestId) =>
-    request(`${API_BASE}/mpesa/query`, {
+    request(`${apiBase()}/mpesa/query`, {
       method: "POST",
       body: JSON.stringify({ checkoutRequestId }),
     }),
 
   payInvoice: (payload) =>
-    request(`${API_BASE}/mpesa/pay-invoice`, {
+    request(`${apiBase()}/mpesa/pay-invoice`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
   payFor: (payload) =>
-    request(`${API_BASE}/mpesa/pay-for`, {
+    request(`${apiBase()}/mpesa/pay-for`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
   /* ============================================================
      HOUSE NUMBERS
      ============================================================ */
   getHouseNumberSummary: () =>
-    request(`${API_BASE}/house-numbers/summary`),
+    request(`${apiBase()}/house-numbers/summary`),
 
   getHouseNumberResidents: (params = {}) =>
-    request(`${API_BASE}/house-numbers/residents${qsOf(params)}`),
+    request(`${apiBase()}/house-numbers/residents${qsOf(params)}`),
 
   getHouseNumberProposal: () =>
-    request(`${API_BASE}/house-numbers/proposal`),
+    request(`${apiBase()}/house-numbers/proposal`),
 
   setResidentHouseNumber: (id, houseNumber) =>
-    request(`${API_BASE}/house-numbers/residents/${id}`, {
+    request(`${apiBase()}/house-numbers/residents/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ houseNumber }),
     }),
 
   bulkAssignHouseNumbers: (rows) =>
-    request(`${API_BASE}/house-numbers/bulk`, {
+    request(`${apiBase()}/house-numbers/bulk`, {
       method: "POST",
       body: JSON.stringify({ rows }),
     }),
 
   getAssignedHouseNumbers: () =>
-    request(`${API_BASE}/house-numbers/assigned`),
-  
+    request(`${apiBase()}/house-numbers/assigned`),
+
   /* ============================================================
      VISITORS — resident
      ============================================================ */
   getVisitorConfig: () =>
-    request(`${API_BASE}/visitors/config`),
+    request(`${apiBase()}/visitors/config`),
 
   createVisitorGroup: (payload) =>
-    request(`${API_BASE}/visitors`, {
+    request(`${apiBase()}/visitors`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   getMyVisitorGroups: () =>
-    request(`${API_BASE}/visitors/mine`),
+    request(`${apiBase()}/visitors/mine`),
 
   cancelVisitorGroup: (id, reason) =>
-    request(`${API_BASE}/visitors/${id}/cancel`, {
+    request(`${apiBase()}/visitors/${id}/cancel`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
@@ -408,130 +520,133 @@ const Api = {
      VISITORS — admin + security
      ============================================================ */
   getVisitorPendingAdmin: (params = {}) =>
-    request(`${API_BASE}/visitors/pending-admin${qsOf(params)}`),
+    request(`${apiBase()}/visitors/pending-admin${qsOf(params)}`),
 
   getVisitorPendingSecurity: (params = {}) =>
-    request(`${API_BASE}/visitors/pending-security${qsOf(params)}`),
+    request(`${apiBase()}/visitors/pending-security${qsOf(params)}`),
 
   getVisitorPendingCounts: () =>
-    request(`${API_BASE}/visitors/pending-counts`),
+    request(`${apiBase()}/visitors/pending-counts`),
 
   getVisitorGroups: (params = {}) =>
-    request(`${API_BASE}/visitors${qsOf(params)}`),
+    request(`${apiBase()}/visitors${qsOf(params)}`),
 
   getVisitorGroup: (id) =>
-    request(`${API_BASE}/visitors/${id}`),
+    request(`${apiBase()}/visitors/${id}`),
 
   approveVisitorAdmin: (id) =>
-    request(`${API_BASE}/visitors/${id}/approve-admin`, { method: "POST" }),
+    request(`${apiBase()}/visitors/${id}/approve-admin`, { method: "POST" }),
 
   approveVisitorSecurity: (id) =>
-    request(`${API_BASE}/visitors/${id}/approve-security`, { method: "POST" }),
+    request(`${apiBase()}/visitors/${id}/approve-security`, { method: "POST" }),
 
   denyVisitor: (id, reason) =>
-    request(`${API_BASE}/visitors/${id}/deny`, {
+    request(`${apiBase()}/visitors/${id}/deny`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
 
   /* ---------- Bulk approval ---------- */
   bulkApproveAdmin: (groupIds) =>
-    request(`${API_BASE}/visitors/bulk-approve-admin`, {
+    request(`${apiBase()}/visitors/bulk-approve-admin`, {
       method: "POST",
       body: JSON.stringify({ groupIds }),
     }),
 
   bulkApproveAllAdmin: (confirm, max) =>
-    request(`${API_BASE}/visitors/bulk-approve-all-admin`, {
+    request(`${apiBase()}/visitors/bulk-approve-all-admin`, {
       method: "POST",
       body: JSON.stringify({ confirm, max }),
     }),
 
   bulkApproveSecurity: (groupIds) =>
-    request(`${API_BASE}/visitors/bulk-approve-security`, {
+    request(`${apiBase()}/visitors/bulk-approve-security`, {
       method: "POST",
       body: JSON.stringify({ groupIds }),
     }),
 
   bulkApproveAllSecurity: (confirm, max) =>
-    request(`${API_BASE}/visitors/bulk-approve-all-security`, {
+    request(`${apiBase()}/visitors/bulk-approve-all-security`, {
       method: "POST",
       body: JSON.stringify({ confirm, max }),
     }),
 
   bulkDenyVisitors: (groupIds, reason) =>
-    request(`${API_BASE}/visitors/bulk-deny`, {
+    request(`${apiBase()}/visitors/bulk-deny`, {
       method: "POST",
       body: JSON.stringify({ groupIds, reason }),
     }),
 
   /* ---------- Gate ---------- */
   getVisitorRegister: (date) =>
-    request(`${API_BASE}/visitors/register${qsOf({ date })}`),
+    request(`${apiBase()}/visitors/register${qsOf({ date })}`),
 
   checkinVisitor: (payload) =>
-    request(`${API_BASE}/visitors/checkin`, {
+    request(`${apiBase()}/visitors/checkin`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   checkoutVisitor: (payload) =>
-    request(`${API_BASE}/visitors/checkout`, {
+    request(`${apiBase()}/visitors/checkout`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
-    getVisitorAnalytics: (params = {}) =>
-    request(`${API_BASE}/visitors/analytics${qsOf(params)}`),
+  getVisitorAnalytics: (params = {}) =>
+    request(`${apiBase()}/visitors/analytics${qsOf(params)}`),
 
   getVisitorLiveStats: () =>
-    request(`${API_BASE}/visitors/live-stats`),
+    request(`${apiBase()}/visitors/live-stats`),
+
+  /* ---------- Avatar ---------- */
   async uploadAvatar(formData) {
-  const token = typeof getToken === "function" ? getToken() : null;
-  const headers = {};
-  if (token) headers.Authorization = "Bearer " + token;
-  const res = await fetch(API_BASE + "/auth/me/avatar", {
-    method: "POST",
-    headers,
-    body: formData,
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error("Upload failed: " + res.status + " " + t);
-  }
-  return res.json();
-},
-// In your Api object:
-/* ============================================================
-   OPTIONAL DISCOVER-PAGE ENDPOINTS (live, not silenced)
-   ============================================================ */
-getCategoryCounts: () => request(`${API_BASE}/categories/counts`),
-getPhaseRange:     () => request(`${API_BASE}/phase-range`),
-getNotice:         () => request(`${API_BASE}/notice`),
-getGateStatus:     () => request(`${API_BASE}/gate/status`),
-getLastSync:       () => request(`${API_BASE}/last-sync`),
-getGateRules:      () => request(`${API_BASE}/gate/rules`),
+    const token = typeof getToken === "function" ? getToken() : null;
+    const headers = {};
+    if (token) headers.Authorization = "Bearer " + token;
+    const res = await fetch(apiBase() + "/auth/me/avatar", {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error("Upload failed: " + res.status + " " + t);
+    }
+    return res.json();
+  },
+
+  /* ============================================================
+     DISCOVER-PAGE ENDPOINTS
+     ============================================================ */
+  getCategoryCounts: () => request(`${apiBase()}/categories/counts`),
+  getPhaseRange:     () => request(`${apiBase()}/phase-range`),
+  getNotice:         () => request(`${apiBase()}/notice`),
+  getGateStatus:     () => request(`${apiBase()}/gate/status`),
+  getLastSync:       () => request(`${apiBase()}/last-sync`),
+  getGateRules:      () => request(`${apiBase()}/gate/rules`),
+
   /* ============================================================
      NOTICE BOARD (CRUD)
      ============================================================ */
   getNotices: (params = {}) =>
-    request(`${API_BASE}/notices${qsOf(params)}`),
+    request(`${apiBase()}/notices${qsOf(params)}`),
 
   getNoticeById: (id) =>
-    request(`${API_BASE}/notices/${id}`),
+    request(`${apiBase()}/notices/${id}`),
 
   createNotice: (payload) =>
-    request(`${API_BASE}/notices`, {
+    request(`${apiBase()}/notices`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   updateNotice: (id, patch) =>
-    request(`${API_BASE}/notices/${id}`, {
+    request(`${apiBase()}/notices/${id}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
 
   deleteNotice: (id) =>
-    request(`${API_BASE}/notices/${id}`, { method: "DELETE" }),
+    request(`${apiBase()}/notices/${id}`, { method: "DELETE" }),
 };

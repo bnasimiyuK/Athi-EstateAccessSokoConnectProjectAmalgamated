@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>House numbers — Athi Estate Access</title>
+  <title>House numbers â€” Athi Estate Access</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -128,7 +128,7 @@
       <h1>House numbers</h1>
       <p>
         Assign a house number to each approved resident. Format:
-        <code>{CourtName}-{Side}{NN}</code> — e.g. <code>Riverside-A01</code>.
+        <code>{CourtName}-{Side}{NN}</code> â€” e.g. <code>Riverside-A01</code>.
         <br><small style="color:var(--ink-70);">
           Every invoice and M-Pesa payment is keyed to the house number.
         </small>
@@ -136,8 +136,8 @@
     </div>
 
     <div class="admin-actions">
-      <button id="btn-download-template" class="btn btn--ghost" type="button">📄 Download template (CSV)</button>
-      <button id="btn-upload-csv"          class="btn btn-export" type="button">📥 Upload CSV</button>
+      <button id="btn-download-template" class="btn btn--ghost" type="button">ðŸ“„ Download template (CSV)</button>
+      <button id="btn-upload-csv"          class="btn btn-export" type="button">ðŸ“¥ Upload CSV</button>
       <input type="file" id="csv-input" accept=".csv" style="display:none;" />
     </div>
   </div>
@@ -146,15 +146,15 @@
   <section class="stat-section">
     <div class="stat-tiles">
       <div class="stat-tile stat-tile--ok">
-        <div class="stat-tile__value" id="tile-assigned">—</div>
+        <div class="stat-tile__value" id="tile-assigned">â€”</div>
         <div class="stat-tile__label">Assigned</div>
       </div>
       <div class="stat-tile stat-tile--warn">
-        <div class="stat-tile__value" id="tile-unassigned">—</div>
+        <div class="stat-tile__value" id="tile-unassigned">â€”</div>
         <div class="stat-tile__label">Unassigned</div>
       </div>
       <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="tile-total">—</div>
+        <div class="stat-tile__value" id="tile-total">â€”</div>
         <div class="stat-tile__label">Total approved</div>
       </div>
     </div>
@@ -169,14 +169,14 @@
     </select>
 
     <select id="filter-phase" class="input" disabled>
-      <option value="">Loading phases…</option>
+      <option value="">Loading phasesâ€¦</option>
     </select>
 
     <div class="court-picker" style="position:relative; min-width:220px;">
       <input type="text"
              id="filter-court-search"
              class="input"
-             placeholder="All courts — type to search…"
+             placeholder="All courts â€” type to searchâ€¦"
              autocomplete="off"
              disabled
              style="width:100%;" />
@@ -188,7 +188,7 @@
       <select id="filter-court" style="display:none;"><option value=""></option></select>
     </div>
 
-    <input type="text" id="filter-q" class="input" placeholder="Search name, phone or house #…" style="min-width:220px;" />
+    <input type="text" id="filter-q" class="input" placeholder="Search name, phone or house #â€¦" style="min-width:220px;" />
 
     <button type="submit" class="btn btn--accent">Filter</button>
     <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
@@ -196,7 +196,7 @@
 
   <!-- Table -->
   <div class="table-wrap" id="hn-table-wrap">
-    <div class="empty-state">Loading residents…</div>
+    <div class="empty-state">Loading residentsâ€¦</div>
   </div>
 
   <div id="hn-pagination"></div>
@@ -210,9 +210,10 @@
 </footer>
 
 <script src="js/auth.js?v=8"></script>
-<script src="js/api.js?v=10"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/api.js?v=14"></script>
+<script src="js/main.js?v=11"></script>
   <script src="js/ahewa-nav.js"></script>
 <script src="js/admin-house-numbers.js"></script>
 </body>
 </html>
+

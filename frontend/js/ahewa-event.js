@@ -4,7 +4,11 @@
    limited view for regular residents.
    ============================================================ */
 
-const API = API_BASE;
+/* API base is resolved asynchronously by api.js at page load. */
+let API = null;
+if (window.__apiReady) {
+  window.__apiReady.then((base) => { API = base; });
+}
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -27,6 +31,11 @@ function fmtMoney(n) {
 }
 
 async function authFetch(path, options = {}) {
+  // Wait for discovery on first call if it hasn't finished yet.
+  if (!API && typeof window.discoverApiBase === "function") {
+    API = await window.discoverApiBase();
+  }
+
   const token = localStorage.getItem("asc_token");
   const headers = {
     "Content-Type": "application/json",
@@ -106,8 +115,6 @@ function renderHeader(d) {
    RENDER — Limited view (regular resident)
    ============================================================ */
 function renderLimitedView(d) {
-  const container = document.getElementById("contrib-stats");
-  const tableWrap = document.getElementById("contrib-table");
   const approvals = document.getElementById("approvals-panel");
   const exportsSection = document.getElementById("exports-section");
 
@@ -387,6 +394,9 @@ function setupExports() {
     try {
       xlsx.disabled = true;
       xlsx.textContent = "⏳ Preparing…";
+      if (!API && typeof window.discoverApiBase === "function") {
+        API = await window.discoverApiBase();
+      }
       const token = localStorage.getItem("asc_token");
       const res = await fetch(`${API}/ahewa/events/${id}/export.xlsx`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -405,6 +415,9 @@ function setupExports() {
     try {
       pdf.disabled = true;
       pdf.textContent = "⏳ Preparing…";
+      if (!API && typeof window.discoverApiBase === "function") {
+        API = await window.discoverApiBase();
+      }
       const token = localStorage.getItem("asc_token");
       const res = await fetch(`${API}/ahewa/events/${id}/export.pdf`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -618,6 +631,9 @@ function setupPhotoUpload() {
     status.style.color = "var(--teal)";
     status.textContent = "Uploading photo…";
 
+    if (!API && typeof window.discoverApiBase === "function") {
+      API = await window.discoverApiBase();
+    }
     const token = localStorage.getItem("asc_token");
     const id = getEventId();
 

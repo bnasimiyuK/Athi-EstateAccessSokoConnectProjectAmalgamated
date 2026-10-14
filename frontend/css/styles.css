@@ -4915,7 +4915,8 @@ body.has-sidebar {
   }
   .side-rail.is-open { transform: translateX(0) !important; }
   .side-rail__toggle { display: inline-flex !important; }
-  .side-rail__backdrop { display: block !important; }
+  .side-rail__backdrop { display: none; }
+  .side-rail__backdrop.is-visible { display: block; }
 }
 /* Stat tiles are buttons — style them like cards */
 button.stat-tile {

@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Security — Visitors — Athi Estate Access</title>
+  <title>Security â€” Visitors â€” Athi Estate Access</title>
 
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -133,7 +133,7 @@
 
     <div class="page-head">
       <div class="page-head__text">
-        <h1>Security — Visitor control</h1>
+        <h1>Security â€” Visitor control</h1>
         <p>Approve pre-registrations, verify codes at the gate, and monitor traffic.</p>
       </div>
     </div>
@@ -141,19 +141,19 @@
 <section class="stat-section">
   <div class="stat-tiles">
     <button type="button" class="stat-tile stat-tile--warn" id="tile-link-pending" title="View pending security approvals">
-      <div class="stat-tile__value" id="tile-pending">—</div>
+      <div class="stat-tile__value" id="tile-pending">â€”</div>
       <div class="stat-tile__label">Pending security approval</div>
     </button>
     <button type="button" class="stat-tile stat-tile--info" id="tile-link-today" title="View today's expected visitors">
-      <div class="stat-tile__value" id="tile-today">—</div>
+      <div class="stat-tile__value" id="tile-today">â€”</div>
       <div class="stat-tile__label">Expected today</div>
     </button>
     <button type="button" class="stat-tile stat-tile--ok" id="tile-link-checkedin" title="View visitors currently on-site">
-      <div class="stat-tile__value" id="tile-checked-in">—</div>
+      <div class="stat-tile__value" id="tile-checked-in">â€”</div>
       <div class="stat-tile__label">Currently on-site</div>
     </button>
     <button type="button" class="stat-tile stat-tile--info" id="tile-link-completed" title="View visitors who have checked out today">
-      <div class="stat-tile__value" id="tile-completed">—</div>
+      <div class="stat-tile__value" id="tile-completed">â€”</div>
       <div class="stat-tile__label">Completed today</div>
     </button>
   </div>
@@ -175,8 +175,8 @@
       <div id="bulk-bar"
            style="display:none;background:#16233f;color:#fff;padding:12px 18px;border-radius:8px;margin-bottom:16px;align-items:center;gap:14px;flex-wrap:wrap;">
         <span style="font-weight:600;"><span id="bulk-count">0</span> selected</span>
-        <button class="btn btn--accent btn--small" id="bulk-approve-btn">✓ Approve selected (sends codes)</button>
-        <button class="btn btn--danger btn--small" id="bulk-deny-btn">✕ Deny selected</button>
+        <button class="btn btn--accent btn--small" id="bulk-approve-btn">âœ“ Approve selected (sends codes)</button>
+        <button class="btn btn--danger btn--small" id="bulk-deny-btn">âœ• Deny selected</button>
         <button class="btn btn--ghost btn--small" id="bulk-clear-btn" style="color:#fff;border-color:#fff;">Clear</button>
         <span style="margin-left:auto;font-size:0.85rem;color:#dcd8cd;">
           Max 200 per click
@@ -185,12 +185,12 @@
 
       <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
         <button class="btn btn--danger btn--small" id="btn-approve-all" type="button" style="display:none;">
-          ⚠️ Approve ALL pending
+          âš ï¸ Approve ALL pending
         </button>
       </div>
 
       <div id="approvals-list">
-        <div class="empty-state">Loading…</div>
+        <div class="empty-state">Loadingâ€¦</div>
       </div>
       <div id="approvals-pagination"></div>
     </div>
@@ -203,16 +203,16 @@
       <option value="7d">Last 7 days</option>
       <option value="30d" selected>Last 30 days</option>
       <option value="month">This month</option>
-      <option value="custom">Custom range…</option>
+      <option value="custom">Custom rangeâ€¦</option>
     </select>
 
-    <input type="text" id="today-q" class="input" placeholder="Search by code, house, plate, name…" style="min-width:260px;" />
+    <input type="text" id="today-q" class="input" placeholder="Search by code, house, plate, nameâ€¦" style="min-width:260px;" />
 
     <button type="button" id="btn-refresh-today" class="btn btn--accent">Refresh</button>
-    <button type="button" id="btn-print-register" class="btn btn--ghost">🖨️ Print register</button>
+    <button type="button" id="btn-print-register" class="btn btn--ghost">ðŸ–¨ï¸ Print register</button>
   </div>
 
-  <!-- Custom-range row — hidden unless "Custom" is selected -->
+  <!-- Custom-range row â€” hidden unless "Custom" is selected -->
   <div id="today-custom-range" style="display:none;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
     <label style="font-size:0.85rem;color:var(--ink-70);">From</label>
     <input type="date" id="today-from" class="input" style="min-width:160px;" />
@@ -221,7 +221,7 @@
   </div>
 
   <div id="today-list">
-    <div class="empty-state">Loading…</div>
+    <div class="empty-state">Loadingâ€¦</div>
   </div>
 </div>
 
@@ -243,11 +243,11 @@
     <!-- Tab: Currently on-site -->
     <div class="tab-panel" id="tab-onsite">
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
-        <button type="button" id="btn-refresh-onsite" class="btn btn--accent">↻ Refresh</button>
+        <button type="button" id="btn-refresh-onsite" class="btn btn--accent">â†» Refresh</button>
         <span id="onsite-summary" style="color:var(--ink-70);font-size:0.9rem;"></span>
       </div>
       <div id="onsite-list">
-        <div class="empty-state">Loading…</div>
+        <div class="empty-state">Loadingâ€¦</div>
       </div>
     </div>
   </main>
@@ -262,7 +262,7 @@
 <!-- Typed confirmation modal -->
 <div id="confirm-all-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center;">
   <div style="background:#fff;max-width:480px;width:90%;padding:24px;border-radius:8px;">
-    <h2 style="margin-top:0;color:#b0472e;">⚠️ Approve all pending?</h2>
+    <h2 style="margin-top:0;color:#b0472e;">âš ï¸ Approve all pending?</h2>
     <p id="confirm-all-text" style="color:var(--ink-70);">
       This will approve every pre-registration in the pending security list.
     </p>
@@ -282,9 +282,10 @@
 </div>
 
 <script src="js/auth.js?v=8"></script>
-<script src="js/api.js?v=10"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/api.js?v=14"></script>
+<script src="js/main.js?v=11"></script>
   <script src="js/ahewa-nav.js"></script>
 <script src="js/security-visitors.js?v=6"></script>
 </body>
 </html>
+

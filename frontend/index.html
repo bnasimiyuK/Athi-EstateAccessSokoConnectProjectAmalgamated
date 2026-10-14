@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Athi Soko Connect â€” Find trusted home &amp; errand help</title>
+  <title>Athi Soko Connect — Find trusted home &amp; errand help</title>
 
   <!-- Font Awesome for sidebar icons -->
   <link
@@ -122,14 +122,7 @@
      PAGE CONTENT
      ============================================================ -->
 <div class="side-rail__content">
-  <div class="side-rail__topbar">
-    <div class="side-rail__topbar-inner">
-      <div class="side-rail__topbar-left" id="topbar-left"></div>
-      <div class="side-rail__topbar-user" id="topbar-user"></div>
-    </div>
-  </div>
 
-  <div class="side-rail__content">
   <div class="side-rail__topbar">
     <div class="side-rail__topbar-inner">
       <div class="side-rail__topbar-left" id="topbar-left"></div>
@@ -143,12 +136,12 @@
     <div class="dx-notice" role="note">
       <span class="dx-notice_dot" aria-hidden="true"></span>
       <b class="dx-notice_label" id="notice-label">ATHI HIGHWAY ESTATE NOTICE</b>
-      <span class="dx-notice_text" id="notice-text">Loadingâ€¦</span>
+      <span class="dx-notice_text" id="notice-text">Loading…</span>
       <span class="dx-notice_right">
         <button type="button" class="dx-notice_live" id="sync-indicator" title="Live sync status">
           <i class="fas fa-sync-alt"></i> Live <b id="sync-time">--:--</b>
         </button>
-        <a href="#" data-open="gate-rules">Gate Rules â†’</a>
+        <a href="#" data-open="gate-rules">Gate Rules →</a>
         <a href="#categories">Browse categories <i class="fas fa-arrow-down"></i></a>
       </span>
     </div>
@@ -157,7 +150,7 @@
     <section class="dx-hero">
       <div class="dx-hero_copy">
         <span class="dx-pill" id="hero-eyebrow">
-          <i class="fas fa-check-circle"></i> Loading networkâ€¦
+          <i class="fas fa-check-circle"></i> Loading network…
         </span>
         <h1>One trusted directory for every verified plumber, cleaner &amp; errand runner in our estate.</h1>
         <p>
@@ -175,25 +168,25 @@
       <div class="dx-stats">
         <div class="dx-stat">
           <div class="dx-stat_body">
-            <b id="stat-providers">â€”</b>
+            <b id="stat-providers">—</b>
             <strong>Active Estate Providers</strong>
-            <small id="stat-courts">Loadingâ€¦</small>
+            <small id="stat-courts">Loading…</small>
           </div>
           <span class="dx-stat_icon dx-stat_icon--ink"><i class="fas fa-user-check"></i></span>
         </div>
 
         <div class="dx-stat">
           <div class="dx-stat_body">
-            <b id="stat-verified">â€”</b>
+            <b id="stat-verified">—</b>
             <strong>Estate Admin Verified</strong>
-            <small id="stat-verified-sub">Loadingâ€¦</small>
+            <small id="stat-verified-sub">Loading…</small>
           </div>
           <span class="dx-stat_icon dx-stat_icon--teal"><i class="fas fa-shield-alt"></i></span>
         </div>
 
         <div class="dx-stat">
           <div class="dx-stat_body">
-            <b id="stat-ready">â€”</b>
+            <b id="stat-ready">—</b>
             <strong>Available Right Now</strong>
             <small>Currently accepting bookings</small>
           </div>
@@ -231,7 +224,7 @@
         <span class="dx-quick_label">Quick filter:</span>
         <button type="button" class="dx-chip dx-chip--btn is-active" data-quick="all" id="qf-all">All verified</button>
         <button type="button" class="dx-chip dx-chip--btn" data-quick="available" id="qf-ready">
-          <i class="fas fa-circle"></i> Available now <span id="ready-count">â€”</span>
+          <i class="fas fa-circle"></i> Available now <span id="ready-count">—</span>
         </button>
       </div>
       <span class="dx-quick_note"><i class="fas fa-lock"></i> Phone numbers are shown to logged-in residents only</span>
@@ -257,39 +250,38 @@
       <div class="dx-results_head">
         <div class="dx-results_title">
           <h2 id="results-heading">All providers</h2>
-          <span id="results-count" class="dx-chip">Loadingâ€¦</span>
+          <span id="results-count" class="dx-chip">Loading…</span>
           <button type="button"
             class="pill pill--interactive"
             id="gate-clearance-pill"
             data-open="gate-rules"
             title="Click to see gate rules">
-            Gate: â€”
+            Gate: —
           </button>
         </div>
         <label class="dx-sort">
           <span>Sort by:</span>
           <select id="sort-by" aria-label="Sort providers">
-  <option value="rating">Highest rated</option>
-  <option value="reviews">Most reviewed</option>
-  <option value="name_asc">Name (A-Z)</option>
-  <option value="name_desc">Name (Z-A)</option>
-  <option value="price_asc">Price (low to high)</option>
-  <option value="price_desc">Price (high to low)</option>
-  <option value="newest">Newest</option>
-</select>
+            <option value="rating">Highest rated</option>
+            <option value="reviews">Most reviewed</option>
+            <option value="name_asc">Name (A-Z)</option>
+            <option value="name_desc">Name (Z-A)</option>
+            <option value="price_asc">Price (low to high)</option>
+            <option value="price_desc">Price (high to low)</option>
+            <option value="newest">Newest</option>
+          </select>
         </label>
       </div>
 
       <div id="provider-grid" class="provider-grid dx-grid">
-        <div class="empty-state">Loading providersâ€¦</div>
+        <div class="empty-state">Loading providers…</div>
       </div>
     </section>
   </main>
-</div>
 
   <footer class="site-footer">
     <div class="container">
-      <span>Athi Soko Connect â€” a service of Athi Highway Estate management.</span>
+      <span>Athi Soko Connect — a service of Athi Highway Estate management.</span>
       <span>Prices are set by providers. Payment is arranged directly between residents and providers.</span>
     </div>
   </footer>
@@ -309,12 +301,12 @@
 
     <table class="gate-rules-table">
       <tbody id="gate-rules-body">
-        <tr><th>Loadingâ€¦</th><td>Fetching current policy from control desk</td></tr>
+        <tr><th>Loading…</th><td>Fetching current policy from control desk</td></tr>
       </tbody>
     </table>
 
     <p class="gate-rules-footer">
-      Last updated: <time id="gate-rules-updated">â€”</time> &middot; Source: Athi Security control desk
+      Last updated: <time id="gate-rules-updated">—</time> &middot; Source: Athi Security control desk
     </p>
 
     <div class="modal-actions">
@@ -325,9 +317,9 @@
 
 <!-- ========== SCRIPTS ========== -->
 <script src="js/auth.js?v=8"></script>
-<script src="js/api.js?v=10"></script>
-<script src="js/main.js?v=7"></script>
-  <script src="js/ahewa-nav.js"></script>
+<script src="js/api.js?v=14"></script>
+<script src="js/main.js?v=11"></script>
+<script src="js/ahewa-nav.js"></script>
 <script src="js/notices.js"></script>
 <script src="js/home.js"></script>
 </body>

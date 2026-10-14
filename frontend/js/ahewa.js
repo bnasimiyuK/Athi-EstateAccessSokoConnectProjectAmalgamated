@@ -4,10 +4,20 @@
             and the "Create event" modal.
    ============================================================ */
 
-const API = API_BASE;   // from api.js
+/* API base is resolved asynchronously by api.js at page load.
+   Store it in this module-local variable once discovery finishes. */
+let API = null;
+if (window.__apiReady) {
+  window.__apiReady.then((base) => { API = base; });
+}
 
 /* ------------------------------------------------------------ */
 async function authFetch(path, options = {}) {
+  // Wait for discovery on first call if it hasn't finished yet.
+  if (!API && typeof window.discoverApiBase === "function") {
+    API = await window.discoverApiBase();
+  }
+
   const token = localStorage.getItem("asc_token");
   const headers = {
     "Content-Type": "application/json",

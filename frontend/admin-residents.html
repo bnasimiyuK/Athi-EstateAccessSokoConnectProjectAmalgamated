@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Approved residents — AthiEstateAccessSokoConnectProjectAmalgamated</title>
+  <title>Approved residents â€” AthiEstateAccessSokoConnectProjectAmalgamated</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
@@ -136,17 +136,17 @@
     </div>
 
     <div class="admin-actions">
-      <button id="btn-excel-residents" class="btn btn-export" type="button">📥 Excel</button>
-      <button id="btn-pdf-residents"   class="btn btn-export" type="button">📄 PDF</button>
+      <button id="btn-excel-residents" class="btn btn-export" type="button">ðŸ“¥ Excel</button>
+      <button id="btn-pdf-residents"   class="btn btn-export" type="button">ðŸ“„ PDF</button>
     </div>
   </div>
 
-  <!-- Filters: PHASE → searchable COURT, backed by /api/courts -->
+  <!-- Filters: PHASE â†’ searchable COURT, backed by /api/courts -->
   <form id="residents-filter"
         style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-start;">
 
     <select id="filter-phase" class="input" disabled>
-      <option value="">Loading phases…</option>
+      <option value="">Loading phasesâ€¦</option>
     </select>
 
     <!-- Searchable court picker -->
@@ -154,7 +154,7 @@
       <input type="text"
              id="filter-court-search"
              class="input"
-             placeholder="All courts — type to search…"
+             placeholder="All courts â€” type to searchâ€¦"
              autocomplete="off"
              disabled
              style="width:100%;" />
@@ -180,14 +180,14 @@
     </div>
 
     <input type="text" id="filter-search" class="input"
-           placeholder="Search name, phone, ID…" />
+           placeholder="Search name, phone, IDâ€¦" />
 
     <button type="submit" class="btn btn--accent">Filter</button>
     <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
   </form>
 
   <div id="residents-list">
-    <div class="empty-state">Loading approved residents…</div>
+    <div class="empty-state">Loading approved residentsâ€¦</div>
   </div>
 
   <div id="residents-pagination"></div>
@@ -201,9 +201,10 @@
 </footer>
 
 <script src="js/auth.js?v=8"></script>
-<script src="js/api.js?v=10"></script>
-<script src="js/main.js?v=7"></script>
+<script src="js/api.js?v=14"></script>
+<script src="js/main.js?v=11"></script>
   <script src="js/ahewa-nav.js"></script>
 <script src="js/admin-residents.js"></script>
 </body>
 </html>
+
