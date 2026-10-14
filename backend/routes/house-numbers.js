@@ -58,42 +58,54 @@ router.get("/summary", requireAuth, requireRole("super-admin"), async (req, res,
 router.get("/residents", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
     const { q, courtId, status, page = 1, limit = 20 } = req.query;
+    console.log("[hn residents] q=", JSON.stringify(q), "status=", JSON.stringify(status), "courtId=", JSON.stringify(courtId));
+
     const pageNum  = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 20));
     const offset   = (pageNum - 1) * limitNum;
 
+    const pool = await getPool();
+
+    // Build WHERE clause + bindings together, then build the SQL string
     const where = ["r.verified = 1"];
-    const bind  = (r) => {
-      if (q && q.trim()) {
+
+    const applyFilters = (request) => {
+      if (q && String(q).trim()) {
         where.push("(r.full_name LIKE @q OR r.phone LIKE @q OR r.house_number LIKE @q)");
-        r.input("q", `%${q.trim()}%`);
+        request.input("q", `%${String(q).trim()}%`);
       }
-      if (courtId) { where.push("r.court_id = @courtId"); r.input("courtId", parseInt(courtId, 10)); }
+      if (courtId) {
+        where.push("r.court_id = @courtId");
+        request.input("courtId", parseInt(courtId, 10));
+      }
       if (status === "assigned")   where.push("r.house_number IS NOT NULL");
       if (status === "unassigned") where.push("r.house_number IS NULL");
     };
 
-    const pool = await getPool();
-    const whereSql = "WHERE " + where.join(" AND ");
-
-    const countReq = pool.request(); bind(countReq);
+    // Count query — bind filters first, then compute whereSql
+    const countReq = pool.request();
+    applyFilters(countReq);
+    const countWhere = "WHERE " + where.join(" AND ");
     const countRes = await countReq.query(`
       SELECT COUNT(*) AS total
       FROM Residents r
-      ${whereSql}
+      ${countWhere}
     `);
     const total = countRes.recordset[0].total || 0;
 
-    const dataReq = pool.request(); bind(dataReq);
+    // Data query — same filters, fresh request object
+    const dataReq = pool.request();
+    applyFilters(dataReq);
     dataReq.input("offset", offset);
     dataReq.input("limit",  limitNum);
+    const dataWhere = "WHERE " + where.join(" AND ");
     const dataRes = await dataReq.query(`
       SELECT r.id, r.full_name, r.phone, r.email,
              r.court_id, r.house_number, r.access_blocked,
              c.name AS court_name, c.phase
       FROM Residents r
       JOIN Courts c ON c.id = r.court_id
-      ${whereSql}
+      ${dataWhere}
       ORDER BY c.phase ASC, c.name ASC, r.full_name ASC
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `);
