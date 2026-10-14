@@ -7141,3 +7141,138 @@ body.has-sidebar {
     padding-right: 16px !important;
   }
 }
+/* ================================================================
+   GET / DOWNLOAD landing page
+   Namespaced under .get-* so it can't collide with app styles.
+   ================================================================ */
+.get-body {
+  background: linear-gradient(160deg, #f7f3ea 0%, #efe7d6 100%);
+  color: #16233f;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.get-hero {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 20px;
+  padding: 1.75rem 1.5rem 2rem;
+  box-shadow: 0 12px 32px rgba(22, 35, 63, 0.10);
+  margin: 1rem 0 1.5rem;
+}
+
+.get-hero__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.get-hero__mark {
+  width: 44px !important;
+  height: 44px !important;
+  flex: 0 0 auto;
+  display: block;
+}
+.get-hero__brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.get-hero__brand-text b { color: #16233f; font-size: 1.05rem; }
+.get-hero__brand-text span { color: #8a7a5c; font-size: 0.8rem; letter-spacing: 0.03em; }
+
+.get-hero__intro { margin-top: 1.5rem; }
+.get-hero__intro h1 {
+  font-size: 1.65rem;
+  line-height: 1.2;
+  margin: 0 0 0.6rem;
+  color: #16233f;
+}
+.get-hero__intro p {
+  color: #4a5568;
+  margin: 0 0 1.35rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.get-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+}
+.get-btn small { font-weight: 400; opacity: .75; font-size: 0.75rem; }
+
+.get-btn--primary {
+  width: 100%;
+  background: #16233f;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(22, 35, 63, 0.20);
+  padding: 1rem;
+  font-size: 1.05rem;
+}
+
+.get-links {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.get-btn--ghost {
+  background: #f4efe3;
+  color: #16233f;
+  border-color: #e2d7bf;
+  font-size: 0.9rem;
+  padding: 0.7rem 0.5rem;
+}
+
+.get-install {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #eee6d4;
+}
+.get-install h2 { font-size: 1rem; color: #16233f; margin: 0 0 0.6rem; }
+.get-install ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #4a5568;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.get-install__note { margin-top: 0.85rem; font-size: 0.8rem; color: #8a7a5c; }
+
+.get-share {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #eee6d4;
+  text-align: center;
+}
+.get-share h2 { font-size: 1rem; color: #16233f; margin: 0 0 0.85rem; }
+.get-share__qr {
+  display: block;
+  margin: 0 auto 0.75rem;
+  border: 1px solid #e2d7bf;
+  border-radius: 12px;
+  padding: 8px;
+  background: #fff;
+}
+.get-share p { font-size: 0.85rem; color: #8a7a5c; margin: 0; }
+
+.get-footer {
+  color: #8a7a5c;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0.5rem 0 1.5rem;
+}
+.get-footer a { color: #16233f; }
+
+@media (max-width: 420px) {
+  .get-links { grid-template-columns: 1fr; }
+}
