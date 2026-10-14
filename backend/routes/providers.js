@@ -1,22 +1,11 @@
-﻿/* ============================================================
-   routes/providers.js - SQL Server version (resident-linked)
+/* ============================================================
+   routes/providers.js — SQL Server version (resident-linked)
    Vendors are residents with a provider profile.
    ============================================================ */
 
 const express = require("express");
 const router = express.Router();
 const { getPool } = require("../db");
-const { requireAuth, requireRole } = require("../middleware/auth");
-
-/* ------------------------------------------------------------
-   Disable HTTP caching for provider data.
-   ------------------------------------------------------------ */
-router.use((req, res, next) => {
-  res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
-  res.set("Pragma", "no-cache");
-  res.set("Expires", "0");
-  next();
-});
 
 /* ------------------------------------------------------------
    Helper: DB row → JSON the frontend expects
@@ -44,9 +33,7 @@ function providerToJson(row) {
     isAvailable:   row.is_available === undefined ? true : !!row.is_available,
     residentId:    row.resident_id,
     createdAt:     row.created_at,
-    unavailableUntil: row.unavailable_until
-      ? new Date(row.unavailable_until).toISOString()
-      : null,
+    unavailableUntil: row.unavailable_until ? new Date(row.unavailable_until).toISOString() : null,
   };
 }
 
@@ -112,8 +99,14 @@ function resolveOrderBy(sortKey) {
    Helper: apply filter inputs to a request object
    (called twice — once for COUNT, once for the data query)
 
-/* ------------------------------------------------------------
-   Helper: apply filter inputs to a request object
+   Accepted query params:
+     - category       (int)
+     - phase          (1 | 2)
+     - courtId        (int)
+     - maxPrice       (number)
+     - search OR q    (text — searches name, services, bio, category label)
+     - verified       ("true" | "false")
+     - availableOnly  ("true")
    ------------------------------------------------------------ */
 function applyProviderFilters(request, {
   category,
@@ -124,8 +117,6 @@ function applyProviderFilters(request, {
   q,
   verified,
   availableOnly,
-  available,
-  sort,
 }) {
   const conditions = [];
 
@@ -135,7 +126,7 @@ function applyProviderFilters(request, {
     conditions.push("p.verified = 0");
   }
 
-  if (availableOnly === "true" || available === "true") {
+  if (availableOnly === "true") {
     conditions.push("p.is_available = 1");
   }
 
@@ -159,6 +150,7 @@ function applyProviderFilters(request, {
     request.input("maxPrice", parseFloat(maxPrice));
   }
 
+  /* Accept both `search` (existing callers) and `q` (admin page) */
   const textQuery = (search || q || "").trim();
   if (textQuery) {
     conditions.push(`(
@@ -179,12 +171,14 @@ function applyProviderFilters(request, {
    Supports: category, phase, courtId, maxPrice, search (or q),
              verified, availableOnly, sort, page, limit
 
-/* ------------------------------------------------------------
-   GET /api/providers
+   - If ?page is passed → returns { data, total, page, limit, totalPages }
+   - Otherwise        → returns a plain array (legacy behaviour for
+                        home.js, pending.html, provider-dashboard.js)
    ------------------------------------------------------------ */
 router.get("/", async (req, res, next) => {
   try {
     const pool = await getPool();
+    const filters = req.query;
 
     // Resolve sort → ORDER BY clause (falls back to default if unknown)
     const orderBy = resolveOrderBy(filters.sort);
@@ -197,6 +191,7 @@ router.get("/", async (req, res, next) => {
       const limitNum = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
       const offset   = (pageNum - 1) * limitNum;
 
+      // ---------- Count query (same WHERE, no pagination) ----------
       const countReq = pool.request();
       const whereClause = applyProviderFilters(countReq, filters);
 
@@ -233,7 +228,9 @@ router.get("/", async (req, res, next) => {
       });
     }
 
-    /* ---------- LEGACY (plain array) ---------- */
+    /* ============================================================
+       LEGACY MODE (no ?page → plain array, unpaginated)
+       ============================================================ */
     const request = pool.request();
     const whereClause = applyProviderFilters(request, filters);
 
@@ -259,9 +256,6 @@ router.get("/:id", async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ error: "Invalid provider id" });
 
     const pool = await getPool();
-
-    await expireBusyWindow(pool, id);
-
     const result = await pool.request()
       .input("id", id)
       .query(`${PROVIDER_SELECT} WHERE p.id = @id`);
@@ -276,7 +270,7 @@ router.get("/:id", async (req, res, next) => {
 });
 
 /* ------------------------------------------------------------
-   POST /api/providers - vendor application
+   POST /api/providers — vendor application
    ------------------------------------------------------------ */
 router.post("/", async (req, res, next) => {
   try {
@@ -359,28 +353,26 @@ router.post("/", async (req, res, next) => {
 
 /* ------------------------------------------------------------
    PATCH /api/providers/:id
-   Admin or super. Used to approve / unverify / edit.
    ------------------------------------------------------------ */
-router.patch("/:id", requireAuth, requireRole("admin", "super"), async (req, res, next) => {
+router.patch("/:id", async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid provider id" });
 
     const map = {
-      name:             "name",
-      category:         "category_id",
-      phone:            "phone",
-      hours:            "hours",
-      priceFrom:        "price_from",
-      priceUnit:        "price_unit",
-      bio:              "bio",
-      verified:         "verified",
-      isAvailable:      "is_available",
+      name:        "name",
+      category:    "category_id",
+      phone:       "phone",
+      hours:       "hours",
+      priceFrom:   "price_from",
+      priceUnit:   "price_unit",
+      bio:         "bio",
+      verified:    "verified",
+      isAvailable: "is_available",
       unavailableUntil: "unavailable_until",
     };
 
-    const pool = await getPool();
-    const request = pool.request().input("id", id);
+    const request = (await getPool()).request().input("id", id);
     const sets = [];
 
     for (const [bodyKey, col] of Object.entries(map)) {
@@ -415,7 +407,7 @@ router.patch("/:id", requireAuth, requireRole("admin", "super"), async (req, res
       return res.status(404).json({ error: "Provider not found" });
     }
 
-    const full = await pool.request()
+    const full = await (await getPool()).request()
       .input("id", id)
       .query(`${PROVIDER_SELECT} WHERE p.id = @id`);
 
@@ -427,34 +419,20 @@ router.patch("/:id", requireAuth, requireRole("admin", "super"), async (req, res
 
 /* ------------------------------------------------------------
    DELETE /api/providers/:id
-   Super admin only. Cascade-safe.
    ------------------------------------------------------------ */
-router.delete("/:id", requireAuth, requireRole("super"), async (req, res, next) => {
+router.delete("/:id", async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid provider id" });
 
     const pool = await getPool();
-
-    const existing = await pool.request()
+    const result = await pool.request()
       .input("id", id)
-      .query("SELECT id FROM Providers WHERE id = @id");
-    if (!existing.recordset.length) {
-      return res.status(404).json({ error: "Provider not found" });
-    }
-
-    // Cascade through dependents first
-    await pool.request().input("id", id)
-      .query("DELETE FROM Reports  WHERE provider_id = @id");
-    await pool.request().input("id", id)
-      .query("DELETE FROM Reviews  WHERE provider_id = @id");
-    await pool.request().input("id", id)
-      .query("DELETE FROM Bookings WHERE provider_id = @id");
-
-    // Finally the provider
-    await pool.request().input("id", id)
       .query("DELETE FROM Providers WHERE id = @id");
 
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ error: "Provider not found" });
+    }
     res.status(204).end();
   } catch (err) {
     next(err);
