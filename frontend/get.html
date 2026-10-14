@@ -1,7 +1,4 @@
-Set-Location "C:\Users\Lenovo\OneDrive\Documents\ANU\2026\Semester 2\CSC429 Computer Project I\Project\Athi EstateAccessSokoConnectProjectAmalgamated"
-
-$html = @'
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -11,7 +8,7 @@ $html = @'
 
   <!-- Social preview (WhatsApp, Twitter, etc.) -->
   <meta property="og:title" content="Get Athi Soko Connect">
-  <meta property="og:description" content="Athi Highway Estate — services, notices, security, and billing in your pocket.">
+  <meta property="og:description" content="Athi Highway Estate â€” services, notices, security, and billing in your pocket.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://athi-soko-connect.netlify.app/get.html">
   <meta property="og:image" content="https://athi-soko-connect.netlify.app/img/get-app-qr.png">
@@ -39,7 +36,7 @@ $html = @'
     <section class="get-hero__intro">
       <h1>Your estate, in your pocket.</h1>
       <p>
-        Services, notices, security, visitors, and billing — all in one app
+        Services, notices, security, visitors, and billing â€” all in one app
         for Athi Highway Estate residents and providers.
       </p>
 
@@ -67,7 +64,7 @@ $html = @'
       </ol>
       <p class="get-install__note">
         iPhone users: open this page in Safari and use the app in your browser
-        for now — iOS support is coming soon.
+        for now â€” iOS support is coming soon.
       </p>
     </section>
 
@@ -88,7 +85,3 @@ $html = @'
 
 </body>
 </html>
-'@
-
-[System.IO.File]::WriteAllText("$PWD\frontend\get.html", $html, [System.Text.UTF8Encoding]::new($false))
-Write-Host "Created frontend\get.html" -ForegroundColor Green
