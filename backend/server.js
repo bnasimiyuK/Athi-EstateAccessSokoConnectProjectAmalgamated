@@ -12,17 +12,17 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 
-const categoriesRouter = require("./routes/categories");
-const providersRouter  = require("./routes/providers");
-const reviewsRouter    = require("./routes/reviews");
-const bookingsRouter   = require("./routes/bookings");
-const reportsRouter    = require("./routes/reports");
-const residentsRouter  = require("./routes/residents");
-const courtsRouter     = require("./routes/courts");
-const authRouter       = require("./routes/auth");
-const adminRouter      = require("./routes/admin");
-const invoicesRouter = require("./routes/invoices");
-const paymentsRouter = require("./routes/payments");
+const categoriesRouter   = require("./routes/categories");
+const providersRouter    = require("./routes/providers");
+const reviewsRouter      = require("./routes/reviews");
+const bookingsRouter     = require("./routes/bookings");
+const reportsRouter      = require("./routes/reports");
+const residentsRouter    = require("./routes/residents");
+const courtsRouter       = require("./routes/courts");
+const authRouter         = require("./routes/auth");
+const adminRouter        = require("./routes/admin");
+const invoicesRouter     = require("./routes/invoices");
+const paymentsRouter     = require("./routes/payments");
 const houseNumbersRouter = require("./routes/house-numbers");
 const visitorsRouter = require("./routes/visitors");
 const { startReconciler } = require("./jobs/reconcilePending");
@@ -45,7 +45,6 @@ console.log("ðŸ”§ CORS allowed origins:", allowedOrigins);
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow same-origin / curl / Postman (no Origin header)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       console.warn(`ðŸš« CORS blocked: ${origin}`);

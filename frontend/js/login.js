@@ -81,11 +81,11 @@ function redirectAfterLogin(user) {
 async function handleLogin(e) {
   e.preventDefault();
 
-  const btn        = document.getElementById("loginBtn");
-  const identifier = document.getElementById("identifier").value.trim();
-  const password   = document.getElementById("password").value;
+  const btn      = document.getElementById("loginBtn");
+  const rawId    = document.getElementById("identifier").value.trim();
+  const password = document.getElementById("password").value;
 
-  if (!identifier || !password) {
+  if (!rawId || !password) {
     showMessage("Please fill in both fields.", true);
     return;
   }
@@ -123,13 +123,12 @@ async function handleLogin(e) {
     /* Save token + user */
     saveSession(result.token, result.user);
 
-    /* Forced password change takes priority */
+    /* Forced password change takes priority over role redirect */
     if (result.mustChangePassword) {
       window.location.href = "change-password.html?first=1";
       return;
     }
 
-    /* Otherwise redirect by role */
     redirectAfterLogin(result.user);
 
   } catch (err) {
@@ -145,6 +144,7 @@ async function handleLogin(e) {
 function showMessage(text, isError) {
   const box = document.getElementById("loginMessage");
   const txt = document.getElementById("loginMessageText");
+  if (!box || !txt) return;
   box.classList.remove("hidden");
   box.classList.toggle("error", !!isError);
   txt.textContent = text;

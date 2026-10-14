@@ -1,5 +1,5 @@
-/* ============================================================
-   scripts/test-email.js — verify Gmail SMTP works
+﻿/* ============================================================
+   scripts/test-email.js - verify Gmail SMTP works
    Usage:  node scripts/test-email.js recipient@example.com
    ============================================================ */
 
@@ -40,7 +40,7 @@ const recipient = process.argv[2];
   } catch (err) {
     console.error("❌ Failed to send:", err.message);
     if (err.code === "EAUTH") {
-      console.error("   Hint: Check SMTP_USER / SMTP_PASS in .env — must be an App Password, not your normal Gmail password.");
+      console.error("   Hint: Check SMTP_USER / SMTP_PASS in .env - must be an App Password, not your normal Gmail password.");
     }
     process.exit(1);
   }

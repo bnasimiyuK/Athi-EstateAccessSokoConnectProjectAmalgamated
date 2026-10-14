@@ -133,7 +133,7 @@ router.post("/manual", requireAuth, requireRole("super-admin"), async (req, res,
 
 /* ============================================================
    POST /api/payments/self-report   (resident)
-   Resident reports "I have paid" with receipt — created as pending.
+   Resident reports "I have paid" with receipt - created as pending.
    ============================================================ */
 router.post("/self-report", requireAuth, async (req, res, next) => {
   try {
@@ -177,7 +177,7 @@ router.post("/self-report", requireAuth, async (req, res, next) => {
 });
 
 /* ============================================================
-   GET /api/payments   (admin — filter + paginate)
+   GET /api/payments   (admin - filter + paginate)
    Query: status, houseNumber, month, q, page, limit
    ============================================================ */
 router.get("/", requireAuth, requireRole("super-admin"), async (req, res, next) => {

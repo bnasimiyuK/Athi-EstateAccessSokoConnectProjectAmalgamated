@@ -1,10 +1,10 @@
-/* ============================================================
-   change-password.js — authenticated password change
+﻿/* ============================================================
+   change-password.js - authenticated password change
    Requires the user to already be logged in (has a JWT).
    ============================================================ */
 
 /* ------------------------------------------------------------
-   Password validator — same rules as signup
+   Password validator - same rules as signup
    ------------------------------------------------------------ */
 function validatePassword(password) {
   if (password.length < 8) {

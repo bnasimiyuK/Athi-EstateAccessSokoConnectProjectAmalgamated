@@ -1,5 +1,5 @@
-/* ============================================================
-   routes/reviews.js — SQL Server version
+﻿/* ============================================================
+   routes/reviews.js - SQL Server version
    ============================================================ */
 
 const express = require("express");
@@ -25,7 +25,7 @@ function reviewToJson(row) {
 }
 
 /* ------------------------------------------------------------
-   GET /api/reviews/provider/:providerId  — PUBLIC
+   GET /api/reviews/provider/:providerId  - PUBLIC
    ------------------------------------------------------------ */
 router.get("/provider/:providerId", async (req, res, next) => {
   try {
@@ -52,7 +52,7 @@ router.get("/provider/:providerId", async (req, res, next) => {
 });
 
 /* ------------------------------------------------------------
-   GET /api/reviews  — ADMIN ONLY (Paginated)
+   GET /api/reviews  - ADMIN ONLY (Paginated)
    Query params: ?page=1&limit=20
    Response: { data, total, page, limit, totalPages }
    ------------------------------------------------------------ */
@@ -101,7 +101,7 @@ router.get("/",
 );
 
 /* ------------------------------------------------------------
-   POST /api/reviews  — any logged-in user
+   POST /api/reviews  - any logged-in user
    ------------------------------------------------------------ */
 router.post("/",
   requireAuth,
@@ -165,7 +165,7 @@ router.post("/",
 );
 
 /* ------------------------------------------------------------
-   PATCH /api/reviews/:id  — ADMIN ONLY
+   PATCH /api/reviews/:id  - ADMIN ONLY
    ------------------------------------------------------------ */
 router.patch("/:id",
   requireAuth,
@@ -212,7 +212,7 @@ router.patch("/:id",
 );
 
 /* ------------------------------------------------------------
-   DELETE /api/reviews/:id — ADMIN ONLY
+   DELETE /api/reviews/:id - ADMIN ONLY
    ------------------------------------------------------------ */
 router.delete("/:id",
   requireAuth,

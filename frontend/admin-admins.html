@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage admins · Athi Soko Connect</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:,">
+</head>
+<body class="admin-body has-sidebar">
+
+<!-- Guard: hide the page immediately for non-supers to prevent a flash of admin UI -->
+<script>
+  (function () {
+    try {
+      const raw  = localStorage.getItem("asc_user");
+      const user = raw ? JSON.parse(raw) : null;
+      if (!user || user.role !== "super") {
+        document.documentElement.style.visibility = "hidden";
+      }
+    } catch (e) {
+      document.documentElement.style.visibility = "hidden";
+    }
+  })();
+</script>
+
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+
+  <!-- Brand -->
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <!-- Primary nav -->
+  <nav class="side-rail__nav" aria-label="Main">
+
+    <a href="index.html" data-nav="index.html">
+      <i class="fas fa-compass" aria-hidden="true"></i>
+      <span>Discover</span>
+    </a>
+
+    <a href="register.html" data-nav="register.html">
+      <i class="fas fa-user-plus" aria-hidden="true"></i>
+      <span>Become a Provider</span>
+    </a>
+
+    <a href="dashboard.html" data-nav="dashboard.html">
+      <i class="fas fa-calendar-check" aria-hidden="true"></i>
+      <span>My Bookings</span>
+    </a>
+
+    <a href="notices.html" data-nav="notices.html">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>Estate Notice Board</span>
+    </a>
+    <a href="admin.html" data-nav="admin.html" data-admin-only hidden>
+        <i class="fas fa-shield-halved" aria-hidden="true"></i>
+        <span>Admin</span>
+      </a>
+</nav>
+
+  <!-- Footer: auth + status -->
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile toggle button -->
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+
+<!-- Overlay backdrop (mobile only) -->
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+<!-- ============================================================
+     PAGE CONTENT
+     ============================================================ -->
+<div class="side-rail__content">
+<div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+  <main class="container" style="padding:40px 24px;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 style="margin-bottom:4px;"><i class="fas fa-user-shield"></i> Manage admins</h1>
+        <p style="color:var(--ink-70);">Add, promote, or remove admin accounts. Super admins only.</p>
+      </div>
+      <button type="button" id="btnNewAdmin" class="btn-primary">
+        <i class="fas fa-user-plus"></i> Add admin
+      </button>
+    </div>
+
+    <div id="adminsTable" style="margin-top:24px;">
+      <div class="empty-state">Loading…</div>
+    </div>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container" style="width:100%;text-align:center;">
+      Only super admins can create, promote, or remove admin accounts.
+    </div>
+  </footer>
+</div>
+
+<!-- ============================================================
+     MODALS (unchanged)
+     ============================================================ -->
+
+<!-- New admin modal -->
+<div id="newAdminModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:8px; padding:24px; width:min(500px, 90vw); box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+    <h2 style="margin-bottom:16px;">Add a new admin</h2>
+
+    <div class="input-group">
+      <label><i class="fas fa-user"></i> Full name</label>
+      <input type="text" id="newAdminName" placeholder="e.g. Jane Doe">
+    </div>
+
+    <div class="input-group">
+      <label><i class="fas fa-envelope"></i> Email</label>
+      <input type="email" id="newAdminEmail" placeholder="jane@example.com">
+    </div>
+
+    <div class="input-group">
+      <label><i class="fas fa-user-tag"></i> Role</label>
+      <select id="newAdminRole">
+        <option value="admin">Admin</option>
+        <option value="super">Super admin</option>
+      </select>
+    </div>
+
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+      <button type="button" id="btnCancelNewAdmin" class="btn btn--ghost">Cancel</button>
+      <button type="button" id="btnSaveNewAdmin" class="btn-primary">Create admin</button>
+    </div>
+  </div>
+</div>
+
+<!-- Temp password modal -->
+<div id="tempPwModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:8px; padding:24px; width:min(480px, 90vw); box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+    <h2 style="margin-bottom:12px;"><i class="fas fa-key"></i> Temporary password</h2>
+    <p style="margin-bottom:12px; color:var(--ink-70);">
+      Share this with the new admin. They'll be forced to change it on first login.
+      <br><strong>This is only shown once - copy it now.</strong>
+    </p>
+
+    <div style="font-family:monospace; font-size:1.1rem; background:#f3f4f6; padding:14px; border-radius:6px; word-break:break-all; margin-bottom:16px;">
+      <span id="tempPwValue"></span>
+    </div>
+
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button type="button" id="btnCopyTempPw" class="btn btn--ghost">Copy</button>
+      <button type="button" id="btnCloseTempPw" class="btn-primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=10"></script>
+<script src="js/main.js?v=7"></script>
+<script src="js/announcements.js"></script>
+<script src="js/admin-admins.js"></script>
+
+</body>
+</html>

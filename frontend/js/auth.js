@@ -6,7 +6,9 @@
 const TOKEN_KEY = "asc_token";
 const USER_KEY  = "asc_user";
 
-/* ---------- Save / retrieve token ---------- */
+/* ------------------------------------------------------------
+   SESSION STORAGE
+   ------------------------------------------------------------ */
 function saveSession(token, user) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -65,8 +67,8 @@ function redirectByRole(role) {
 /* ---------- Guard: require login (any role, super admin passes) ---------- */
 function requireLogin() {
   if (!isLoggedIn()) {
-    window.location.href = "login.html?next=" +
-      encodeURIComponent(window.location.pathname);
+    window.location.href =
+      "login.html?next=" + encodeURIComponent(window.location.pathname);
     return false;
   }
   return true;

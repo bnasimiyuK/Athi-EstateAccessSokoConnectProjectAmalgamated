@@ -1,5 +1,5 @@
-/* ============================================================
-   routes/courts.js — SQL Server version
+﻿/* ============================================================
+   routes/courts.js - SQL Server version
    Courts are the primary geographic unit. Each court belongs
    to exactly one phase (1 or 2).
    ============================================================ */
@@ -40,7 +40,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-/* POST /api/courts  { name, phase } — admin can add new courts */
+/* POST /api/courts  { name, phase } - admin can add new courts */
 router.post("/", async (req, res, next) => {
   try {
     const { name, phase } = req.body;

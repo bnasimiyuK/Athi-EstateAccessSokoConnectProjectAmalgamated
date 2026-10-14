@@ -1,5 +1,5 @@
-/* ============================================================
-   admin-providers.js — All providers list + Excel/PDF
+﻿/* ============================================================
+   admin-providers.js - All providers list + Excel/PDF
    Mirrors admin-residents.js: Phase → searchable Court, plus
    status (verified) and free-text search.
    ============================================================ */
@@ -76,7 +76,7 @@ function enableCourtSearch(enabled) {
   const el = document.getElementById("filter-court-search");
   if (!el) return;
   el.disabled = !enabled;
-  el.placeholder = enabled ? "All courts — type to search…" : "Select a phase first…";
+  el.placeholder = enabled ? "All courts - type to search…" : "Select a phase first…";
 }
 
 function clearCourtSelection() {
@@ -227,13 +227,13 @@ async function renderProviders() {
         <tbody>
           ${providers.map((p) => `
             <tr>
-              <td>${p.name || "—"}</td>
-              <td>${categoryLabel(p.category) || "—"}</td>
-              <td>${p.phase ? "Phase " + p.phase : "—"}</td>
-              <td>${p.courtName || "—"}</td>
-              <td>${p.phone || "—"}</td>
+              <td>${p.name || "-"}</td>
+              <td>${categoryLabel(p.category) || "-"}</td>
+              <td>${p.phase ? "Phase " + p.phase : "-"}</td>
+              <td>${p.courtName || "-"}</td>
+              <td>${p.phone || "-"}</td>
               <td>${verifiedBadge(p.verified)}</td>
-              <td>${p.rating ? Number(p.rating).toFixed(1) : "—"}</td>
+              <td>${p.rating ? Number(p.rating).toFixed(1) : "-"}</td>
             </tr>`).join("")}
         </tbody>
       </table>
@@ -261,7 +261,7 @@ function renderProvidersPagination() {
                 gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
                 border-top:1px solid var(--line);">
       <div style="font-size:0.9rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b> provider${total === 1 ? "" : "s"}
+        Showing <b>${startRow}-${endRow}</b> of <b>${total}</b> provider${total === 1 ? "" : "s"}
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn--ghost btn--small"
@@ -344,7 +344,7 @@ function applyFilters() {
 }
 
 /* ------------------------------------------------------------
-   6. Export — Excel + PDF
+   6. Export - Excel + PDF
    ------------------------------------------------------------ */
 async function downloadProvidersReport(kind /* "xlsx" | "pdf" */) {
   const btnId = kind === "xlsx" ? "btn-excel-providers" : "btn-pdf-providers";

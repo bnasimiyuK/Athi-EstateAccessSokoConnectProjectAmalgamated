@@ -1,5 +1,5 @@
-/* ============================================================
-   routes/reports.js — SQL Server version
+﻿/* ============================================================
+   routes/reports.js - SQL Server version
    ============================================================ */
 
 const express = require("express");
@@ -23,7 +23,7 @@ function reportToJson(row) {
 }
 
 /* ------------------------------------------------------------
-   GET /api/reports  — ADMIN ONLY (Paginated)
+   GET /api/reports  - ADMIN ONLY (Paginated)
    Query: ?page=1&limit=20
    Returns: { data, total, openCount, page, limit, totalPages }
    ------------------------------------------------------------ */
@@ -76,7 +76,7 @@ router.get("/",
 );
 
 /* ------------------------------------------------------------
-   POST /api/reports  — any logged-in user
+   POST /api/reports  - any logged-in user
    Body: { providerId, reason, details }
    ------------------------------------------------------------ */
 router.post("/",
@@ -123,7 +123,7 @@ router.post("/",
 );
 
 /* ------------------------------------------------------------
-   PATCH /api/reports/:id  { status } — ADMIN ONLY
+   PATCH /api/reports/:id  { status } - ADMIN ONLY
    ------------------------------------------------------------ */
 router.patch("/:id",
   requireAuth,

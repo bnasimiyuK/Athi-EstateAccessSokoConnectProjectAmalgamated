@@ -80,7 +80,7 @@ function enableHNCourtSearch(enabled) {
   const s = document.getElementById("filter-court-search");
   if (!s) return;
   s.disabled = !enabled;
-  s.placeholder = enabled ? "All courts — type to search…" : "Select phase first…";
+  s.placeholder = enabled ? "All courts - type to search…" : "Select phase first…";
 }
 
 function clearHNCourtSelection() {
@@ -289,7 +289,7 @@ function renderHNPagination() {
   el.innerHTML = `
     <div class="pagination" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;border-top:1px solid var(--line);">
       <div style="font-size:0.9rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        Showing <b>${startRow}-${endRow}</b> of <b>${total}</b>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn--ghost btn--small" data-hn-page="prev" ${page <= 1 ? "disabled" : ""}>« Prev</button>

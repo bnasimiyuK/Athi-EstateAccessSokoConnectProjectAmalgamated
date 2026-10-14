@@ -1,5 +1,5 @@
-/* ============================================================
-   routes/admin.js — admin-only stats, dashboard & exports
+﻿/* ============================================================
+   routes/admin.js - admin-only stats, dashboard & exports
    ============================================================ */
 
 const express = require("express");
@@ -312,7 +312,7 @@ function buildWorkbookWithChartImages(stats, images = {}) {
   push("Reviews",                  stats.quality.reviewsTotal);
   push("Avg rating",               Number(stats.quality.avgRating).toFixed(2));
   push("5-star reviews",           stats.quality.reviews5Star);
-  push("Low reviews (1–2★)",       stats.quality.reviewsLow);
+  push("Low reviews (1-2★)",       stats.quality.reviewsLow);
   push("Active vendors (30d)",     stats.providers.active30d);
   push("Vendors with no bookings", stats.providers.withNoBookings);
   push("Distinct bookers",         stats.residents.distinctBookers);
@@ -324,7 +324,7 @@ function buildWorkbookWithChartImages(stats, images = {}) {
 
   /* ---------- Embed chart PNGs ---------- */
   const chartMap = [
-    { key: "chart-trend",    label: "Bookings — last 6 months" },
+    { key: "chart-trend",    label: "Bookings - last 6 months" },
     { key: "chart-status",   label: "Bookings by status" },
     { key: "chart-category", label: "Providers by category" },
     { key: "chart-weekday",  label: "Bookings by weekday" },
@@ -337,7 +337,7 @@ function buildWorkbookWithChartImages(stats, images = {}) {
   chartMap.forEach(({ key, label }) => {
     const dataUrl = images[key];
     if (!dataUrl || typeof dataUrl !== "string") {
-      console.log(`[admin] no image for ${key} — skipping`);
+      console.log(`[admin] no image for ${key} - skipping`);
       return;
     }
 
@@ -353,7 +353,7 @@ function buildWorkbookWithChartImages(stats, images = {}) {
     const imageId = wb.addImage({ base64, extension: "png" });
     summary.addImage(imageId, {
       tl:  { col: 0, row: currentRow },   // column A, one row under the title
-      ext: { width: 720, height: 380 },    // px — bigger and clearer
+      ext: { width: 720, height: 380 },    // px - bigger and clearer
     });
 
     /* --- Advance cursor past the title + the image + a small gap --- */
@@ -425,7 +425,7 @@ router.post("/export.xlsx",
     try {
       const stats  = await getAdminStats();
       const images = req.body?.images || {};
-      console.log("[admin] xlsx export — received", Object.keys(images).length, "image(s)");
+      console.log("[admin] xlsx export - received", Object.keys(images).length, "image(s)");
 
       const wb = buildWorkbookWithChartImages(stats, images);
 
@@ -464,7 +464,7 @@ router.get("/export.pdf",
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       doc.pipe(res);
 
-      doc.fontSize(20).text("Athi Soko Connect — Admin Report", { align: "center" });
+      doc.fontSize(20).text("Athi Soko Connect - Admin Report", { align: "center" });
       doc.fontSize(10).fillColor("#666")
          .text(`Generated: ${new Date().toLocaleString()}`, { align: "center" });
       doc.moveDown(2).fillColor("#000");
@@ -510,13 +510,13 @@ router.get("/export.pdf",
 );
 
 /* ============================================================
-   Residents export — Excel + PDF
+   Residents export - Excel + PDF
    Reuses the same filter shape as routes/residents.js:
      ?verified=true|false&phase=1|2&courtId=N&q=text
    ============================================================ */
 
 /* ------------------------------------------------------------
-   Shared query — mirrors applyResidentFilters() in residents.js
+   Shared query - mirrors applyResidentFilters() in residents.js
    ------------------------------------------------------------ */
 async function fetchResidentsForExport(query) {
   const { phase, courtId, q, verified } = query;
@@ -585,16 +585,16 @@ function residentRowToExportShape(r) {
     ? new Date(r.created_at).toLocaleDateString("en-GB", {
         day: "2-digit", month: "short", year: "numeric",
       })
-    : "—";
+    : "-";
 
   return {
     id:       "AR-" + String(r.id).padStart(3, "0"),
-    fullName: r.full_name || "—",
-    idNumber: "—",
-    phone:    r.phone || "—",
-    email:    r.email || "—",
-    phase:    r.phase ? "Phase " + r.phase : "—",
-    court:    r.court_name || "—",
+    fullName: r.full_name || "-",
+    idNumber: "-",
+    phone:    r.phone || "-",
+    email:    r.email || "-",
+    phase:    r.phase ? "Phase " + r.phase : "-",
+    court:    r.court_name || "-",
     role:     "Resident",
     approved,
     status:   r.verified ? "Approved" : "Pending",
@@ -753,7 +753,7 @@ router.get("/residents/export.pdf",
         const shaped = residentRowToExportShape(r);
         cols.forEach((c, i) => {
           doc.fillColor("#222").text(
-            String(shaped[c.key] ?? "—"),
+            String(shaped[c.key] ?? "-"),
             colX[i] + 4,
             y + 5,
             { width: c.width * scale - 8, ellipsis: true, lineBreak: false }
@@ -777,7 +777,7 @@ router.get("/residents/export.pdf",
   }
 );
 /* ============================================================
-   Providers export — Excel + PDF
+   Providers export - Excel + PDF
    Mirrors residents export but for the Providers table.
    ============================================================ */
 
@@ -851,17 +851,17 @@ function providerRowToExportShape(p) {
     ? new Date(p.created_at).toLocaleDateString("en-GB", {
         day: "2-digit", month: "short", year: "numeric",
       })
-    : "—";
+    : "-";
 
   return {
     id:       "PV-" + String(p.id).padStart(3, "0"),
-    name:     p.name || "—",
-    category: p.category_label || "—",
-    phase:    p.phase ? "Phase " + p.phase : "—",
-    court:    p.court_name || "—",
-    phone:    p.phone || "—",
-    rating:   p.rating != null ? Number(p.rating).toFixed(1) : "—",
-    reviews:  p.reviews != null ? p.reviews : "—",
+    name:     p.name || "-",
+    category: p.category_label || "-",
+    phase:    p.phase ? "Phase " + p.phase : "-",
+    court:    p.court_name || "-",
+    phone:    p.phone || "-",
+    rating:   p.rating != null ? Number(p.rating).toFixed(1) : "-",
+    reviews:  p.reviews != null ? p.reviews : "-",
     status:   p.verified ? "Verified" : "Pending review",
     created,
   };
@@ -989,7 +989,7 @@ router.get("/providers/export.pdf",
         const shaped = providerRowToExportShape(r);
         cols.forEach((c, i) => {
           doc.fillColor("#222").text(
-            String(shaped[c.key] ?? "—"),
+            String(shaped[c.key] + "-"),
             colX[i] + 4, y + 5,
             { width: c.width * scale - 8, ellipsis: true, lineBreak: false }
           );

@@ -1,5 +1,5 @@
-/* ============================================================
-   provider-dashboard.js — vendor view of incoming bookings
+﻿/* ============================================================
+   provider-dashboard.js - vendor view of incoming bookings
    Fetch all at once, group by status, per-section Load More
    ============================================================ */
 
@@ -14,12 +14,12 @@ function escapeHtml(s) {
 }
 
 function formatDate(d) {
-  if (!d) return "—";
+  if (!d) return "-";
   try {
     return new Date(d).toLocaleDateString("en-KE", {
       day: "numeric", month: "short", year: "numeric",
     });
-  } catch { return "—"; }
+  } catch { return "-"; }
 }
 
 function statusBadge(status) {
@@ -40,7 +40,7 @@ function getUser() {
 }
 
 /* ------------------------------------------------------------
-   Global state — fetched once, sliced client-side
+   Global state - fetched once, sliced client-side
    ------------------------------------------------------------ */
 const SECTION_LIMIT = 2;
 
@@ -92,7 +92,7 @@ function bookingCard(b, variant) {
       </div>
 
       <ul class="info-list" style="margin:6px 0 12px;">
-        <li><span>Service</span><span>${escapeHtml(b.service || "—")}</span></li>
+        <li><span>Service</span><span>${escapeHtml(b.service || "-")}</span></li>
         <li><span>Date</span><span>${formatDate(b.date)}</span></li>
         ${b.notes ? `<li><span>Notes</span><span>${escapeHtml(b.notes)}</span></li>` : ""}
         <li><span>Requested</span><span>${formatDate(b.createdAt)}</span></li>
@@ -214,18 +214,18 @@ function wireActions() {
     })
   );
 
-  // Per-section Load more — just reveal more from the local array
+  // Per-section Load more - just reveal more from the local array
   el.querySelectorAll("[data-load-more]").forEach((btn) =>
     btn.addEventListener("click", () => {
       const sectionKey = btn.dataset.loadMore;
       shownCount[sectionKey] += SECTION_LIMIT;
-      renderSections();   // re-render from state — no fetch
+      renderSections();   // re-render from state - no fetch
     })
   );
 }
 
 /* ------------------------------------------------------------
-   Status update — reload all from server
+   Status update - reload all from server
    ------------------------------------------------------------ */
 async function updateStatus(id, status, reason = null) {
   try {

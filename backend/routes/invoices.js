@@ -1,5 +1,5 @@
-/* ============================================================
-   routes/invoices.js — Monthly household invoices
+﻿/* ============================================================
+   routes/invoices.js - Monthly household invoices
    - Generate invoices for a month (admin)
    - List invoices (admin filters, resident self-view)
    - Get one invoice
@@ -11,7 +11,7 @@ const router = express.Router();
 const { getPool } = require("../db");
 
 /* ------------------------------------------------------------
-   Auth middleware (import yours — adjust path if needed)
+   Auth middleware (import yours - adjust path if needed)
    ------------------------------------------------------------ */
 const { requireAuth, requireRole } = require("../middleware/auth");
 
@@ -57,7 +57,7 @@ async function getBillingSettings(pool) {
 }
 
 /* ============================================================
-   GET /api/invoices/settings   (public — displayed on billing page)
+   GET /api/invoices/settings   (public - displayed on billing page)
    ============================================================ */
 router.get("/settings", async (req, res, next) => {
   try {
@@ -82,7 +82,7 @@ router.get("/settings", async (req, res, next) => {
    POST /api/invoices/generate   (admin only)
    Body: { month: "2026-04" }
    Creates one invoice per approved, numbered resident.
-   Idempotent — skips existing (house_number, billing_month).
+   Idempotent - skips existing (house_number, billing_month).
    ============================================================ */
 router.post("/generate", requireAuth, requireRole("super-admin"), async (req, res, next) => {
   try {
@@ -256,7 +256,7 @@ router.post("/:id/set-status", requireAuth, requireRole("super-admin"), async (r
   }
 });
 /* ============================================================
-   GET /api/invoices   (admin — full list with filters + pagination)
+   GET /api/invoices   (admin - full list with filters + pagination)
    ============================================================ */
 router.get("/", requireAuth, async (req, res, next) => {
   try {
@@ -322,7 +322,7 @@ router.get("/", requireAuth, async (req, res, next) => {
 });
 
 /* ============================================================
-   GET /api/invoices/mine   (resident — own invoices)
+   GET /api/invoices/mine   (resident - own invoices)
    ============================================================ */
 router.get("/mine", requireAuth, async (req, res, next) => {
   try {

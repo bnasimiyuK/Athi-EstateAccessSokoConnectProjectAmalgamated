@@ -1,5 +1,5 @@
-/* ============================================================
-   db.js — SQL Server connection pool (shared across all routes)
+﻿/* ============================================================
+   db.js - SQL Server connection pool (shared across all routes)
    Works for both local SQL Server AND Azure SQL Database.
    Toggle encryption via env vars.
    ============================================================ */

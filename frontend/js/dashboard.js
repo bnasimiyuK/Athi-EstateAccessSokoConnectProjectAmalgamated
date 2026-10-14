@@ -1,5 +1,5 @@
-/* ============================================================
-   dashboard.js — resident's booking list + review flow
+﻿/* ============================================================
+   dashboard.js - resident's booking list + review flow
    + Prev/Next pagination
    ============================================================ */
 
@@ -130,7 +130,7 @@ function bookingsPaginationHtml() {
                 gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
                 border-top:1px solid var(--line);">
       <div style="font-size:0.9rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        Showing <b>${startRow}-${endRow}</b> of <b>${total}</b>
         booking${total === 1 ? "" : "s"}
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -214,7 +214,7 @@ function openReview(bookingId, bookings) {
   }
 
   document.getElementById("review-target").textContent =
-    `${reviewTargetBooking.providerName} — ${reviewTargetBooking.service}`;
+    `${reviewTargetBooking.providerName} - ${reviewTargetBooking.service}`;
   document.getElementById("review-modal").classList.add("is-open");
 }
 
@@ -235,7 +235,7 @@ async function handleReviewSubmit(e) {
 
     document.getElementById("review-modal").classList.remove("is-open");
     document.getElementById("review-form").reset();
-    toast("Thanks — your review helps other residents.");
+    toast("Thanks - your review helps other residents.");
     await renderBookings();
   } catch (err) {
     toast("Couldn't submit the review.");

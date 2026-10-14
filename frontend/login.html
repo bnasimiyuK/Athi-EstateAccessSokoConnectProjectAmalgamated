@@ -138,15 +138,11 @@
                required />
       </div>
 
-      <div class="input-group">
-        <label for="password">
-          <i class="fas fa-lock"></i> Password
-        </label>
-        <input type="password"
-               id="password"
-               placeholder="Enter your password"
-               autocomplete="current-password"
-               required />
+      <!-- Role tabs -->
+      <div class="tab-row" id="roleTabs" style="margin-bottom:20px;">
+        <button type="button" class="tab-btn" data-role="admin">Admin</button>
+        <button type="button" class="tab-btn is-active" data-role="resident">Resident</button>
+        <button type="button" class="tab-btn" data-role="vendor">Vendor</button>
       </div>
 <div style="text-align:right; margin-top:6px;">
   <a href="forgot-password.html" style="font-size:0.85rem; color:var(--ochre-dark);">
@@ -178,6 +174,7 @@
       <i class="fas fa-info-circle"></i>
       <span id="loginMessageText"></span>
     </div>
+  </main>
 
     <div class="login-link" style="margin-top:20px;">
       Not registered? <a href="residents.html">Sign up as resident â†’</a>

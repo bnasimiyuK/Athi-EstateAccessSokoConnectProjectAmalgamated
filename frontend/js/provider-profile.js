@@ -1,5 +1,5 @@
-/* ============================================================
-   provider-profile.js — vendor manages their own profile
+﻿/* ============================================================
+   provider-profile.js - vendor manages their own profile
    + modal duration picker (specific durations only)
    ============================================================ */
 
@@ -80,7 +80,7 @@ function renderProfile(p, categories) {
         <div class="field">
           <label for="pf-category">Category</label>
           <select id="pf-category" required>
-            <option value="">— Select category —</option>
+            <option value="">- Select category -</option>
             ${catOptions}
           </select>
         </div>
@@ -206,10 +206,10 @@ function wireAvailabilityToggle(p) {
       return;
     }
 
-    /* ---------- Turning OFF — ask for duration ---------- */
+    /* ---------- Turning OFF - ask for duration ---------- */
     const minutes = await askForDurationModal();
     if (minutes === null) {
-      // User cancelled — revert the toggle
+      // User cancelled - revert the toggle
       toggle.checked = true;
       return;
     }
@@ -250,7 +250,7 @@ function wireAvailabilityToggle(p) {
 }
 
 /* ------------------------------------------------------------
-   Modal picker (specific durations only — no indefinite)
+   Modal picker (specific durations only - no indefinite)
    Resolves to: null (cancel) | minutes > 0
    ------------------------------------------------------------ */
 function askForDurationModal() {
@@ -288,7 +288,7 @@ function askForDurationModal() {
                 style="width: 100%; margin-bottom: 10px;">Custom hours…</button>
         <div id="dur-custom-box" style="display:none; margin-bottom: 18px;">
           <label style="font-size:0.82rem; color:var(--ink-70); display:block; margin-bottom:4px;">
-            Number of hours (1–72)
+            Number of hours (1-72)
           </label>
           <input type="number" id="dur-custom-hours" min="1" max="72" value="3"
                  style="width:100%; padding:10px 12px; border:1px solid var(--line);

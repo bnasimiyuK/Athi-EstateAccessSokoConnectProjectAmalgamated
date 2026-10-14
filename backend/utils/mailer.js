@@ -1,5 +1,5 @@
-/* ============================================================
-   utils/mailer.js — send emails via Gmail SMTP (Nodemailer)
+﻿/* ============================================================
+   utils/mailer.js - send emails via Gmail SMTP (Nodemailer)
    Modes:
      MAIL_MODE=smtp     → send real emails
      MAIL_MODE=console  → log emails to terminal (dev fallback)
@@ -33,7 +33,7 @@ if (MODE === "smtp") {
 
   // Verify credentials at boot (best-effort, non-blocking)
   transporter.verify()
-    .then(() => console.log(`📧 Mailer ready (SMTP) — sending as ${process.env.SMTP_USER}`))
+    .then(() => console.log(`📧 Mailer ready (SMTP) - sending as ${process.env.SMTP_USER}`))
     .catch((err) => console.error("❌ Mailer SMTP verify failed:", err.message));
 } else {
   console.log("📧 Mailer: CONSOLE mode (emails printed to terminal)");
@@ -62,7 +62,7 @@ async function sendMail({ to, subject, text, html }) {
 
   // Console fallback
   console.log("\n" + "═".repeat(72));
-  console.log("📧  EMAIL (console mode — NOT actually sent)");
+  console.log("📧  EMAIL (console mode - NOT actually sent)");
   console.log("═".repeat(72));
   console.log(`From:    ${FROM}`);
   console.log(`To:      ${to}`);
@@ -126,7 +126,7 @@ function htmlWrapper(title, bodyHtml) {
    ------------------------------------------------------------ */
 function residentWelcomeEmail({ fullName, phone, tempPassword, expiresHours = 24 }) {
   const loginUrl = `${APP_URL}/login.html`;
-  const subject = "Welcome to Athi Soko Connect — your login details";
+  const subject = "Welcome to Athi Soko Connect - your login details";
 
   const text = [
     `Hi ${fullName},`,
@@ -142,7 +142,7 @@ function residentWelcomeEmail({ fullName, phone, tempPassword, expiresHours = 24
     `⚠️ This temporary password expires in ${expiresHours} hours.`,
     `You must change it on first login.`,
     ``,
-    `— Athi Soko Connect`,
+    `- Athi Soko Connect`,
   ].join("\n");
 
   const html = htmlWrapper(subject, `
@@ -189,7 +189,7 @@ function residentWelcomeEmail({ fullName, phone, tempPassword, expiresHours = 24
    Template: simple plain-text test
    ------------------------------------------------------------ */
 function testEmail() {
-  const subject = "Athi Soko Connect — Mailer Test";
+  const subject = "Athi Soko Connect - Mailer Test";
   const text = "✅ Your Gmail SMTP setup is working. Real emails can now be delivered.";
   const html = htmlWrapper(subject, `
     <h2 style="margin:0 0 12px; font-family: Georgia, serif;">✅ Mailer working</h2>
@@ -211,14 +211,14 @@ function residentApprovedEmail({ fullName, phone }) {
   const text = [
     `Hi ${fullName},`,
     ``,
-    `Great news — your resident account has been approved.`,
+    `Great news - your resident account has been approved.`,
     ``,
     `You can now log in and start booking vendors:`,
     `  Login URL: ${loginUrl}`,
     `  Phone:     ${phone}`,
     `  Password:  (the one you chose at signup)`,
     ``,
-    `— Athi Soko Connect`,
+    `- Athi Soko Connect`,
   ].join("\n");
 
   const html = htmlWrapper(subject, `

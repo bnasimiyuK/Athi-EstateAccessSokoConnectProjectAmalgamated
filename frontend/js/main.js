@@ -62,7 +62,9 @@ function qs(param) {
   return new URLSearchParams(window.location.search).get(param);
 }
 
-/* ---------------- NAV: highlight active link ---------------- */
+/* ============================================================
+   NAV: highlight the active link
+   ============================================================ */
 function markActiveNav() {
   const path = window.location.pathname.split("/").pop() || "index.html";
 

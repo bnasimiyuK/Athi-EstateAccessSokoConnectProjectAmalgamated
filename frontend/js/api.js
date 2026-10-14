@@ -162,7 +162,47 @@ window.discoverApiBase();
 
 
 /* ------------------------------------------------------------
-   Core request helper — attaches Bearer token if present
+   Debug flag — set to false once things are stable
+   ------------------------------------------------------------ */
+const API_DEBUG = true;
+
+function apiLog(...args) {
+  if (API_DEBUG) console.log("[api]", ...args);
+}
+function apiWarn(...args) {
+  if (API_DEBUG) console.warn("[api]", ...args);
+}
+
+/* ------------------------------------------------------------
+   Decode the JWT payload (no verification, client-side only)
+   ------------------------------------------------------------ */
+function apiDecodeToken(token) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload && typeof payload === "object" ? payload : null;
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------
+   Preflight: is the token present AND not obviously expired?
+   ------------------------------------------------------------ */
+function apiTokenStatus() {
+  const token = typeof getToken === "function" ? getToken() : null;
+  if (!token) return { ok: false, reason: "no-token" };
+
+  const payload = apiDecodeToken(token);
+  if (!payload) return { ok: false, reason: "malformed" };
+
+  if (payload.exp && payload.exp * 1000 < Date.now()) {
+    return { ok: false, reason: "expired", payload };
+  }
+  return { ok: true, payload };
+}
+
+/* ------------------------------------------------------------
+   Core request helper - attaches Bearer token if present
    ------------------------------------------------------------ */
 async function request(url, options = {}) {
   const headers = {
@@ -173,6 +213,8 @@ async function request(url, options = {}) {
   const token = typeof getToken === "function" ? getToken() : null;
   if (token) {
     headers["Authorization"] = "Bearer " + token;
+  } else {
+    apiWarn("No token available for", options.method || "GET", url);
   }
 
   let res;
@@ -204,8 +246,82 @@ async function request(url, options = {}) {
     throw new Error(message);
   }
 
-  if (res.status === 204) return null;
-  return res.json();
+  // ---- Success paths ----
+  if (res.ok) {
+    if (res.status === 204) return null;
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) return null;
+    return res.json();
+  }
+
+  // ---- Error paths ----
+  let message = `Request failed (${res.status})`;
+  let bodyText = "";
+  try {
+    bodyText = await res.text();
+    if (bodyText) {
+      try {
+        const body = JSON.parse(bodyText);
+        if (body && body.error) message = body.error;
+        else if (body && body.message) message = body.message;
+      } catch {
+        if (bodyText.length < 200) message = bodyText;
+      }
+    }
+  } catch { /* ignore */ }
+
+  console.error("[api] request failed:", {
+    url,
+    method: options.method || "GET",
+    status: res.status,
+    statusText: res.statusText,
+    body: bodyText,
+  });
+
+  if (res.status === 401) {
+    const status = apiTokenStatus();
+    if (status.reason === "expired") {
+      message = "Your session has expired. Please log in again.";
+    } else if (status.reason === "malformed" || status.reason === "no-token") {
+      message = "You are not logged in.";
+    }
+    if (typeof logout === "function") {
+      apiWarn("401 received — logging out");
+      setTimeout(() => logout(), 50);
+    }
+    const err = new Error(message);
+    err.status = 401;
+    throw err;
+  }
+
+  if (res.status === 403) {
+    const status = apiTokenStatus();
+    const role = status.payload?.role || "unknown";
+    console.error(
+      `[api] 403 Forbidden on ${options.method || "GET"} ${url}\n` +
+      `  Your role: ${role}\n` +
+      `  Token valid: ${status.ok ? "yes" : "no (" + status.reason + ")"}\n` +
+      `  → Check the backend's requireRole() on this route.`
+    );
+    message =
+      "You do not have permission for this action. " +
+      (role === "super"
+        ? "The backend may be rejecting 'super' on this route — check requireRole()."
+        : "");
+    const err = new Error(message);
+    err.status = 403;
+    throw err;
+  }
+
+  if (res.status === 404) {
+    const err = new Error(message || "Not found.");
+    err.status = 404;
+    throw err;
+  }
+
+  const err = new Error(message);
+  err.status = res.status;
+  throw err;
 }
 
 /* ------------------------------------------------------------
@@ -222,8 +338,55 @@ function qsOf(params = {}) {
 }
 
 /* ------------------------------------------------------------
-   Api — every backend endpoint exposed as a method
+   Helper: download a blob with auth
    ------------------------------------------------------------ */
+async function downloadBlob(url) {
+  const token = typeof getToken === "function" ? getToken() : null;
+  if (!token) throw new Error("Not logged in.");
+
+  let res;
+  try {
+    res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  } catch (netErr) {
+    console.error("[api] blob network error:", netErr, { url });
+    throw new Error("Network error. Check that the API server is reachable.");
+  }
+
+  if (res.status === 401) {
+    if (typeof logout === "function") setTimeout(() => logout(), 50);
+    throw new Error("Session expired. Please log in again.");
+  }
+  if (res.status === 403) {
+    const status = apiTokenStatus();
+    const role = status.payload?.role || "unknown";
+    console.error(
+      `[api] 403 on download ${url}\n  Your role: ${role}\n  ` +
+      `→ The backend requireRole() may not accept 'super'.`
+    );
+    throw new Error("You do not have permission to download this file.");
+  }
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  return res.blob();
+}
+
+/* ------------------------------------------------------------
+   Helper: safely unwrap an envelope OR plain array
+   ------------------------------------------------------------ */
+function unwrapList(result) {
+  if (Array.isArray(result)) return result;
+  if (!result) return [];
+  if (Array.isArray(result.data))    return result.data;
+  if (Array.isArray(result.items))   return result.items;
+  if (Array.isArray(result.rows))    return result.rows;
+  if (Array.isArray(result.results)) return result.results;
+  return [];
+}
+
+/* ============================================================
+   Api - every backend endpoint exposed as a method
+   ============================================================ */
 const Api = {
   /* ---------- Auth ---------- */
   login: (credentials) =>
@@ -244,6 +407,25 @@ const Api = {
     request(`${apiBase()}/auth/change-password`, {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+
+  /* ---------- Announcements ---------- */
+  getAnnouncements: (params = {}) =>
+    request(`${API_BASE}/announcements${qsOf(params)}`),
+
+  createAnnouncement: (payload) =>
+    request(`${API_BASE}/announcements`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  deleteAnnouncement: (id) =>
+    request(`${API_BASE}/announcements/${id}`, { method: "DELETE" }),
+
+  updateAnnouncement: (id, patch) =>
+    request(`${API_BASE}/announcements/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
     }),
 
   /* ---------- Admin ---------- */
@@ -328,9 +510,6 @@ const Api = {
 
   /* ---------- Admin exports ---------- */
   downloadResidentsReport: async (kind, params = {}) => {
-    const token = typeof getToken === "function" ? getToken() : null;
-    if (!token) throw new Error("Not logged in.");
-
     const qs = new URLSearchParams(
       Object.fromEntries(
         Object.entries({ verified: "true", ...params }).filter(
@@ -352,9 +531,6 @@ const Api = {
   },
 
   downloadProvidersReport: async (kind, params = {}) => {
-    const token = typeof getToken === "function" ? getToken() : null;
-    if (!token) throw new Error("Not logged in.");
-
     const qs = new URLSearchParams(
       Object.fromEntries(
         Object.entries(params).filter(
@@ -407,7 +583,6 @@ const Api = {
       method: "POST",
       body: JSON.stringify({ month }),
     }),
-
   markInvoicesOverdue: () =>
     request(`${apiBase()}/invoices/mark-overdue`, { method: "POST" }),
 
@@ -431,7 +606,6 @@ const Api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-
   verifyPayment: (id) =>
     request(`${apiBase()}/payments/${id}/verify`, { method: "POST" }),
 
@@ -485,7 +659,6 @@ const Api = {
       method: "PATCH",
       body: JSON.stringify({ houseNumber }),
     }),
-
   bulkAssignHouseNumbers: (rows) =>
     request(`${apiBase()}/house-numbers/bulk`, {
       method: "POST",

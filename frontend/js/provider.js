@@ -36,16 +36,16 @@ function servicesArray(services) {
 function stars(rating) {
   const r = Math.round(Number(rating) || 0);
   const clamped = Math.max(0, Math.min(5, r));
-  return "⭐".repeat(clamped);
+  return "★".repeat(clamped) + "☆".repeat(5 - clamped);
 }
 
 function formatDate(d) {
-  if (!d) return "—";
+  if (!d) return "-";
   try {
     return new Date(d).toLocaleDateString("en-KE", {
       day: "numeric", month: "short", year: "numeric",
     });
-  } catch { return "—"; }
+  } catch { return "-"; }
 }
 
 function todayPlusDays(n) {
@@ -117,6 +117,13 @@ function formatTimeUntil(iso) {
   return { relative, backTime };
 }
 
+function priceText(p) {
+  const price = Number(p.priceFrom || 0);
+  return price
+    ? `KSh ${price.toLocaleString()} ${escapeHtml(p.priceUnit || "")}`.trim()
+    : "-";
+}
+
 /* ---------------- render states ---------------- */
 function renderLoading() {
   document.getElementById("provider-root").innerHTML =
@@ -141,10 +148,34 @@ function headerHtml(p, isOwnMode) {
   if (p.phase != null) locParts.push(`Phase ${p.phase}`);
   const loc = locParts.join(" · ");
 
-  const rating  = Number(p.rating || 0);
-  const reviews = Number(p.reviews || 0);
-  const price   = Number(p.priceFrom || 0);
-  const cat     = p.categoryLabel || "—";
+function topbarHtml(p) {
+  const parts = [];
+  if (p.courtName) parts.push(escapeHtml(p.courtName));
+  if (p.phase != null) parts.push(`Phase ${p.phase}`);
+  return `
+    <div class="provider-topbar">
+      <button type="button" class="provider-topbar__back" onclick="history.back()" aria-label="Go back">
+        <i class="fas fa-arrow-left"></i>
+      </button>
+      <div class="provider-topbar__title">
+        <h2>Service Detail</h2>
+        <p>${parts.join(" · ") || "Athi Highway Estate"}</p>
+      </div>
+      <div class="provider-topbar__actions">
+        <button type="button"
+                class="pill pill--interactive"
+                id="gate-clearance-pill"
+                data-open="gate-rules"
+                title="Click to see gate rules">
+          Gate: —
+        </button>
+        <div class="provider-topbar__avatar">${escapeHtml(initialsOf(p.name))}</div>
+      </div>
+    </div>`;
+}
+
+function bannerHtml(p) {
+  if (p.isAvailable !== false) return "";
 
   let bannerMessage;
   if (p.unavailableUntil) {
@@ -185,9 +216,8 @@ function headerHtml(p, isOwnMode) {
     : "";
 
   return `
-    ${unavailableBanner}
-    <div class="provider-header">
-      <div class="avatar avatar--lg">${escapeHtml(initials)}</div>
+    <div class="pv-banner out-of-office">
+      <span class="pv-banner__icon">⏸️</span>
       <div>
         <h1 style="margin:0 0 4px;">${escapeHtml(p.name)}</h1>
         <div class="meta" style="color:var(--ink-70);">
@@ -217,17 +247,57 @@ function leftColumnHtml(p, reviews, isOwnMode) {
   const services = servicesArray(p.services);
   const showPhone = isLoggedIn();
 
-  const reviewsHtml = reviews.length
+  return `
+    ${p.bio ? `
+    <section class="provider-section">
+      <h3 class="provider-section__title">
+        <span class="provider-section__icon">⚡</span> About
+      </h3>
+      <p class="provider-section__body">${escapeHtml(p.bio)}</p>
+    </section>` : ""}
+
+    ${services.length ? `
+    <section class="provider-section">
+      <h4 class="provider-section__label">Services</h4>
+      <div class="provider-specs">
+        ${services.map((s) => `<span class="chip-pill">${escapeHtml(s)}</span>`).join("")}
+      </div>
+    </section>` : ""}
+
+    <section class="provider-section">
+      <h3 class="provider-section__title">
+        <span class="provider-section__icon">📋</span> Details
+      </h3>
+      <ul class="pv-details">
+        <li><span>Hours</span><span>${escapeHtml(p.hours || "-")}</span></li>
+        <li><span>Starting price</span><span>${priceText(p)}</span></li>
+        <li><span>Category</span><span>${escapeHtml(p.categoryLabel || "-")}</span></li>
+        <li><span>Court</span><span>${escapeHtml(p.courtName || "-")}</span></li>
+        <li><span>Phase</span><span>${p.phase != null ? "Phase " + p.phase : "-"}</span></li>
+        <li>
+          <span>Phone</span>
+          <span>
+            ${showPhone && p.phone
+              ? `<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`
+              : `<span class="pv-muted">Log in to view</span>`}
+          </span>
+        </li>
+      </ul>
+    </section>`;
+}
+
+function reviewsHtml(reviews) {
+  const list = reviews.length
     ? reviews.map((r) => `
         <div class="review">
           <div class="review-head">
-            <b>${escapeHtml(r.author || "Anonymous")}</b>
-            <span>${formatDate(r.date)}</span>
+            <b>${escapeHtml(reviewAuthor(r))}</b>
+            <span>${formatDate(r.date || r.createdAt || r.created_at)}</span>
           </div>
-          <div class="rating" style="color:var(--ochre-dark);margin-bottom:4px;">
-            ${stars(r.rating)} ${Number(r.rating).toFixed(1)}
+          <div class="pv-review-stars">
+            ${stars(r.rating)} <span>${Number(r.rating).toFixed(1)}</span>
           </div>
-          ${r.text ? `<p style="margin:6px 0 0;">${escapeHtml(r.text)}</p>` : ""}
+          ${r.text ? `<p class="pv-review-text">${escapeHtml(r.text)}</p>` : ""}
         </div>`).join("")
     : `<div class="empty-state" style="padding:20px;">No reviews yet.</div>`;
 
@@ -281,14 +351,27 @@ function leftColumnHtml(p, reviews, isOwnMode) {
       </div>`;
 
   return `
-    <div>
-      ${p.bio ? `<h2>About</h2><p>${escapeHtml(p.bio)}</p>` : ""}
+    <section class="provider-section">
+      <h3 class="provider-section__title" id="reviews-heading">
+        <span class="provider-section__icon">⭐</span>
+        Reviews <span>(${reviews.length})</span>
+      </h3>
+      <div class="provider-reviews">${list}</div>
+    </section>`;
+}
 
-      ${services.length ? `
-        <h2 style="margin-top:28px;">Services</h2>
-        <ul class="service-list">
-          ${services.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}
-        </ul>` : ""}
+function shareHtml(p) {
+  return `
+    <section class="provider-section pv-share">
+      <h4 class="provider-section__label">Share with a neighbor</h4>
+      <div class="pv-share__buttons">
+        <button type="button" class="btn btn--accent btn--small" id="refer-provider">
+          🔗 Refer this provider
+        </button>
+        <button type="button" class="btn btn--ghost btn--small" id="open-report">
+          <i class="fas fa-exclamation-triangle"></i> Report this provider
+        </button>
+      </div>
 
       <h2 style="margin-top:28px;">Details</h2>
       <ul class="info-list">
@@ -354,15 +437,12 @@ function ownProfilePanelHtml(p) {
 
 /* ---------- public booking form ---------- */
 function bookingFormHtml(p) {
-  /* ---------- Not logged in ---------- */
   if (!isLoggedIn()) {
     const next = encodeURIComponent("provider.html?id=" + p.id);
     return `
       <div class="booking-box" id="booking-box">
-        <h3 style="margin-top:0;">Request a booking</h3>
-        <p style="font-size:0.9rem;">
-          Please log in as a resident to send a booking request.
-        </p>
+        <h3>Request a booking</h3>
+        <p>Please log in as a resident to send a booking request.</p>
         <a class="btn btn--primary" href="login.html?next=${next}">Log in to book</a>
       </div>`;
   }
@@ -406,10 +486,8 @@ function bookingFormHtml(p) {
 
   return `
     <div class="booking-box" id="booking-box">
-      <h3 style="margin-top:0;">Request a booking</h3>
-      <p style="font-size:0.9rem;">
-        Send a request to ${escapeHtml(p.name)}. They'll confirm shortly.
-      </p>
+      <h3>Request a booking</h3>
+      <p>Send a request to ${escapeHtml(p.name)}. They'll confirm shortly.</p>
 
       <form id="booking-form">
         <div class="field">
@@ -436,7 +514,7 @@ function bookingFormHtml(p) {
 
         <div class="field">
           <label for="bf-notes">
-            Notes <span style="color:var(--ink-40);font-weight:400;">(optional)</span>
+            Notes <span class="pv-muted">(optional)</span>
           </label>
           <textarea id="bf-notes" rows="3" placeholder="Any details the provider should know"></textarea>
         </div>
@@ -445,9 +523,29 @@ function bookingFormHtml(p) {
           Request booking
         </button>
 
-        <p id="booking-msg"
-           style="font-size:0.85rem;margin:8px 0 0;display:none;"></p>
+        <p id="booking-msg" class="pv-msg" style="display:none;"></p>
       </form>
+    </div>`;
+}
+
+function ctaHtml(p) {
+  const busy = p.isAvailable === false;
+  const price = Number(p.priceFrom || 0);
+  const note = busy
+    ? "Currently unavailable"
+    : price
+      ? `Standard callout from KSh ${price.toLocaleString()} ${escapeHtml(p.priceUnit || "")}`
+      : "Tap to send a booking request";
+
+  return `
+    <div class="provider-cta">
+      <button type="button" class="btn btn--accent provider-cta__btn" id="pd-book" ${busy ? "disabled" : ""}>
+        <span><i class="fas fa-calendar-check"></i> Book Service Request</span>
+        <small>${note}</small>
+      </button>
+      <button type="button" class="provider-cta__share" aria-label="Share this provider">
+        <i class="fas fa-share-alt"></i>
+      </button>
     </div>`;
 }
 
@@ -457,8 +555,8 @@ function renderBookingSuccess(p) {
   if (!box) return;
 
   box.innerHTML = `
-    <h3 style="margin-top:0;">Request sent ✓</h3>
-    <p style="font-size:0.92rem;">
+    <h3>Request sent ✓</h3>
+    <p>
       Your request has been sent to <b>${escapeHtml(p.name)}</b>.
       They'll confirm shortly. Track it from your bookings page.
     </p>
@@ -473,7 +571,7 @@ function renderBookingSuccess(p) {
   });
 }
 
-/* ---------------- wire booking form ---------------- */
+/* ---------------- wire booking form (single definition) ---------------- */
 function wireBookingForm(p) {
   const form = document.getElementById("booking-form");
   if (!form) return;
@@ -653,7 +751,7 @@ function wireReferPanel(provider) {
 
   const providerUrl = `${window.location.origin}/provider.html?id=${provider.id}`;
   const shareMessage =
-    `Check out ${provider.name} on Athi Soko Connect — ` +
+    `Check out ${provider.name} on Athi Soko Connect - ` +
     `${provider.categoryLabel || "a service provider"} in Phase ${provider.phase || "?"}. ` +
     `Book them here: ${providerUrl}`;
 
@@ -683,8 +781,7 @@ function wireReferPanel(provider) {
   });
 
   whatsappBtn.addEventListener("click", () => {
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
-    window.open(waUrl, "_blank");
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank");
     panel.style.display = "none";
   });
 
@@ -693,7 +790,227 @@ function wireReferPanel(provider) {
   });
 }
 
-/* ---------------- main ---------------- */
+/* ---------------- live busy ticker (30s, text-only refresh) ---------------- */
+function startBusyTicker(p) {
+  if (p.isAvailable !== false || !p.unavailableUntil) return;
+
+  setInterval(() => {
+    document.querySelectorAll(".busy-countdown").forEach((el) => {
+      const until = el.dataset.until;
+      if (!until) return;
+
+      const t = formatTimeUntil(until);
+      if (!t || !t.backTime) return;
+
+      if (el.tagName === "P") {
+        el.innerHTML = `Expected back around <b>${t.backTime}</b> (${t.relative}). You can try booking again after that.`;
+      } else {
+        el.textContent = `Expected back around ${t.backTime} (${t.relative}).`;
+      }
+    });
+  }, 30000);
+}
+
+/* ============================================================
+   LIVE AVAILABILITY — auto-flip at the exact moment
+   ============================================================ */
+
+const _pvAvailability = {
+  isAvailable: true,
+  unavailableUntil: null,
+  timerId: null,
+};
+
+function startAvailabilityTicker(provider) {
+  if (_pvAvailability.timerId) {
+    clearInterval(_pvAvailability.timerId);
+    _pvAvailability.timerId = null;
+  }
+
+  _pvAvailability.isAvailable     = provider.isAvailable !== false;
+  _pvAvailability.unavailableUntil = provider.unavailableUntil || null;
+
+  if (_pvAvailability.isAvailable || !_pvAvailability.unavailableUntil) return;
+
+  _pvAvailability.timerId = setInterval(() => {
+    const remaining = new Date(_pvAvailability.unavailableUntil) - new Date();
+
+    if (remaining <= 0) {
+      clearInterval(_pvAvailability.timerId);
+      _pvAvailability.timerId = null;
+      _pvAvailability.isAvailable = true;
+      _pvAvailability.unavailableUntil = null;
+      refreshProviderAvailability();
+    } else {
+      updateBusyCountdown(remaining);
+    }
+  }, 1000);
+}
+
+function updateBusyCountdown(ms) {
+  const el = document.querySelector(".busy-countdown");
+  if (!el) return;
+
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.floor((ms % 60000) / 1000);
+
+  let text;
+  if (mins >= 1)      text = `Back in ${mins}m ${secs}s`;
+  else if (secs > 0)  text = `Back in ${secs}s`;
+  else                text = "Back any moment";
+
+  el.textContent = text;
+}
+
+async function refreshProviderAvailability() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  if (!id) return;
+
+  try {
+    const fresh = await Api.getProvider(id);
+    if (fresh.isAvailable === false) {
+      startAvailabilityTicker(fresh);
+    } else {
+      applyAvailableUI(fresh);
+    }
+  } catch (err) {
+    console.warn("[provider] availability refresh failed:", err);
+    applyAvailableUI(null);
+  }
+}
+
+function applyAvailableUI(provider) {
+  // 1. Remove the out-of-office banner
+  const banner = document.querySelector(".pv-banner");
+  if (banner) banner.remove();
+
+  // 2. Un-disable the sticky CTA and restore its real markup
+  const bookBtn = document.querySelector(".provider-cta__btn");
+  if (bookBtn) {
+    bookBtn.disabled = false;
+    const price = provider ? Number(provider.priceFrom || 0) : 0;
+    const unit  = provider ? escapeHtml(provider.priceUnit || "") : "";
+    const note  = price
+      ? `Standard callout from KSh ${price.toLocaleString()} ${unit}`
+      : "Tap to send a booking request";
+    bookBtn.innerHTML = `
+      <span><i class="fas fa-calendar-check"></i> Book Service Request</span>
+      <small>${note}</small>`;
+  }
+
+  // 3. Status chip
+  const statusChip = document.querySelector(".chip-pill--busy");
+  if (statusChip) {
+    statusChip.classList.remove("chip-pill--busy");
+    statusChip.classList.add("chip-pill--ok");
+    statusChip.textContent = "Available Today";
+  }
+
+  // 4. Hero badge
+  const busyBadge = document.querySelector(".badge--busy");
+  if (busyBadge) {
+    busyBadge.classList.remove("badge--busy");
+    busyBadge.classList.add("badge--verified");
+    busyBadge.textContent = "AHE Verified";
+  }
+
+  // 5. Replace the "Currently unavailable" panel with the real booking form
+  const busyPanel = document.querySelector(".booking-box--busy");
+  if (busyPanel && provider) {
+    busyPanel.outerHTML = bookingFormHtml(provider);
+    wireBookingForm(provider);
+  }
+}
+
+/* ============================================================
+   GATE CLEARANCE PILL
+   ============================================================ */
+async function renderGatePill() {
+  const pill = document.getElementById("gate-clearance-pill");
+  if (!pill) return;
+
+  const data = await Api.getGateStatus();
+
+  if (!data || !data.status) {
+    const nowEAT = new Date(new Date().toLocaleString("en-US", {
+      timeZone: "Africa/Nairobi",
+    }));
+    const h = nowEAT.getHours();
+    if (h >= 6 && h < 22) {
+      pill.className = "pill pill--interactive pill--live";
+      pill.textContent = "Gate: Live";
+    } else {
+      pill.className = "pill pill--interactive pill--closed";
+      pill.textContent = "Gate 2 Closed";
+    }
+    return;
+  }
+
+  const map = { live: "pill--live", busy: "pill--busy", closed: "pill--closed" };
+  pill.className = `pill pill--interactive ${map[data.status] || "pill--live"}`;
+  pill.textContent = data.label;
+
+  let tooltip;
+  switch (data.status) {
+    case "live":
+      tooltip = `Gate 2 open. Closes in ${data.nextChangeMinutes} min (22:00 EAT). Gate 1 open 24/7.`;
+      break;
+    case "busy":
+      tooltip = `Gate 2 closing in ${data.nextChangeMinutes} min. Gate 1 remains open.`;
+      break;
+    case "closed":
+      tooltip = `Gate 2 reopens in ${data.nextChangeMinutes} min (06:00 EAT). Gate 1 open 24/7.`;
+      break;
+    default:
+      tooltip = "Gate status unavailable";
+  }
+  pill.title = tooltip;
+
+  if (data.nextChangeMinutes != null && data.nextChangeMinutes > 0) {
+    const msUntilChange = data.nextChangeMinutes * 60 * 1000;
+    const delay = Math.min(msUntilChange + 5000, 60000);
+    clearTimeout(renderGatePill._timer);
+    renderGatePill._timer = setTimeout(renderGatePill, delay);
+  }
+}
+
+/* ============================================================
+   GATE RULES MODAL
+   ============================================================ */
+function setupGateRulesModalOnProviderPage() {
+  const modal = document.getElementById("gate-rules-modal");
+  if (!modal) return;
+
+  const triggers      = document.querySelectorAll('[data-open="gate-rules"]');
+  const closeButtons  = modal.querySelectorAll("[data-close-modal]");
+
+  const open = (e) => {
+    if (e) e.preventDefault();
+    modal.classList.add("is-open");
+    document.body.style.overflow = "hidden";
+  };
+
+  const close = () => {
+    modal.classList.remove("is-open");
+    document.body.style.overflow = "";
+  };
+
+  triggers.forEach((t) => t.addEventListener("click", open));
+  closeButtons.forEach((b) => b.addEventListener("click", close));
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) close();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("is-open")) close();
+  });
+}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
 async function initProviderPage() {
   const root = document.getElementById("provider-root");
   if (!root) return;
@@ -774,6 +1091,7 @@ async function initProviderPage() {
       ${rightColumnHtml(provider, false)}
     </div>`;
 
+  /* Wire everything */
   wireBookingForm(provider);
   wireReportModal(provider);
   wireReferPanel(provider);

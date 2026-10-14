@@ -1,5 +1,5 @@
-/* ============================================================
-   scripts/seed-admin.js — create the first admin account
+﻿/* ============================================================
+   scripts/seed-admin.js - create the first admin account
    Usage:   node scripts/seed-admin.js
    Run ONCE to bootstrap the admin login.
    ============================================================ */

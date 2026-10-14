@@ -1,5 +1,5 @@
-/* ============================================================
-   routes/residents.js — SQL Server version (court_id based)
+﻿/* ============================================================
+   routes/residents.js - SQL Server version (court_id based)
    Residents reference a court; the court's phase is derived.
    Approval (verified: false → true) triggers a welcome email.
    + Paginated GET /
@@ -27,7 +27,7 @@ function residentToJson(row) {
     courtId:       row.court_id,
     courtName:     row.court_name,
     phase:         row.phase,
-    houseNumber:   row.house_number || null,
+    // houseNumber: row.house_number || null,
     accessBlocked: !!row.access_blocked,
     verified:      !!row.verified,
     createdAt:     row.created_at,
@@ -48,12 +48,12 @@ function applyResidentFilters(request, { phase, courtId, q, verified, houseNumbe
     where.push("r.court_id = @courtId");
     request.input("courtId", parseInt(courtId, 10));
   }
-  if (houseNumber) {
-    where.push("r.house_number = @houseNumber");
-    request.input("houseNumber", String(houseNumber).trim());
-  }
+  // if (houseNumber) {
+  //   where.push("r.house_number = @houseNumber");
+  //   request.input("houseNumber", String(houseNumber).trim());
+  // }
   if (q && q.trim()) {
-    where.push("(r.full_name LIKE @q OR r.phone LIKE @q OR r.house_number LIKE @q)");
+    where.push("(r.full_name LIKE @q OR r.phone LIKE @q)");
     request.input("q", `%${q.trim()}%`);
   }
   if (verified === "true" || verified === "false") {
@@ -373,10 +373,9 @@ router.post("/", async (req, res, next) => {
 /* ------------------------------------------------------------
    PATCH /api/residents/:id
    Body: { fullName, phone, email, courtId, verified, houseNumber, accessBlocked }
-   When verified flips true → welcome email.
-   When houseNumber is set → uniqueness enforced by DB index.
+   Admin or super. When verified flips true → welcome email.
    ------------------------------------------------------------ */
-router.patch("/:id", async (req, res, next) => {
+router.patch("/:id", requireAuth, requireRole("admin", "super"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -427,7 +426,6 @@ router.patch("/:id", async (req, res, next) => {
         WHERE id = @id
       `);
     } catch (err) {
-      // Catch unique-index violation on house_number
       if (err.number === 2601 || err.number === 2627) {
         return res.status(409).json({ error: "That house number is already assigned to another resident." });
       }
@@ -459,7 +457,7 @@ router.patch("/:id", async (req, res, next) => {
 
           console.log(`[residents] ✅ Approval email sent to ${updatedRow.email}`);
         } else {
-          console.log(`[residents] ⚠️  No email on file for resident ${updatedRow.id} — email skipped.`);
+          console.log(`[residents] ⚠️  No email on file for resident ${updatedRow.id} - email skipped.`);
         }
       } catch (mailErr) {
         console.error("[residents] ❌ Approval email failed:", mailErr.message);
@@ -483,20 +481,50 @@ router.patch("/:id", async (req, res, next) => {
 
 /* ------------------------------------------------------------
    DELETE /api/residents/:id
+   Super admin only. Cascades through any vendor profile and
+   its dependents (Reports / Reviews / Bookings), then the
+   resident. Also removes bookings where this resident was the
+   booker.
    ------------------------------------------------------------ */
-router.delete("/:id", async (req, res, next) => {
+router.delete("/:id", requireAuth, requireRole("super"), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
 
     const pool = await getPool();
-    const result = await pool.request()
-      .input("id", id)
-      .query("DELETE FROM Residents WHERE id = @id");
 
-    if (result.rowsAffected[0] === 0) {
+    const existing = await pool.request()
+      .input("id", id)
+      .query("SELECT id FROM Residents WHERE id = @id");
+    if (!existing.recordset.length) {
       return res.status(404).json({ error: "Resident not found" });
     }
+
+    // Cascade: if this resident has a vendor profile, clean its children first
+    const vendor = await pool.request()
+      .input("residentId", id)
+      .query("SELECT id FROM Providers WHERE resident_id = @residentId");
+
+    if (vendor.recordset.length) {
+      const providerId = vendor.recordset[0].id;
+      await pool.request().input("id", providerId)
+        .query("DELETE FROM Reports  WHERE provider_id = @id");
+      await pool.request().input("id", providerId)
+        .query("DELETE FROM Reviews  WHERE provider_id = @id");
+      await pool.request().input("id", providerId)
+        .query("DELETE FROM Bookings WHERE provider_id = @id");
+      await pool.request().input("id", providerId)
+        .query("DELETE FROM Providers WHERE id = @id");
+    }
+
+    // Bookings where this resident was the booker
+    await pool.request().input("residentId", id)
+      .query("DELETE FROM Bookings WHERE resident_id = @residentId");
+
+    // Finally the resident
+    await pool.request().input("id", id)
+      .query("DELETE FROM Residents WHERE id = @id");
+
     res.status(204).end();
   } catch (err) {
     next(err);

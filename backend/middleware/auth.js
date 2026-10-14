@@ -11,11 +11,15 @@ const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
 /* ------------------------------------------------------------
-   requireAuth — verifies the JWT and attaches req.user
+   requireAuth - verifies the JWT and attaches req.user
+
    Usage:
      router.get("/protected", requireAuth, (req, res) => {
        res.json({ user: req.user });
      });
+
+   On success, req.user is set to the decoded JWT payload:
+     { id, role, name|fullName, email, ... }
    ------------------------------------------------------------ */
 function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
@@ -35,7 +39,14 @@ function requireAuth(req, res, next) {
 }
 
 /* ------------------------------------------------------------
-   requireRole — allows one or more roles
+   requireRole - allows one or more roles (variadic).
+   Must be used AFTER requireAuth (so req.user exists).
+
+   Super admin is treated as a SUPERSET of admin:
+   any route that allows "admin" also allows "super" automatically.
+   This means existing calls like requireRole("admin") keep working
+   for both admins and super admins — no need to update every route.
+
    Usage:
      router.delete("/:id", requireAuth, requireRole("super-admin"), handler)
      router.post("/",     requireAuth, requireRole("resident", "vendor"), handler)
@@ -46,8 +57,15 @@ function requireAuth(req, res, next) {
      integration and maintenance.
    ------------------------------------------------------------ */
 function requireRole(...allowed) {
+  // Flatten in case an array was passed: requireRole(["admin", "super"])
+  const flat = allowed.flat();
+  const set = new Set(flat);
+
+  // Super admin automatically passes any "admin" check
+  if (set.has("admin")) set.add("super");
+
   return (req, res, next) => {
-    if (!req.user) {
+    if (!req.user || !req.user.role) {
       return res.status(401).json({ error: "Not authenticated." });
     }
 

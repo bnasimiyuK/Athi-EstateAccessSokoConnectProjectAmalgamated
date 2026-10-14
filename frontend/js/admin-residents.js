@@ -1,5 +1,5 @@
-/* ============================================================
-   admin-residents.js — Approved residents list + Excel/PDF
+﻿/* ============================================================
+   admin-residents.js - Approved residents list + Excel/PDF
    Filters: Phase (1|2) → searchable Court, both from /api/courts
    Mirrors the court-picker UX already used in residents.js
    ============================================================ */
@@ -15,7 +15,7 @@ const residentsState = {
   phase:   "",   // "1" | "2" | ""
   courtId: "",   // court id as string
 };
-console.log("[admin-residents] FILE LOADED — state initialised");
+console.log("[admin-residents] FILE LOADED - state initialised");
 /* Cache of all courts loaded once at startup */
 let ALL_COURTS     = [];   // full list from /api/courts
 let FILTERED_COURTS = [];  // subset filtered by selected phase
@@ -82,7 +82,7 @@ function enableCourtSearch(enabled) {
 
   searchEl.disabled    = !enabled;
   searchEl.placeholder = enabled
-    ? "All courts — type to search…"
+    ? "All courts - type to search…"
     : "Select a phase first…";
 }
 
@@ -245,11 +245,11 @@ async function renderApprovedResidents() {
           ${residents.map((r) => `
             <tr>
               <td>AR-${String(r.id).padStart(3, "0")}</td>
-              <td>${r.fullName || r.full_name || "—"}</td>
-              <td>${r.idNumber || r.id_number || "—"}</td>
-              <td>${r.phone || "—"}</td>
-              <td>${r.phase ? "Phase " + r.phase : "—"}</td>
-              <td>${r.courtName || (r.court && r.court.name) || "—"}</td>
+              <td>${r.fullName || r.full_name || "-"}</td>
+              <td>${r.idNumber || r.id_number || "-"}</td>
+              <td>${r.phone || "-"}</td>
+              <td>${r.phase ? "Phase " + r.phase : "-"}</td>
+              <td>${r.courtName || (r.court && r.court.name) || "-"}</td>
               <td>${r.role || "Resident"}</td>
               <td>${formatDate(r.approvedAt || r.approved_at || r.createdAt)}</td>
               <td><span class="badge badge--ok">Approved</span></td>
@@ -280,7 +280,7 @@ function renderResidentsPagination() {
                 gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;
                 border-top:1px solid var(--line);">
       <div style="font-size:0.9rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b> resident${total === 1 ? "" : "s"}
+        Showing <b>${startRow}-${endRow}</b> of <b>${total}</b> resident${total === 1 ? "" : "s"}
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn--ghost btn--small"
@@ -348,7 +348,7 @@ function setupResidentsFilterForm() {
 }
 
 /* ------------------------------------------------------------
-   6. Export — Excel + PDF (uses Api.downloadResidentsReport)
+   6. Export - Excel + PDF (uses Api.downloadResidentsReport)
    ------------------------------------------------------------ */
 async function downloadResidentsReport(kind /* "xlsx" | "pdf" */) {
   const btnId = kind === "xlsx" ? "btn-excel-residents" : "btn-pdf-residents";
@@ -400,7 +400,7 @@ function setupResidentsExportButtons() {
    7. Helpers
    ------------------------------------------------------------ */
 function formatDate(iso) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     return new Date(iso).toLocaleDateString("en-GB", {
       day:   "2-digit",
@@ -408,7 +408,7 @@ function formatDate(iso) {
       year:  "numeric",
     });
   } catch {
-    return "—";
+    return "-";
   }
 }
 console.log("[admin-residents] init block reached");

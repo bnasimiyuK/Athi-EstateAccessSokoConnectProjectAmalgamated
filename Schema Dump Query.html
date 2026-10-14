@@ -1,5 +1,5 @@
 /* ============================================================
-   Athi Soko Connect — Complete Schema Dump
+   Athi Soko Connect - Complete Schema Dump
    Lists every column of every table with full metadata:
      ordinal, identity, PK, FK, data type, size, nullability,
      default, computed, and collation.
@@ -72,6 +72,77 @@ ORDER BY t.name, c.column_id;
 
 
 
-/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////
 ServerName	DatabaseName
 Beverly	AthiSokoConnect
+
+
+////////////////////////////////////////////////////////////////////////////////////////////
+BACKUP DATABASE [AthiSokoConnect]
+TO DISK = 'C:\SQLBackups\AthiSokoConnect.bak'
+WITH FORMAT,
+     INIT,
+     NAME = 'AthiSokoConnect Full Backup';
+
+
+/////////////////////////////////////////
+RESTORE DATABASE [Athi EstateAccessSokoConnectProjectAmalgamated]
+FROM DISK = 'C:\SQLBackups\MyDatabase.bak'
+WITH
+    MOVE 'MyDatabase' 
+        TO 'C:\Program Files\Microsoft SQL Server\MSSQL\Data\Athi EstateAccessSokoConnectProjectAmalgamated.mdf',
+    MOVE 'MyDatabase_log'
+        TO 'C:\Program Files\Microsoft SQL Server\MSSQL\Data\Athi EstateAccessSokoConnectProjectAmalgamated_log.ldf',
+    RECOVERY,
+    REPLACE;
+///////////////////////////////
+
+check all html files in frontend
+Write-Host "==== Admin dropdown audit ===="
+Write-Host ""
+Write-Host ("{0,-32} {1,-8} {2,-8} {3,-8} {4,-8} {5,-10} {6}" -f "File", "Dropdown", "Dash", "Pend", "Revws", "Residents", "HN/Inv/Pay")
+Write-Host ("-" * 100)
+
+Get-ChildItem frontend\*.html | Sort-Object Name | ForEach-Object {
+    $p = $_.FullName
+    $c = Get-Content $p -Raw
+    $hasDropdown   = $c -match '<div class="nav-dropdown">'
+    $hasAdmin      = $c -match 'href="admin\.html">Dashboard'
+    $hasPending    = $c -match 'href="pending\.html">Pending'
+    $hasReviews    = $c -match 'href="admin-reviews\.html">All Reviews'
+    $hasResidents  = $c -match 'href="admin-residents\.html">Approved residents'
+    $hasNewBlock   = ($c -match 'admin-house-numbers\.html') -and ($c -match 'admin-invoices\.html') -and ($c -match 'admin-payments\.html')
+
+    Write-Host ("{0,-32} {1,-8} {2,-8} {3,-8} {4,-8} {5,-10} {6}" -f `
+        $_.Name, $hasDropdown, $hasAdmin, $hasPending, $hasReviews, $hasResidents, $hasNewBlock)
+}
+
+
+///////////////////////////////////////////////////////////////
+?? Verify the Push Succeeded
+
+git log -1 --oneline
+git log new/main -1 --oneline
+git log origin/main -1 --oneline
+
+git log -1 --oneline
+git log new/main -1 --oneline
+git status
+
+
+///////////////////////////////////////////////////////////////////////////
+
+////*All Residents payments*////
+USE AthiEstateAccessSokoConnectProjectAmalgamated;
+GO
+
+SELECT
+  r.id AS resident_id,
+  r.full_name,
+  r.house_number,
+  (SELECT COUNT(*) FROM invoices WHERE resident_id = r.id AND status = 'paid')      AS paid_inv,
+  (SELECT COUNT(*) FROM invoices WHERE resident_id = r.id AND status != 'paid')     AS unpaid_inv,
+  (SELECT COUNT(*) FROM payments  WHERE resident_id = r.id AND status = 'verified') AS verified_pmts
+FROM Residents r
+ORDER BY r.id;
+GO

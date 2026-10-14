@@ -226,7 +226,7 @@ async function populateCategorySelect() {
 }
 
 /* ------------------------------------------------------------
-   STEP 2 — Submit the vendor application
+   STEP 2 - Submit the vendor application
    ------------------------------------------------------------ */
 async function handleSubmitVendor(e) {
   e.preventDefault();

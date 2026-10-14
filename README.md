@@ -1,6 +1,6 @@
-# Athi Soko Connect
+﻿# Athi Soko Connect
 
-A full client–server prototype of the web-based home & errand
+A full client-server prototype of the web-based home & errand
 service booking platform for Athi Highway Estate: a plain
 HTML/CSS/JS frontend talking to a Node.js/Express REST API backend
 with JSON-file storage.
@@ -9,16 +9,16 @@ with JSON-file storage.
 
 ```
 athi-soko-connect/
-├── frontend/                    Static site — served by the backend
-│   ├── index.html                 Discover — search, filter, browse
+├── frontend/                    Static site - served by the backend
+│   ├── index.html                 Discover - search, filter, browse
 │   ├── provider.html               Provider profile, booking, reviews, report
 │   ├── register.html                Provider self-registration form
-│   ├── dashboard.html              Resident bookings — status tracking + reviews
+│   ├── dashboard.html              Resident bookings - status tracking + reviews
 │   ├── admin.html                  Verification queue + report review
 │   ├── css/
 │   │   └── styles.css               Shared design system
 │   └── js/
-│       ├── api.js                    Fetch wrapper — the ONLY file that talks to the backend
+│       ├── api.js                    Fetch wrapper - the ONLY file that talks to the backend
 │       ├── main.js                    Shared UI helpers (badges, stars, toast, nav)
 │       ├── home.js                     Discover page logic
 │       ├── provider.js                 Profile + booking + report logic
@@ -27,7 +27,7 @@ athi-soko-connect/
 │       └── admin.js                    Verification + report review logic
 │
 └── backend/                     Node.js / Express REST API
-    ├── server.js                  App entry point — mounts routes, serves frontend/
+    ├── server.js                  App entry point - mounts routes, serves frontend/
     ├── package.json
     ├── data/
     │   └── db.json                 Seed data + persisted state (acts as the "database")
@@ -49,7 +49,7 @@ npm install
 npm start
 ```
 
-Then open **http://localhost:3000** — the backend serves the frontend
+Then open **http://localhost:3000** - the backend serves the frontend
 files directly, so there's only one server to run and no CORS
 workarounds needed.
 
@@ -75,7 +75,7 @@ workarounds needed.
 ## Data & persistence
 
 `backend/data/db.json` is the database. `backend/utils/db.js` reads
-the whole file into memory and writes it back after each change —
+the whole file into memory and writes it back after each change -
 simple and dependency-free, good enough for a course-project
 prototype. To move to a real database later, only `utils/db.js`
 needs to change; every route handler and the entire frontend stay
@@ -95,13 +95,13 @@ the same, since they only ever call `readDB()`/`writeDB()` or `Api.*`.
 
 ## Out of scope (matches the project boundaries)
 
-- No online payment — booking only requests a service; payment is
+- No online payment - booking only requests a service; payment is
   arranged directly between resident and provider.
 - No delivery/courier tracking.
 - No dispute resolution beyond logging a report for admin review.
 - No integration with the AHE Access Management System.
-- Web only — no native mobile app.
-- No authentication yet — bookings/reports aren't tied to a signed-in
+- Web only - no native mobile app.
+- No authentication yet - bookings/reports aren't tied to a signed-in
   resident. Adding login (e.g. a `users` collection + session/JWT
   middleware in `backend/`) is a natural next step before real
   deployment, noted here rather than built, to keep the prototype
@@ -111,6 +111,6 @@ the same, since they only ever call `readDB()`/`writeDB()` or `Api.*`.
 
 Palette and type are deliberately not a generic SaaS look: ink-navy
 structure, an ochre accent reserved for booking/CTA actions, teal for
-verification, and a warm paper background — closer to a noticeable
+verification, and a warm paper background - closer to a noticeable
 estate noticeboard than a template dashboard. Headings use Fraunces
 (serif, loaded from Google Fonts); UI text uses Inter.

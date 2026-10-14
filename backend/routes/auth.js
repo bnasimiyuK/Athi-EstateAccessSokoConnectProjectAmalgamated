@@ -41,7 +41,7 @@ function signToken(user) {
   );
 }
 
-/* ------------------------------------------------------------
+/* ============================================================
    POST /api/auth/login
    Body: { role, identifier, password }
    ------------------------------------------------------------ */
@@ -150,7 +150,7 @@ router.post("/login", async (req, res, next) => {
 
         if (!row.password_hash) {
           return res.status(403).json({
-            error: "No password set for this account. Please contact the admin.",
+            error: "No password set for this account. Please sign in with Google or contact the admin.",
           });
         }
 
@@ -266,7 +266,7 @@ router.post("/register-resident", async (req, res, next) => {
 
     if (!fullName || !phone || !courtId || !password) {
       return res.status(400).json({
-        error: "fullName, phone, courtId, and password are required.",
+        error: "fullName, phone, and courtId are required.",
       });
     }
 
@@ -444,7 +444,7 @@ router.get("/me", requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 
-/* ------------------------------------------------------------
+/* ============================================================
    POST /api/auth/change-password
    ------------------------------------------------------------ */
 router.post("/change-password", requireAuth, async (req, res, next) => {
@@ -490,6 +490,12 @@ router.post("/change-password", requireAuth, async (req, res, next) => {
 
     if (!row.recordset.length) {
       return res.status(404).json({ error: "Account not found." });
+    }
+
+    if (!row.recordset[0].hash) {
+      return res.status(400).json({
+        error: "This account has no password set (Google-only). Please set a password from your profile page.",
+      });
     }
 
     const ok = await bcrypt.compare(currentPassword, row.recordset[0].hash);
