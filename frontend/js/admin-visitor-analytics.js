@@ -84,6 +84,7 @@ async function loadAnalytics() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   if (typeof requireRole === "function" && !requireRole("admin", "security", "super-admin")) return;
 
   const now = new Date();

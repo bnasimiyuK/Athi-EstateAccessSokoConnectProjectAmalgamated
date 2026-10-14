@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    admin-residents.js - Approved residents list + Excel/PDF
    Filters: Phase (1|2) → searchable Court, both from /api/courts
    Mirrors the court-picker UX already used in residents.js
@@ -416,6 +416,7 @@ console.log("[admin-residents] init block reached");
    8. Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   if (typeof requireRole === "function" &&
     !requireRole("admin", "super-admin")) return;
 

@@ -1,6 +1,6 @@
 /* ============================================================
-   admin-house-numbers.js — assign {CourtName}-{A|B}{NN}
-   Dropdown-based, with 15 houses per side (A01–A15, B01–B15).
+   admin-house-numbers.js â€” assign {CourtName}-{A|B}{NN}
+   Dropdown-based, with 15 houses per side (A01â€“A15, B01â€“B15).
    ============================================================ */
 
 const HN_PER_PAGE = 20;
@@ -14,7 +14,7 @@ const hnState = {
 let HN_ALL_COURTS = [];
 let HN_FILTERED_COURTS = [];
 let HN_COURT_NAMES = new Map();
-let HN_ASSIGNED = new Map();      // houseNumber → residentId
+let HN_ASSIGNED = new Map();      // houseNumber â†’ residentId
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -81,7 +81,7 @@ function enableHNCourtSearch(enabled) {
   const s = document.getElementById("filter-court-search");
   if (!s) return;
   s.disabled = !enabled;
-  s.placeholder = enabled ? "All courts - type to search…" : "Select phase first…";
+  s.placeholder = enabled ? "All courts - type to searchâ€¦" : "Select phase firstâ€¦";
 }
 
 function clearHNCourtSelection() {
@@ -186,7 +186,7 @@ function houseSelectHtml(resident) {
 
   return `
     <select class="input hn-select" data-id="${resident.id}" style="min-width:220px;">
-      <option value="">— select —</option>
+      <option value="">â€” select â€”</option>
       ${opts}
     </select>
   `;
@@ -198,7 +198,7 @@ function houseSelectHtml(resident) {
 async function loadHNResidents() {
   const wrap = document.getElementById("hn-table-wrap");
   if (!wrap) return;
-  wrap.innerHTML = `<div class="empty-state">Loading residents…</div>`;
+  wrap.innerHTML = `<div class="empty-state">Loading residentsâ€¦</div>`;
 
   let result;
   try {
@@ -273,7 +273,7 @@ async function saveHN(id, btn) {
 
   const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "Saving…";
+  btn.textContent = "Savingâ€¦";
 
   try {
     await Api.setResidentHouseNumber(id, value);
@@ -305,9 +305,9 @@ function renderHNPagination() {
         Showing <b>${startRow}-${endRow}</b> of <b>${total}</b>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn btn--ghost btn--small" data-hn-page="prev" ${page <= 1 ? "disabled" : ""}>« Prev</button>
+        <button class="btn btn--ghost btn--small" data-hn-page="prev" ${page <= 1 ? "disabled" : ""}>Â« Prev</button>
         <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">Page <b>${page}</b> of <b>${totalPages}</b></span>
-        <button class="btn btn--ghost btn--small" data-hn-page="next" ${page >= totalPages ? "disabled" : ""}>Next »</button>
+        <button class="btn btn--ghost btn--small" data-hn-page="next" ${page >= totalPages ? "disabled" : ""}>Next Â»</button>
       </div>
     </div>
   `;
@@ -371,11 +371,11 @@ async function uploadCSV(file) {
     await loadHNResidents();
 
     const summary = [
-      `✅ Assigned: ${result.ok}`,
-      result.notFound.length  ? `⚠️ Phone not found: ${result.notFound.length}` : "",
-      result.invalid.length   ? `❌ Invalid: ${result.invalid.length}`          : "",
-      result.duplicate.length ? `🔁 Duplicates: ${result.duplicate.length}`    : "",
-    ].filter(Boolean).join(" · ");
+      `âœ… Assigned: ${result.ok}`,
+      result.notFound.length  ? `âš ï¸ Phone not found: ${result.notFound.length}` : "",
+      result.invalid.length   ? `âŒ Invalid: ${result.invalid.length}`          : "",
+      result.duplicate.length ? `ðŸ” Duplicates: ${result.duplicate.length}`    : "",
+    ].filter(Boolean).join(" Â· ");
 
     toast(summary);
   } catch (err) {
@@ -387,6 +387,7 @@ async function uploadCSV(file) {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   if (typeof requireRole === "function" &&
     !requireRole("admin", "super-admin")) return;
 
@@ -450,7 +451,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderHNCourtList(e.target.value);
   });
 
-  // Click outside the court search → hide dropdown
+  // Click outside the court search â†’ hide dropdown
   document.addEventListener("click", (e) => {
     if (!e.target.closest("#filter-court-search") && !e.target.closest("#filter-court-list")) {
       const l = document.getElementById("filter-court-list");
@@ -461,7 +462,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Download CSV template
   on("btn-download-template", "click", downloadCSVTemplate);
 
-  // Upload CSV — click the hidden input
+  // Upload CSV â€” click the hidden input
   on("btn-upload-csv", "click", () => {
     const input = document.getElementById("csv-input");
     if (input) input.click();

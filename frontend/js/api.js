@@ -13,7 +13,7 @@
       already in the list.
 
    🔧 To force a specific IP (skip auto-discovery), set FORCE_LAN_IP
-      to a string like "192.168.51.220". Set to null to use discovery.
+      to a string like "192.168.100.5". Set to null to use discovery.
    ============================================================ */
 
 /* ------------------------------------------------------------
@@ -25,8 +25,8 @@ const BACKEND_PORT = 4050;
    2s timeout per probe, all probes run in parallel. The first
    one to respond wins. */
 const LAN_IP_CANDIDATES = [
-  "192.168.51.220",   /* PC's current IP on Ethernet 3 */
-  "192.168.100.5",    /* old Wi-Fi network */
+  "192.168.100.5",    /* PC on Wi-Fi — current */
+  "192.168.51.220",   /* PC on Ethernet 3 — previous */
   "192.168.100.6",
   "192.168.100.7",
   "192.168.100.8",
@@ -40,15 +40,14 @@ const LAN_IP_CANDIDATES = [
   "192.168.100.50",
   "192.168.0.100",
   "192.168.1.100",
-  "192.168.51.1",     /* possible gateway on current net */
+  "192.168.51.1",
   "192.168.51.100",
-  "10.0.2.2",         /* Android emulator host alias */
-  "10.0.3.2",         /* Genymotion host alias */
+  "10.0.2.2",
+  "10.0.3.2",
 ];
 
 /* Force a specific IP? null = use auto-discovery. */
-const FORCE_LAN_IP = null;   // e.g. "192.168.51.220" to pin it
-
+const FORCE_LAN_IP = null;   // e.g. "192.168.100.5" to pin it
 
 /* ------------------------------------------------------------
    Detect if we're running inside the Capacitor mobile shell
@@ -160,7 +159,6 @@ window.discoverApiBase = function () {
 /* Kick off discovery immediately. */
 window.discoverApiBase();
 
-
 /* ------------------------------------------------------------
    Debug flag — set to false once things are stable
    ------------------------------------------------------------ */
@@ -237,16 +235,7 @@ async function request(url, options = {}) {
     throw err;
   }
 
-  if (!res.ok) {
-    let message = `Request failed (${res.status})`;
-    try {
-      const body = await res.json();
-      if (body.error) message = body.error;
-    } catch { /* no JSON body */ }
-    throw new Error(message);
-  }
-
-  // ---- Success paths ----
+  // ---- Success ----
   if (res.ok) {
     if (res.status === 204) return null;
     const ct = res.headers.get("content-type") || "";
@@ -254,7 +243,7 @@ async function request(url, options = {}) {
     return res.json();
   }
 
-  // ---- Error paths ----
+  // ---- Error ----
   let message = `Request failed (${res.status})`;
   let bodyText = "";
   try {
@@ -303,11 +292,7 @@ async function request(url, options = {}) {
       `  Token valid: ${status.ok ? "yes" : "no (" + status.reason + ")"}\n` +
       `  → Check the backend's requireRole() on this route.`
     );
-    message =
-      "You do not have permission for this action. " +
-      (role === "super"
-        ? "The backend may be rejecting 'super' on this route — check requireRole()."
-        : "");
+    message = "You do not have permission for this action.";
     const err = new Error(message);
     err.status = 403;
     throw err;
@@ -335,40 +320,6 @@ function qsOf(params = {}) {
   );
   const qs = new URLSearchParams(clean).toString();
   return qs ? "?" + qs : "";
-}
-
-/* ------------------------------------------------------------
-   Helper: download a blob with auth
-   ------------------------------------------------------------ */
-async function downloadBlob(url) {
-  const token = typeof getToken === "function" ? getToken() : null;
-  if (!token) throw new Error("Not logged in.");
-
-  let res;
-  try {
-    res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  } catch (netErr) {
-    console.error("[api] blob network error:", netErr, { url });
-    throw new Error("Network error. Check that the API server is reachable.");
-  }
-
-  if (res.status === 401) {
-    if (typeof logout === "function") setTimeout(() => logout(), 50);
-    throw new Error("Session expired. Please log in again.");
-  }
-  if (res.status === 403) {
-    const status = apiTokenStatus();
-    const role = status.payload?.role || "unknown";
-    console.error(
-      `[api] 403 on download ${url}\n  Your role: ${role}\n  ` +
-      `→ The backend requireRole() may not accept 'super'.`
-    );
-    throw new Error("You do not have permission to download this file.");
-  }
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
-  }
-  return res.blob();
 }
 
 /* ------------------------------------------------------------
@@ -411,19 +362,19 @@ const Api = {
 
   /* ---------- Announcements ---------- */
   getAnnouncements: (params = {}) =>
-    request(`${API_BASE}/announcements${qsOf(params)}`),
+    request(`${apiBase()}/announcements${qsOf(params)}`),
 
   createAnnouncement: (payload) =>
-    request(`${API_BASE}/announcements`, {
+    request(`${apiBase()}/announcements`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   deleteAnnouncement: (id) =>
-    request(`${API_BASE}/announcements/${id}`, { method: "DELETE" }),
+    request(`${apiBase()}/announcements/${id}`, { method: "DELETE" }),
 
   updateAnnouncement: (id, patch) =>
-    request(`${API_BASE}/announcements/${id}`, {
+    request(`${apiBase()}/announcements/${id}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
@@ -510,6 +461,9 @@ const Api = {
 
   /* ---------- Admin exports ---------- */
   downloadResidentsReport: async (kind, params = {}) => {
+    const token = typeof getToken === "function" ? getToken() : null;
+    if (!token) throw new Error("Not logged in.");
+
     const qs = new URLSearchParams(
       Object.fromEntries(
         Object.entries({ verified: "true", ...params }).filter(
@@ -531,6 +485,9 @@ const Api = {
   },
 
   downloadProvidersReport: async (kind, params = {}) => {
+    const token = typeof getToken === "function" ? getToken() : null;
+    if (!token) throw new Error("Not logged in.");
+
     const qs = new URLSearchParams(
       Object.fromEntries(
         Object.entries(params).filter(
@@ -583,6 +540,7 @@ const Api = {
       method: "POST",
       body: JSON.stringify({ month }),
     }),
+
   markInvoicesOverdue: () =>
     request(`${apiBase()}/invoices/mark-overdue`, { method: "POST" }),
 
@@ -606,6 +564,7 @@ const Api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
   verifyPayment: (id) =>
     request(`${apiBase()}/payments/${id}/verify`, { method: "POST" }),
 
@@ -659,6 +618,7 @@ const Api = {
       method: "PATCH",
       body: JSON.stringify({ houseNumber }),
     }),
+
   bulkAssignHouseNumbers: (rows) =>
     request(`${apiBase()}/house-numbers/bulk`, {
       method: "POST",

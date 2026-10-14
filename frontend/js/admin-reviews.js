@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    admin-reviews.js - Admin view for all platform reviews
    With server-side pagination
    ============================================================ */
@@ -231,6 +231,7 @@ async function deleteReview(reviewId) {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   if (typeof requireRole === "function" &&
     !requireRole("admin", "super-admin")) return;
 

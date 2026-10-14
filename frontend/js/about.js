@@ -1,8 +1,8 @@
 /* ============================================================
    js/about.js — About AHE page interactions
-   - Smooth scroll to section anchors
-   - Scroll-spy: highlight the section currently in view
-   - Deep-link handling: scroll to hash on page load
+   - Autoplay the hero background video
+   - Full-name validation on the contact form (letters only)
+   - Live feedback while typing
    ============================================================ */
 
 (function () {
@@ -17,84 +17,87 @@
   }
 
   ready(function () {
-    const links    = document.querySelectorAll(".about-nav-link");
-    const sections = Array.from(document.querySelectorAll(".about-section"));
 
-    if (!links.length || !sections.length) return;
-
-    /* ---------- Smooth scroll on nav click ---------- */
-    links.forEach(function (link) {
-      link.addEventListener("click", function (e) {
-        const href = link.getAttribute("href") || "";
-        if (!href.startsWith("#")) return;
-
-        const id     = href.slice(1);
-        const target = document.getElementById(id);
-        if (!target) return;
-
-        e.preventDefault();
-
-        // Offset for the sticky sub-nav
-        const offset = 72;
-        const top    = target.getBoundingClientRect().top + window.scrollY - offset;
-
-        window.scrollTo({ top: top, behavior: "smooth" });
-
-        // Update the URL hash without jumping
-        if (history.replaceState) {
-          history.replaceState(null, "", "#" + id);
-        } else {
-          window.location.hash = id;
-        }
+    /* ---------- 1. Autoplay the hero video ---------- */
+    document.querySelectorAll("video.vp-hero_bg").forEach(function (v) {
+      v.play().catch(function () {
+        /* Some browsers block autoplay; poster will show instead */
       });
     });
 
-    /* ---------- Scroll-spy: highlight active section ---------- */
-    let ticking = false;
+    /* ---------- 2. Contact form validation ---------- */
+    const form      = document.getElementById("contact-form");
+    const nameInput = document.getElementById("contact-name");
+    const nameError = document.getElementById("contact-name-error");
 
-    function updateActive() {
-      const fromTop = window.scrollY + 90;
-      let currentId = sections[0] ? sections[0].id : null;
+    if (!form || !nameInput) return;
 
-      for (let i = 0; i < sections.length; i++) {
-        const s = sections[i];
-        if (s.offsetTop <= fromTop) {
-          currentId = s.id;
-        } else {
-          break;
-        }
-      }
+    // Letters, spaces, apostrophes, hyphens only. Must start with a letter.
+    const NAME_REGEX = /^[A-Za-z][A-Za-z '\-]*$/;
 
-      links.forEach(function (l) {
-        const matches = l.getAttribute("href") === "#" + currentId;
-        l.classList.toggle("is-active", matches);
-      });
+    function showError(msg) {
+      if (!nameError) return;
+      nameError.textContent = msg;
+      nameError.hidden = false;
+      nameInput.classList.add("is-invalid");
     }
 
-    window.addEventListener("scroll", function () {
-      if (ticking) return;
-      ticking = true;
-      window.requestAnimationFrame(function () {
-        updateActive();
-        ticking = false;
-      });
-    }, { passive: true });
-
-    /* ---------- Deep link on page load ---------- */
-    if (window.location.hash) {
-      const id     = window.location.hash.slice(1);
-      const target = document.getElementById(id);
-      if (target) {
-        // Delay slightly so fonts / layout settle
-        setTimeout(function () {
-          const offset = 72;
-          const top    = target.getBoundingClientRect().top + window.scrollY - offset;
-          window.scrollTo({ top: top, behavior: "auto" });
-        }, 100);
-      }
+    function clearError() {
+      if (!nameError) return;
+      nameError.hidden = true;
+      nameError.textContent = "";
+      nameInput.classList.remove("is-invalid");
     }
 
-    // Initial highlight
-    updateActive();
+    // Live validation as the user types
+    nameInput.addEventListener("input", function () {
+      const v = nameInput.value;
+
+      if (!v) { clearError(); return; }
+
+      if (v.length < 2) {
+        showError("Name must be at least 2 characters.");
+      } else if (!NAME_REGEX.test(v)) {
+        showError("Name can only contain letters, spaces, apostrophes and hyphens.");
+      } else {
+        clearError();
+      }
+    });
+
+    // Block invalid characters from being typed at all
+    nameInput.addEventListener("keypress", function (e) {
+      const ch = e.key;
+      if (ch.length === 1 && !/[A-Za-z '\-]/.test(ch)) {
+        e.preventDefault();
+      }
+    });
+
+    // Validate on form submit
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const v = nameInput.value.trim();
+
+      if (!v) {
+        showError("Please enter your full name.");
+        nameInput.focus();
+        return;
+      }
+      if (v.length < 2) {
+        showError("Name must be at least 2 characters.");
+        nameInput.focus();
+        return;
+      }
+      if (!NAME_REGEX.test(v)) {
+        showError("Name can only contain letters, spaces, apostrophes and hyphens.");
+        nameInput.focus();
+        return;
+      }
+
+      // ✅ Valid
+      clearError();
+      alert("Thanks " + v + "! Your message has been noted. In a live deploy, this would email AHE.");
+      form.reset();
+    });
   });
 })();

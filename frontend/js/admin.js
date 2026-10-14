@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    admin.js — Estate admin dashboard
    Tabs: verification queue · all vendors · all residents · reports
    Shell: sidebar (side-rail). Auth chip rendered into #side-rail-auth.
@@ -1166,6 +1166,7 @@ function setupExportButtons() {
    Init
    ============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   if (typeof requireRole === "function" &&
     !requireRole("admin", "super-admin")) return;
 

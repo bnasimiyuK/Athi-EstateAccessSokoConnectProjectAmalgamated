@@ -1,5 +1,5 @@
 /* ============================================================
-   admin-invoices.js — list, generate, mark overdue,
+   admin-invoices.js â€” list, generate, mark overdue,
                        per-row actions + bulk select (hybrid)
    ============================================================ */
 
@@ -31,7 +31,7 @@ function statusBadge(status) {
    ------------------------------------------------------------ */
 function renderInvoiceActions(inv) {
   if (inv.status === "paid") {
-    return `<span style="font-size:0.8rem;color:var(--ink-70);">—</span>`;
+    return `<span style="font-size:0.8rem;color:var(--ink-70);">â€”</span>`;
   }
 
   const btns = [];
@@ -39,21 +39,21 @@ function renderInvoiceActions(inv) {
   if (inv.status !== "exempt") {
     btns.push(`<button class="btn btn--ghost btn--small"
                        data-inv-exempt="${inv.id}"
-                       title="Exempt this invoice (valid reason)">🔓</button>`);
+                       title="Exempt this invoice (valid reason)">ðŸ”“</button>`);
   } else {
     btns.push(`<button class="btn btn--ghost btn--small"
                        data-inv-restore="${inv.id}"
-                       title="Restore to unpaid">↺</button>`);
+                       title="Restore to unpaid">â†º</button>`);
   }
 
   if (inv.status !== "overdue") {
     btns.push(`<button class="btn btn--danger btn--small"
                        data-inv-overdue="${inv.id}"
-                       title="Mark this invoice overdue">⚠️</button>`);
+                       title="Mark this invoice overdue">âš ï¸</button>`);
   } else {
     btns.push(`<button class="btn btn--ghost btn--small"
                        data-inv-restore="${inv.id}"
-                       title="Restore to unpaid">↺</button>`);
+                       title="Restore to unpaid">â†º</button>`);
   }
 
   return btns.join(" ");
@@ -69,9 +69,9 @@ async function setInvoiceStatus(id, status) {
   try {
     await Api.setInvoiceStatus(id, status, reason);
     toast(
-      status === "exempt"  ? "🔓 Marked as exempt."  :
-      status === "overdue" ? "⚠️ Marked as overdue." :
-                             "↺ Restored to unpaid."
+      status === "exempt"  ? "ðŸ”“ Marked as exempt."  :
+      status === "overdue" ? "âš ï¸ Marked as overdue." :
+                             "â†º Restored to unpaid."
     );
     await loadINVSummary();
     await loadINVInvoices();
@@ -119,9 +119,9 @@ async function bulkApplyStatus(status) {
   try {
     const r = await Api.bulkSetInvoiceStatus(ids, status, reason);
     toast(
-      status === "exempt"  ? `🔓 ${r.updated} invoice(s) marked exempt.`  :
-      status === "overdue" ? `⚠️ ${r.updated} invoice(s) marked overdue.` :
-                             `↺ ${r.updated} invoice(s) restored.`
+      status === "exempt"  ? `ðŸ”“ ${r.updated} invoice(s) marked exempt.`  :
+      status === "overdue" ? `âš ï¸ ${r.updated} invoice(s) marked overdue.` :
+                             `â†º ${r.updated} invoice(s) restored.`
     );
     await loadINVSummary();
     await loadINVInvoices();
@@ -156,7 +156,7 @@ async function loadINVSummary() {
    ------------------------------------------------------------ */
 async function loadINVInvoices() {
   const wrap = document.getElementById("invoices-table-wrap");
-  wrap.innerHTML = `<div class="empty-state">Loading invoices…</div>`;
+  wrap.innerHTML = `<div class="empty-state">Loading invoicesâ€¦</div>`;
 
   let result;
   try {
@@ -212,7 +212,7 @@ async function loadINVInvoices() {
             </td>
             <td><b>${escapeHtml(i.billingMonth)}</b></td>
             <td>${escapeHtml(i.houseNumber)}</td>
-            <td>${escapeHtml(i.residentName || "—")}<br><small style="color:var(--ink-70);">${escapeHtml(i.phone || "")}</small></td>
+            <td>${escapeHtml(i.residentName || "â€”")}<br><small style="color:var(--ink-70);">${escapeHtml(i.phone || "")}</small></td>
             <td>${Number(i.amountDue).toLocaleString()}</td>
             <td>${Number(i.amountPaid).toLocaleString()}</td>
             <td>${Number(i.balance).toLocaleString()}</td>
@@ -260,12 +260,12 @@ function renderINVPagination() {
   el.innerHTML = `
     <div class="pagination" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;border-top:1px solid var(--line);">
       <div style="font-size:0.9rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        Showing <b>${startRow}â€“${endRow}</b> of <b>${total}</b>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn btn--ghost btn--small" data-inv-page="prev" ${page <= 1 ? "disabled" : ""}>« Prev</button>
+        <button class="btn btn--ghost btn--small" data-inv-page="prev" ${page <= 1 ? "disabled" : ""}>Â« Prev</button>
         <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">Page <b>${page}</b> of <b>${totalPages}</b></span>
-        <button class="btn btn--ghost btn--small" data-inv-page="next" ${page >= totalPages ? "disabled" : ""}>Next »</button>
+        <button class="btn btn--ghost btn--small" data-inv-page="next" ${page >= totalPages ? "disabled" : ""}>Next Â»</button>
       </div>
     </div>
   `;
@@ -283,6 +283,7 @@ function renderINVPagination() {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   if (typeof requireRole === "function" &&
     !requireRole("admin", "super-admin")) return;
 
@@ -323,7 +324,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       const r = await Api.generateInvoices(month);
-      toast(`✅ Created: ${r.created} · Skipped: ${r.skipped} · Eligible: ${r.eligible}`);
+      toast(`âœ… Created: ${r.created} Â· Skipped: ${r.skipped} Â· Eligible: ${r.eligible}`);
       await loadINVSummary();
       await loadINVInvoices();
     } catch (err) {
@@ -335,7 +336,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!confirm("Mark all past-due invoices as overdue?\n\nThis also blocks access for residents with overdue balances.")) return;
     try {
       const r = await Api.markInvoicesOverdue();
-      toast(`✅ Marked overdue: ${r.updated} invoice(s)`);
+      toast(`âœ… Marked overdue: ${r.updated} invoice(s)`);
       await loadINVSummary();
       await loadINVInvoices();
     } catch (err) {

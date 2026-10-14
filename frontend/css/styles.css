@@ -7043,3 +7043,101 @@ img, iframe, video {
     display: none;
   }
 }
+/* ============================================================
+   DRAWER SIDEBAR — hides on all screen sizes by default,
+   slides in when .is-open, closes on link click.
+   Content takes the full width.
+   ============================================================ */
+
+/* Content fills the whole viewport at every screen size */
+body.has-sidebar {
+  padding-left: 0 !important;
+}
+
+/* Sidebar: off-screen by default on ALL widths */
+.side-rail {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  width: 260px !important;
+  min-width: 260px !important;
+  max-width: 260px !important;
+  transform: translateX(-100%) !important;
+  transition: transform 0.25s ease !important;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15) !important;
+  z-index: 51 !important;
+}
+
+/* Open state */
+.side-rail.is-open {
+  transform: translateX(0) !important;
+}
+
+/* Hamburger: always visible */
+.side-rail__toggle {
+  display: inline-flex !important;
+  position: fixed !important;
+  top: 14px !important;
+  left: 14px !important;
+  z-index: 9999 !important;
+  width: 48px !important;
+  height: 48px !important;
+  padding: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #16233f !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  font-size: 1.15rem !important;
+  box-shadow: 0 4px 12px rgba(22, 35, 63, 0.25) !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Backdrop: full-screen dim when drawer is open */
+.side-rail__backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 35, 63, 0.45);
+  z-index: 49;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.side-rail__backdrop.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  display: block;
+}
+
+/* Content column uses the full width */
+.side-rail__content {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+}
+
+.side-rail__content .container.dx-main {
+  max-width: 1500px !important;
+  margin: 0 auto !important;
+  padding-left: 32px !important;
+  padding-right: 32px !important;
+}
+
+/* Give the topbar room for the hamburger */
+.side-rail__topbar {
+  padding-left: 76px !important;
+}
+
+/* On mobile, keep the same behavior */
+@media (max-width: 900px) {
+  .side-rail__content .container.dx-main {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}

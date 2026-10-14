@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    admin-providers.js - All providers list + Excel/PDF
    Mirrors admin-residents.js: Phase → searchable Court, plus
    status (verified) and free-text search.
@@ -395,6 +395,7 @@ function setupProvidersExportButtons() {
    7. Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   if (typeof requireRole === "function" &&
     !requireRole("admin", "super-admin")) return;
 

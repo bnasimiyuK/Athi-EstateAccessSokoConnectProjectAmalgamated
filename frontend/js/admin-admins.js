@@ -1,8 +1,9 @@
-﻿/* ============================================================
+/* ============================================================
    admin-admins.js - super-admin page: manage other admins
    ============================================================ */
 
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   /* Guard: must be logged in */
   if (typeof requireLogin === "function" && !requireLogin()) return;
 

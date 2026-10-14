@@ -1,5 +1,5 @@
 /* ============================================================
-   admin-payments.js — pending queue + manual entry
+   admin-payments.js â€” pending queue + manual entry
    Adds a "Purpose" column and a Type filter.
    ============================================================ */
 
@@ -21,7 +21,7 @@ function typeLabel(t) {
     AHEWA_REG:   "AHEWA registration",
     SERVICE:     "Monthly service",
     AHEWA_EVENT: "AHEWA event",
-  }[t] || (t || "—");
+  }[t] || (t || "â€”");
 }
 
 function typeBadge(t) {
@@ -62,7 +62,7 @@ async function loadPaySummary() {
 
 async function loadPayPayments() {
   const wrap = document.getElementById("payments-table-wrap");
-  wrap.innerHTML = `<div class="empty-state">Loading payments…</div>`;
+  wrap.innerHTML = `<div class="empty-state">Loading paymentsâ€¦</div>`;
 
   let result;
   try {
@@ -102,16 +102,16 @@ async function loadPayPayments() {
           <tr data-id="${p.id}">
             <td>${escapeHtml(String(p.paymentDate).slice(0, 10))}</td>
             <td>${escapeHtml(p.houseNumber)}</td>
-            <td>${escapeHtml(p.residentName || "—")}</td>
+            <td>${escapeHtml(p.residentName || "â€”")}</td>
             <td>${typeBadge(p.type)}</td>
             <td>KSh ${Number(p.amount).toLocaleString()}</td>
-            <td>${escapeHtml(p.mpesaReceipt || "—")}</td>
-            <td>${escapeHtml(p.invoiceMonth || "—")}</td>
+            <td>${escapeHtml(p.mpesaReceipt || "â€”")}</td>
+            <td>${escapeHtml(p.invoiceMonth || "â€”")}</td>
             <td>${payStatusBadge(p.status)}</td>
             <td>
               ${p.status === "pending" ? `
-                <button class="btn btn--accent btn--small" data-verify="${p.id}">✓ Verify</button>
-                <button class="btn btn--danger btn--small" data-reject="${p.id}">✕ Reject</button>
+                <button class="btn btn--accent btn--small" data-verify="${p.id}">âœ“ Verify</button>
+                <button class="btn btn--danger btn--small" data-reject="${p.id}">âœ• Reject</button>
               ` : `<span class="meta" style="font-size:0.8rem;color:var(--ink-70);">${escapeHtml(p.status)}</span>`}
             </td>
           </tr>
@@ -166,12 +166,12 @@ function renderPayPagination() {
   el.innerHTML = `
     <div class="pagination" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;border-top:1px solid var(--line);">
       <div style="font-size:0.9rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        Showing <b>${startRow}â€“${endRow}</b> of <b>${total}</b>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn btn--ghost btn--small" data-pay-page="prev" ${page <= 1 ? "disabled" : ""}>« Prev</button>
+        <button class="btn btn--ghost btn--small" data-pay-page="prev" ${page <= 1 ? "disabled" : ""}>Â« Prev</button>
         <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">Page <b>${page}</b> of <b>${totalPages}</b></span>
-        <button class="btn btn--ghost btn--small" data-pay-page="next" ${page >= totalPages ? "disabled" : ""}>Next »</button>
+        <button class="btn btn--ghost btn--small" data-pay-page="next" ${page >= totalPages ? "disabled" : ""}>Next Â»</button>
       </div>
     </div>
   `;
@@ -186,6 +186,7 @@ function renderPayPagination() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   if (typeof requireRole === "function" &&
     !requireRole("admin", "super-admin")) return;
 
@@ -230,7 +231,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("manual-payment-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = document.getElementById("mp-submit");
-    btn.disabled = true; btn.textContent = "Saving…";
+    btn.disabled = true; btn.textContent = "Savingâ€¦";
 
     try {
       await Api.recordManualPayment({

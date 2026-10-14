@@ -1,5 +1,5 @@
 /* ============================================================
-   admin-visitors.js — admin stage-1 approval + bulk actions
+   admin-visitors.js â€” admin stage-1 approval + bulk actions
    - Paginated pending list
    - Checkbox selection across pages
    - Bulk approve / bulk deny (max 200)
@@ -40,7 +40,7 @@ function escapeHtml(s) {
 function fmtDate(s) {
   return s
     ? new Date(s).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })
-    : "—";
+    : "â€”";
 }
 
 function statusBadge(s) {
@@ -128,7 +128,7 @@ async function loadPending(page) {
 
   const el = $("pending-list");
   if (!el) return;
-  el.innerHTML = `<div class="empty-state">Loading…</div>`;
+  el.innerHTML = `<div class="empty-state">Loadingâ€¦</div>`;
 
   const myId = ++_pendingReqId;
 
@@ -146,7 +146,7 @@ async function loadPending(page) {
     return;
   }
 
-  if (myId !== _pendingReqId) return; // stale response — a newer request is in-flight
+  if (myId !== _pendingReqId) return; // stale response â€” a newer request is in-flight
 
   avState.rows       = result.data || [];
   avState.total      = result.total || 0;
@@ -192,7 +192,7 @@ async function loadPending(page) {
               <td>${escapeHtml(g.house_number)}</td>
               <td>${escapeHtml(g.resident_name)}<br><small>${escapeHtml(g.resident_phone)}</small></td>
               <td>${g.headcount}</td>
-              <td>${escapeHtml(g.purpose || "—")}</td>
+              <td>${escapeHtml(g.purpose || "â€”")}</td>
               <td class="row-actions">
                 <button class="btn btn--accent btn--small" data-approve="${g.id}">Approve</button>
                 <button class="btn btn--danger btn--small" data-deny="${g.id}">Deny</button>
@@ -257,15 +257,15 @@ function renderPendingPagination() {
   el.innerHTML = `
     <div class="pagination" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;border-top:1px solid var(--line);">
       <div style="font-size:0.9rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        Showing <b>${startRow}â€“${endRow}</b> of <b>${total}</b>
         ${avState.selected.size ? `<span style="margin-left:12px;color:var(--ochre);font-weight:600;">
-          · ${avState.selected.size} selected
+          Â· ${avState.selected.size} selected
         </span>` : ""}
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn btn--ghost btn--small" data-pg="prev" ${page <= 1 ? "disabled" : ""}>« Prev</button>
+        <button class="btn btn--ghost btn--small" data-pg="prev" ${page <= 1 ? "disabled" : ""}>Â« Prev</button>
         <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">Page <b>${page}</b> of <b>${totalPages}</b></span>
-        <button class="btn btn--ghost btn--small" data-pg="next" ${page >= totalPages ? "disabled" : ""}>Next »</button>
+        <button class="btn btn--ghost btn--small" data-pg="next" ${page >= totalPages ? "disabled" : ""}>Next Â»</button>
       </div>
     </div>
   `;
@@ -285,10 +285,10 @@ async function approveOne(id, btn) {
   if (!confirm("Approve this visit at stage 1?\n\nSecurity will still need to approve at stage 2.")) return;
 
   const old = btn.textContent;
-  btn.disabled = true; btn.textContent = "Approving…";
+  btn.disabled = true; btn.textContent = "Approvingâ€¦";
   try {
     await Api.approveVisitorAdmin(id);
-    safeToast("✅ Stage-1 approved. Waiting for security.");
+    safeToast("âœ… Stage-1 approved. Waiting for security.");
     avState.selected.delete(String(id));
     avState.allTab.details.delete(Number(id));
     await refreshAll();
@@ -330,11 +330,11 @@ async function bulkApproveSelected() {
 
   const btn = $("bulk-approve-btn");
   const old = btn ? btn.textContent : "";
-  if (btn) { btn.disabled = true; btn.textContent = "Approving…"; }
+  if (btn) { btn.disabled = true; btn.textContent = "Approvingâ€¦"; }
 
   try {
     const r = await Api.bulkApproveAdmin(ids);
-    safeToast(`✅ Approved: ${r.ok} · Failed: ${r.failed}`);
+    safeToast(`âœ… Approved: ${r.ok} Â· Failed: ${r.failed}`);
     if (r.failed > 0) console.warn("[bulk-approve] failures:", r.failures);
 
     avState.selected.clear();
@@ -364,11 +364,11 @@ async function bulkDenySelected() {
 
   const btn = $("bulk-deny-btn");
   const old = btn ? btn.textContent : "";
-  if (btn) { btn.disabled = true; btn.textContent = "Denying…"; }
+  if (btn) { btn.disabled = true; btn.textContent = "Denyingâ€¦"; }
 
   try {
     const r = await Api.bulkDenyVisitors(ids, cleanReason);
-    safeToast(`❌ Denied: ${r.ok} · Failed: ${r.failed}`);
+    safeToast(`âŒ Denied: ${r.ok} Â· Failed: ${r.failed}`);
     if (r.failed > 0) console.warn("[bulk-deny] failures:", r.failures);
 
     avState.selected.clear();
@@ -426,11 +426,11 @@ function closeConfirmAllModal() {
 async function approveAllPending() {
   const btn = $("confirm-all-go");
   const old = btn ? btn.textContent : "Approve all";
-  if (btn) { btn.disabled = true; btn.textContent = "Approving…"; }
+  if (btn) { btn.disabled = true; btn.textContent = "Approvingâ€¦"; }
 
   try {
     const r = await Api.bulkApproveAllAdmin("APPROVE ALL", AV_MAX_BULK);
-    safeToast(`✅ Approved ${r.ok} · Failed ${r.failed} · ${r.remaining} remaining`);
+    safeToast(`âœ… Approved ${r.ok} Â· Failed ${r.failed} Â· ${r.remaining} remaining`);
     if (r.failed > 0) console.warn("[approve-all] failures:", r.failures);
 
     closeConfirmAllModal();
@@ -450,7 +450,7 @@ async function approveAllPending() {
 async function loadAll() {
   const el = $("all-list");
   if (!el) return;
-  el.innerHTML = `<div class="empty-state">Loading…</div>`;
+  el.innerHTML = `<div class="empty-state">Loadingâ€¦</div>`;
 
   const myId = ++_allReqId;
 
@@ -538,9 +538,9 @@ async function loadAll() {
                   ? `<b style="color:var(--teal);">${inside} on-site</b>`
                   : done === visitors.length && visitors.length > 0
                     ? `<span style="color:var(--ink-70);">all left</span>`
-                    : `<span style="color:var(--ink-40);">—</span>`}
+                    : `<span style="color:var(--ink-40);">â€”</span>`}
               </td>
-              <td><b style="font-family:monospace;">${escapeHtml(g.access_code || "—")}</b></td>
+              <td><b style="font-family:monospace;">${escapeHtml(g.access_code || "â€”")}</b></td>
               <td>${statusBadge(g.status)}</td>
               <td>
                 <button class="btn btn--ghost btn--small" data-view="${g.id}">View</button>
@@ -587,12 +587,12 @@ function renderAllPagination() {
   el.innerHTML = `
     <div class="pagination" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 4px;border-top:1px solid var(--line);">
       <div style="font-size:0.9rem;color:var(--ink-70);">
-        Showing <b>${startRow}–${endRow}</b> of <b>${total}</b>
+        Showing <b>${startRow}â€“${endRow}</b> of <b>${total}</b>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn btn--ghost btn--small" data-apg="prev" ${page <= 1 ? "disabled" : ""}>« Prev</button>
+        <button class="btn btn--ghost btn--small" data-apg="prev" ${page <= 1 ? "disabled" : ""}>Â« Prev</button>
         <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">Page <b>${page}</b> of <b>${totalPages}</b></span>
-        <button class="btn btn--ghost btn--small" data-apg="next" ${page >= totalPages ? "disabled" : ""}>Next »</button>
+        <button class="btn btn--ghost btn--small" data-apg="next" ${page >= totalPages ? "disabled" : ""}>Next Â»</button>
       </div>
     </div>
   `;
@@ -607,7 +607,7 @@ function renderAllPagination() {
 }
 
 /* ------------------------------------------------------------
-   Details modal (in-page — replaces window.open/document.write)
+   Details modal (in-page â€” replaces window.open/document.write)
    ------------------------------------------------------------ */
 async function viewDetails(id) {
   let g;
@@ -631,13 +631,13 @@ async function viewDetails(id) {
   card.innerHTML = `
     <h2 style="margin-top:0;">Visit #${escapeHtml(g.id)}</h2>
     <p><b>Date:</b> ${escapeHtml(fmtDate(g.visit_date))}</p>
-    <p><b>House:</b> ${escapeHtml(g.house_number)} · <b>Host:</b> ${escapeHtml(g.resident_name)}</p>
+    <p><b>House:</b> ${escapeHtml(g.house_number)} Â· <b>Host:</b> ${escapeHtml(g.resident_name)}</p>
     <p><b>Status:</b> ${statusBadge(g.status)}</p>
     ${g.access_code ? `<p><b>Code:</b> <span style="font-family:monospace;font-size:1.4rem;">${escapeHtml(g.access_code)}</span></p>` : ""}
     <h3>Visitors</h3>
     <ul style="padding-left:20px;">
       ${(g.visitors || []).map((v) =>
-        `<li>${escapeHtml(v.name)}${v.phone ? " · " + escapeHtml(v.phone) : ""}</li>`
+        `<li>${escapeHtml(v.name)}${v.phone ? " Â· " + escapeHtml(v.phone) : ""}</li>`
       ).join("") || "<li><em>No visitors listed</em></li>"}
     </ul>
     <div style="margin-top:20px;text-align:right;">
@@ -670,6 +670,7 @@ async function refreshAll() {
    Init
    ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
+  await window.__apiReady;
   if (typeof requireRole === "function" &&
       !requireRole("admin", "super-admin")) return;
 
