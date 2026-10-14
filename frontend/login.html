@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Log In Â· AthiEstateAccessSokoConnectProjectAmalgamated</title>
+  <title>Log In · Athi Soko Connect</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="css/styles.css">
-  <link rel="icon" href="data:,"> 
+  <link rel="icon" href="data:,">
 </head>
 <body class="discover-body has-sidebar">
 
@@ -91,12 +91,10 @@
   </div>
 </aside>
 
-<!-- Mobile toggle -->
 <button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
   <i class="fas fa-bars"></i>
 </button>
 <div class="side-rail__backdrop" id="side-rail-backdrop"></div>
-
 
 <div class="side-rail__content">
   <div class="side-rail__topbar">
@@ -107,80 +105,87 @@
   </div>
 
   <main class="container dx-main" style="padding: 60px 24px; display:flex; justify-content:center;">
-  <div class="register-container" style="max-width:480px;">
-    <div class="register-header">
-      <span class="role-badge"><i class="fas fa-sign-in-alt"></i> LOG IN</span>
-      <h1>
-        <i class="fas fa-user-circle"></i>
-        Welcome back
-      </h1>
-      <p>Choose your role and sign in to continue.</p>
-    </div>
-
-    <!-- Role tabs -->
-    <div class="tab-row" id="roleTabs" style="margin-bottom:20px;">
-  <button type="button" class="tab-btn" data-role="super-admin">Super Admin</button>
-  <button type="button" class="tab-btn" data-role="admin">Admin</button>
-  <button type="button" class="tab-btn" data-role="security">Security</button>
-  <button type="button" class="tab-btn is-active" data-role="resident">Resident</button>
-  <button type="button" class="tab-btn" data-role="vendor">Vendor</button>
-</div>
-
-    <form id="loginForm" novalidate>
-      <div class="input-group">
-        <label for="identifier" id="identifierLabel">
-          <i class="fas fa-phone-alt"></i> Phone number
-        </label>
-        <input type="text"
-               id="identifier"
-               placeholder="07XX XXX XXX"
-               autocomplete="username"
-               required />
+    <div class="register-container" style="max-width:480px; width:100%;">
+      <div class="register-header">
+        <span class="role-badge"><i class="fas fa-sign-in-alt"></i> LOG IN</span>
+        <h1>
+          <i class="fas fa-user-circle"></i>
+          Welcome back
+        </h1>
+        <p>Choose your role and sign in to continue.</p>
       </div>
 
       <!-- Role tabs -->
       <div class="tab-row" id="roleTabs" style="margin-bottom:20px;">
+        <button type="button" class="tab-btn" data-role="super-admin">Super Admin</button>
         <button type="button" class="tab-btn" data-role="admin">Admin</button>
+        <button type="button" class="tab-btn" data-role="security">Security</button>
         <button type="button" class="tab-btn is-active" data-role="resident">Resident</button>
         <button type="button" class="tab-btn" data-role="vendor">Vendor</button>
       </div>
-<div style="text-align:right; margin-top:6px;">
-  <a href="forgot-password.html" style="font-size:0.85rem; color:var(--ochre-dark);">
-    Forgot password?
-  </a>
-</div>
-      <div class="actions" style="margin-top:24px;">
-        <button type="submit" class="btn-primary" id="loginBtn" style="width:100%;">
-          <i class="fas fa-sign-in-alt"></i> Log in
-        </button>
-      </div>
-    </form>
-<!-- Social login -->
-<div style="margin-top:24px;">
-  <div style="display:flex; align-items:center; gap:12px; color:#6b7280; font-size:0.85rem;">
-    <hr style="flex:1; border:none; border-top:1px solid #e5e7eb;">
-    <span>or continue with</span>
-    <hr style="flex:1; border:none; border-top:1px solid #e5e7eb;">
-  </div>
 
-  <div style="margin-top:14px;">
-    <button type="button" data-social="google" class="btn btn--ghost"
-            style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; width:100%;">
-      <i class="fab fa-google"></i> Continue with Google
-    </button>
-  </div>
-</div>
-    <div id="loginMessage" class="backend-message hidden" style="margin-top:16px;">
-      <i class="fas fa-info-circle"></i>
-      <span id="loginMessageText"></span>
+      <form id="loginForm" novalidate>
+        <div class="input-group">
+          <label for="identifier" id="identifierLabel">
+            <i class="fas fa-phone-alt"></i> Phone number
+          </label>
+          <input type="text"
+                 id="identifier"
+                 placeholder="07XX XXX XXX"
+                 autocomplete="username"
+                 required />
+        </div>
+
+        <div class="input-group" style="margin-top:14px;">
+          <label for="password">
+            <i class="fas fa-lock"></i> Password
+          </label>
+          <input type="password"
+                 id="password"
+                 placeholder="Your password"
+                 autocomplete="current-password"
+                 required />
+        </div>
+
+        <div style="text-align:right; margin-top:6px;">
+          <a href="forgot-password.html" style="font-size:0.85rem; color:var(--ochre-dark);">
+            Forgot password?
+          </a>
+        </div>
+
+        <div class="actions" style="margin-top:24px;">
+          <button type="submit" class="btn-primary" id="loginBtn" style="width:100%;">
+            <i class="fas fa-sign-in-alt"></i> Log in
+          </button>
+        </div>
+      </form>
+
+      <!-- Social login -->
+      <div style="margin-top:24px;">
+        <div style="display:flex; align-items:center; gap:12px; color:#6b7280; font-size:0.85rem;">
+          <hr style="flex:1; border:none; border-top:1px solid #e5e7eb;">
+          <span>or continue with</span>
+          <hr style="flex:1; border:none; border-top:1px solid #e5e7eb;">
+        </div>
+
+        <div style="margin-top:14px;">
+          <button type="button" data-social="google" class="btn btn--ghost"
+                  style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; width:100%;">
+            <i class="fab fa-google"></i> Continue with Google
+          </button>
+        </div>
+      </div>
+
+      <div id="loginMessage" class="backend-message hidden" style="margin-top:16px;">
+        <i class="fas fa-info-circle"></i>
+        <span id="loginMessageText"></span>
+      </div>
+
+      <div class="login-link" style="margin-top:20px; text-align:center;">
+        Not registered? <a href="residents.html">Sign up as resident →</a>
+      </div>
     </div>
   </main>
-
-    <div class="login-link" style="margin-top:20px;">
-      Not registered? <a href="residents.html">Sign up as resident â†’</a>
-    </div>
-  </div>
-</main>
 </div>
 
 <script src="js/auth.js?v=8"></script>
@@ -191,4 +196,3 @@
 <script src="js/social-auth.js"></script>
 </body>
 </html>
-
