@@ -157,7 +157,7 @@ function setupCreateModal() {
   const preview = document.getElementById("ev-preview");
 
   // Hide "Create" button for non-admins
-  if (currentRole() !== "admin") {
+  if (currentRole() !== "admin" && currentRole() !== "super-admin") {
     openBtn.style.display = "none";
     return;
   }

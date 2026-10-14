@@ -22,7 +22,7 @@ function getCurrentRole() {
   } catch { /* ignore */ }
   return getRoleFromToken();
 }
-function isSuperAdmin() { return getCurrentRole() === "super"; }
+function isSuperAdmin() { return getCurrentRole() === "super-admin"; }
 
 /* ------------------------------------------------------------
    Load + render
@@ -190,7 +190,7 @@ function escapeAttr(s) { return escapeHtml(s).replace(/"/g, "&quot;"); }
 document.addEventListener("DOMContentLoaded", () => {
   const role = getCurrentRole();
 
-  if (role !== "super") {
+  if (role !== "super-admin") {
     document.querySelector("main").innerHTML =
       `<div class="empty-state" style="color:var(--clay); margin-top:40px;">
         Access denied. Only super admins can manage categories.

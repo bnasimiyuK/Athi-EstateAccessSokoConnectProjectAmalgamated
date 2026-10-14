@@ -52,7 +52,7 @@ function getCurrentRole() {
 }
 
 function isSuperAdmin() {
-  return getCurrentRole() === "super";
+  return getCurrentRole() === "super-admin";
 }
 
 function isAdmin() {

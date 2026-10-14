@@ -71,3 +71,7 @@ android/.gradle/
 android/local.properties
 *.apk
 *.aab
+
+# Local backups
+*.bak
+*.bak-*

@@ -320,9 +320,6 @@ async function loadAll() {
    Access control is enforced by access.js via
      <body data-requires="auth ahewa">
    which allows any resident with join_ahewa = 1, plus admins.
-   The previous requireRole("admin", "super-admin") check was
-   wrong — it redirected legitimate AHEWA members to
-   dashboard.html via auth.js's homeForRole() fallback.
    ============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
   try {

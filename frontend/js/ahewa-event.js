@@ -517,7 +517,7 @@ function renderGallery() {
   }
 
   const currentUserId = getCurrentUserId();
-  const isAdmin = currentRole() === "admin";
+  const isAdmin = currentRole() === "admin" || currentRole() === "super-admin";
 
   grid.innerHTML = PHOTOS.map((p) => {
     const canDelete = isAdmin || p.uploaded_by === currentUserId;
@@ -563,7 +563,7 @@ function renderGallery() {
 }
 
 async function canUploadPhotosToThisEvent() {
-  if (currentRole() === "admin") return true;
+  if (currentRole() === "admin" || currentRole() === "super-admin") return true;
   if (currentRole() !== "resident") return false;
 
   const id = getEventId();
