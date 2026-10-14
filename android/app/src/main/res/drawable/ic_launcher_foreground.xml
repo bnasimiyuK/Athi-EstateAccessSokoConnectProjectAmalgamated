@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Athi Highway Estate "A" mark — gold triangle with white dot -->
+    <!-- Safe zone for adaptive icons is the central 72x72 area (18..90) -->
+
+    <!-- Gold triangle outline -->
+    <path
+        android:pathData="M34,82 L54,28 L74,82 Z"
+        android:strokeColor="#c8862a"
+        android:strokeWidth="5"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"/>
+
+    <!-- White dot inside the triangle -->
+    <path
+        android:pathData="M54,62 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0"
+        android:fillColor="#ffffff"/>
+</vector>
