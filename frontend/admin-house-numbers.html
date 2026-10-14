@@ -6,9 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>House numbers &mdash; Athi Estate Access</title>
   <link rel="stylesheet" href="css/styles.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="icon" href="data:,">
 </head>
 <body class="discover-body has-sidebar" data-requires="auth admin">
 
@@ -124,96 +123,110 @@
   </div>
 
   <main class="container dx-main">
-  <div class="page-head page-head--with-actions">
-    <div class="page-head__text">
-      <h1>House numbers</h1>
-      <p>
-        Assign a house number to each approved resident. Format:
-        <code>{CourtName}-{Side}{NN}</code> &mdash; e.g. <code>Riverside-A01</code>.
-        <br><small style="color:var(--ink-70);">
-          Every invoice and M-Pesa payment is keyed to the house number.
-        </small>
-      </p>
-    </div>
 
-    <div class="admin-actions">
-      <button id="btn-download-template" class="btn btn--ghost" type="button">&#x1F4C4; Download template (CSV)</button>
-      <button id="btn-upload-csv"          class="btn btn-export" type="button">&#x1F4E5; Upload CSV</button>
-      <input type="file" id="csv-input" accept=".csv" style="display:none;" />
-    </div>
-  </div>
+    <!-- PAGE HEAD -->
+    <div class="page-head page-head--with-actions">
+      <div class="page-head__text">
+        <h1>House numbers</h1>
+        <p>
+                  Assign a house number to each approved resident. Format:
+        <code>{CourtName} {Side}{NN}</code> &mdash; e.g. <code>Riverside A01</code>.
+          <br><small style="color:var(--ink-70);">
+            Every invoice and M-Pesa payment is keyed to the house number.
+          </small>
+        </p>
+      </div>
 
-  <!-- Summary tiles -->
-  <section class="stat-section">
-    <div class="stat-tiles">
-      <div class="stat-tile stat-tile--ok">
-        <div class="stat-tile__value" id="tile-assigned">&mdash;</div>
-        <div class="stat-tile__label">Assigned</div>
-      </div>
-      <div class="stat-tile stat-tile--warn">
-        <div class="stat-tile__value" id="tile-unassigned">&mdash;</div>
-        <div class="stat-tile__label">Unassigned</div>
-      </div>
-      <div class="stat-tile stat-tile--info">
-        <div class="stat-tile__value" id="tile-total">&mdash;</div>
-        <div class="stat-tile__label">Total approved</div>
+      <div class="admin-actions">
+        <button id="btn-download-template" class="btn btn--ghost" type="button">&#x1F4C4; Download template (CSV)</button>
+        <button id="btn-upload-csv"          class="btn btn-export" type="button">&#x1F4E5; Upload CSV</button>
+        <input type="file" id="csv-input" accept=".csv" style="display:none;" />
       </div>
     </div>
-  </section>
 
-      <input type="text" id="filter-q" class="input"
-             placeholder="Search name, phone or house #…"
-             style="min-width:220px;" />
+    <!-- SUMMARY TILES -->
+    <section class="stat-section">
+      <div class="stat-tiles">
+        <div class="stat-tile stat-tile--ok">
+          <div class="stat-tile__value" id="tile-assigned">&mdash;</div>
+          <div class="stat-tile__label">Assigned</div>
+        </div>
+        <div class="stat-tile stat-tile--warn">
+          <div class="stat-tile__value" id="tile-unassigned">&mdash;</div>
+          <div class="stat-tile__label">Unassigned</div>
+        </div>
+        <div class="stat-tile stat-tile--info">
+          <div class="stat-tile__value" id="tile-total">&mdash;</div>
+          <div class="stat-tile__label">Total approved</div>
+        </div>
+      </div>
+    </section>
 
-    <select id="filter-phase" class="input" disabled>
-      <option value="">Loading phases&hellip;</option>
-    </select>
+    <!-- SEARCH / FILTER BAR -->
+    <form id="hn-filter" class="hn-search-bar" autocomplete="off"
+          style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+                 margin:18px 0 14px;padding:12px;
+                 background:var(--paper-dim);border:1px solid var(--line);
+                 border-radius:var(--radius-m);">
 
-    <div class="court-picker" style="position:relative; min-width:220px;">
       <input type="text"
-             id="filter-court-search"
+             id="filter-q"
              class="input"
-             placeholder="All courts &mdash; type to search&hellip;"
-             autocomplete="off"
-             disabled
-             style="width:100%;" />
-      <div id="filter-court-list"
-           style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;
-                  max-height:220px;overflow-y:auto;border:1px solid var(--line);
-                  border-radius:var(--radius-s);background:#fff;
-                  box-shadow:0 4px 12px rgba(0,0,0,0.08);z-index:100;"></div>
-      <select id="filter-court" style="display:none;"><option value=""></option></select>
+             placeholder="Search name, phone or house #&hellip;"
+             style="min-width:220px;flex:1 1 240px;" />
+
+      <select id="filter-phase" class="input" disabled style="min-width:160px;">
+        <option value="">Loading phases&hellip;</option>
+      </select>
+
+      <div class="court-picker" style="position:relative;min-width:220px;flex:1 1 220px;">
+        <input type="text"
+               id="filter-court-search"
+               class="input"
+               placeholder="All courts &mdash; type to search&hellip;"
+               autocomplete="off"
+               disabled
+               style="width:100%;" />
+        <div id="filter-court-list"
+             style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;
+                    max-height:220px;overflow-y:auto;border:1px solid var(--line);
+                    border-radius:var(--radius-s);background:#fff;
+                    box-shadow:0 4px 12px rgba(0,0,0,0.08);z-index:100;"></div>
+        <select id="filter-court" style="display:none;"><option value=""></option></select>
+      </div>
+
+      <select id="filter-status" class="input" style="min-width:160px;">
+        <option value="unassigned">Unassigned</option>
+        <option value="assigned">Assigned</option>
+        <option value="">All residents</option>
+      </select>
+
+      <button type="submit" class="btn btn--primary">Search</button>
+      <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
+    </form>
+
+    <!-- TABLE -->
+    <div class="table-wrap" id="hn-table-wrap">
+      <div class="empty-state">Loading residents&hellip;</div>
     </div>
 
-    <input type="text" id="filter-q" class="input" placeholder="Search name, phone or house #&hellip;" style="min-width:220px;" />
+    <div id="hn-pagination"></div>
 
-  <footer class="site-footer">
-    <div class="container" style="width:100%;">
-      House numbers must be unique across the estate. Format is enforced on save.
-    </div>
-  </footer>
+    <!-- FOOTER (inside content) -->
+    <footer class="site-footer">
+      <div class="container" style="width:100%;">
+        House numbers must be unique across the estate. Format is enforced on save.
+      </div>
+    </footer>
+
+  </main>
 </div>
 
-  <!-- Table -->
-  <div class="table-wrap" id="hn-table-wrap">
-    <div class="empty-state">Loading residents&hellip;</div>
-  </div>
-
-  <div id="hn-pagination"></div>
-</main>
-</div>
-
-<footer class="site-footer">
-  <div class="container" style="width:100%;">
-    House numbers must be unique across the estate. Format is enforced on save.
-  </div>
-</footer>
-
+<!-- ========== SCRIPTS ========== -->
 <script src="js/auth.js?v=8"></script>
 <script src="js/api.js?v=14"></script>
 <script src="js/main.js?v=11"></script>
-  <script src="js/ahewa-nav.js"></script>
-<script src="js/admin-house-numbers.js"></script>
+<script src="js/ahewa-nav.js"></script>
+<script src="js/admin-house-numbers.js?v=2"></script>
 </body>
 </html>
-

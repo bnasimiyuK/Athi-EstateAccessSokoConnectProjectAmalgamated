@@ -12,6 +12,56 @@ window.__apiReady = (async () => {
   }
 })();
 
+/* ============================================================
+   DOM HELPERS — safe wrappers that no-op on missing elements.
+   Use these instead of getElementById(...).addEventListener(...)
+   to prevent "Cannot read properties of null" crashes.
+   ============================================================ */
+
+/** Get element by id, or null (never throws). */
+function $id(id) {
+  return document.getElementById(id);
+}
+
+/** Query selector, or null. */
+function $(sel, root = document) {
+  return root.querySelector(sel);
+}
+
+/** Query selector all, returns a real Array. */
+function $$(sel, root = document) {
+  return Array.from(root.querySelectorAll(sel));
+}
+
+/**
+ * Safe addEventListener. Does nothing if the element doesn't exist.
+ *   on("my-button", "click", () => { ... });
+ */
+function on(id, event, handler, opts) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler, opts);
+  return el;
+}
+
+/**
+ * Safe addEventListener on every matching element.
+ *   onAll(".tab-btn", "click", (e) => { ... });
+ */
+function onAll(selector, event, handler, opts) {
+  const els = document.querySelectorAll(selector);
+  els.forEach((el) => el.addEventListener(event, handler, opts));
+  return els;
+}
+
+/**
+ * Safe addEventListener on the element itself (not by id).
+ *   onEl(someElement, "click", () => { ... });
+ */
+function onEl(el, event, handler, opts) {
+  if (el) el.addEventListener(event, handler, opts);
+  return el;
+}
+
 let CATEGORY_CACHE = [];
 
 /* ---------------- API CACHE ---------------- */

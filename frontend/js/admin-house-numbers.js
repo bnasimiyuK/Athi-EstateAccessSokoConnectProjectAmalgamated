@@ -27,8 +27,8 @@ function houseOptionsFor(courtName) {
   const out = [];
   for (let i = 1; i <= HN_HOUSES_PER_SIDE; i++) {
     const nn = String(i).padStart(2, "0");
-    out.push(`${courtName}-A${nn}`);
-    out.push(`${courtName}-B${nn}`);
+    out.push(`${courtName} A${nn}`);
+    out.push(`${courtName} B${nn}`);
   }
   return out;
 }
@@ -38,6 +38,7 @@ function houseOptionsFor(courtName) {
    ------------------------------------------------------------ */
 async function setupHNFilters() {
   const phaseSel = document.getElementById("filter-phase");
+  if (!phaseSel) return;
 
   try {
     HN_ALL_COURTS = await Api.getCourts();
@@ -95,6 +96,8 @@ function clearHNCourtSelection() {
 
 function renderHNCourtList(query) {
   const listEl = document.getElementById("filter-court-list");
+  if (!listEl) return;
+
   const q = String(query || "").toLowerCase().trim();
   const matches = HN_FILTERED_COURTS.filter((c) =>
     c.name.toLowerCase().includes(q)
@@ -120,10 +123,15 @@ function renderHNCourtList(query) {
 }
 
 function selectHNCourt(court) {
-  document.getElementById("filter-court").value = court.id;
-  document.getElementById("filter-court-search").value = court.name;
-  document.getElementById("filter-court-list").style.display = "none";
+  const search = document.getElementById("filter-court-search");
+  const hidden = document.getElementById("filter-court");
+  const list   = document.getElementById("filter-court-list");
+  if (hidden) hidden.value = court.id;
+  if (search) search.value = court.name;
+  if (list)   list.style.display = "none";
   hnState.courtId = String(court.id);
+  hnState.page = 1;
+  loadHNResidents();
 }
 
 /* ------------------------------------------------------------
@@ -146,9 +154,12 @@ async function loadAssigned() {
 async function loadHNSummary() {
   try {
     const s = await Api.getHouseNumberSummary();
-    document.getElementById("tile-assigned").textContent   = s.assigned;
-    document.getElementById("tile-unassigned").textContent = s.unassigned;
-    document.getElementById("tile-total").textContent      = s.total;
+    const a = document.getElementById("tile-assigned");
+    const u = document.getElementById("tile-unassigned");
+    const t = document.getElementById("tile-total");
+    if (a) a.textContent = s.assigned;
+    if (u) u.textContent = s.unassigned;
+    if (t) t.textContent = s.total;
   } catch (err) {
     console.error("[admin-house-numbers] summary failed:", err);
   }
@@ -186,6 +197,7 @@ function houseSelectHtml(resident) {
    ------------------------------------------------------------ */
 async function loadHNResidents() {
   const wrap = document.getElementById("hn-table-wrap");
+  if (!wrap) return;
   wrap.innerHTML = `<div class="empty-state">Loading residents…</div>`;
 
   let result;
@@ -280,6 +292,7 @@ async function saveHN(id, btn) {
    ------------------------------------------------------------ */
 function renderHNPagination() {
   const el = document.getElementById("hn-pagination");
+  if (!el) return;
   const { page, limit, total, totalPages } = hnState;
   if (!total) { el.innerHTML = ""; return; }
 
@@ -312,7 +325,7 @@ function renderHNPagination() {
    CSV template + upload
    ------------------------------------------------------------ */
 function downloadCSVTemplate() {
-  const csv = "phone,houseNumber\n+254720689389,Riverside-A01\n+254715408527,Riverside-B01\n";
+  const csv = "phone,houseNumber\n+254720689389,Riverside A01\n+254715408527,Riverside B01\n";
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -381,38 +394,63 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadHNSummary();
   await loadHNResidents();
 
-  document.getElementById("hn-filter").addEventListener("submit", (e) => {
+  /* ---------- Search / filter wiring ---------- */
+
+  // Form submit (Enter key OR Search button)
+  on("hn-filter", "submit", (e) => {
     e.preventDefault();
-    hnState.q = document.getElementById("filter-q").value.trim();
+    const qEl = document.getElementById("filter-q");
+    hnState.q = qEl ? qEl.value.trim() : "";
     hnState.page = 1;
     loadHNResidents();
   });
 
-  document.getElementById("filter-status").addEventListener("change", (e) => {
+  // Live search (250ms debounce)
+  let hnSearchTimer = null;
+  on("filter-q", "input", (e) => {
+    clearTimeout(hnSearchTimer);
+    hnSearchTimer = setTimeout(() => {
+      hnState.q = e.target.value.trim();
+      hnState.page = 1;
+      loadHNResidents();
+    }, 250);
+  });
+
+  // Status filter
+  on("filter-status", "change", (e) => {
     hnState.status = e.target.value;
     hnState.page = 1;
     loadHNResidents();
   });
 
-  document.getElementById("filter-clear").addEventListener("click", () => {
-    document.getElementById("filter-q").value = "";
-    document.getElementById("filter-status").value = "unassigned";
-    document.getElementById("filter-phase").value = "";
+  // Clear filters
+  on("filter-clear", "click", () => {
+    const qEl = document.getElementById("filter-q");
+    const sEl = document.getElementById("filter-status");
+    const pEl = document.getElementById("filter-phase");
+
+    if (qEl) qEl.value = "";
+    if (sEl) sEl.value = "unassigned";
+    if (pEl) pEl.value = "";
+
     clearHNCourtSelection();
     HN_FILTERED_COURTS = HN_ALL_COURTS.slice();
     renderHNCourtList("");
-    hnState.status = "unassigned";
-    hnState.phase  = "";
+
+    hnState.status  = "unassigned";
+    hnState.phase   = "";
     hnState.courtId = "";
-    hnState.q = "";
-    hnState.page = 1;
+    hnState.q       = "";
+    hnState.page    = 1;
     loadHNResidents();
   });
 
-  document.getElementById("filter-court-search").addEventListener("input", (e) => {
+  // Court search input
+  on("filter-court-search", "input", (e) => {
     renderHNCourtList(e.target.value);
   });
 
+  // Click outside the court search → hide dropdown
   document.addEventListener("click", (e) => {
     if (!e.target.closest("#filter-court-search") && !e.target.closest("#filter-court-list")) {
       const l = document.getElementById("filter-court-list");
@@ -420,13 +458,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  document.getElementById("btn-download-template").addEventListener("click", downloadCSVTemplate);
+  // Download CSV template
+  on("btn-download-template", "click", downloadCSVTemplate);
 
-  document.getElementById("btn-upload-csv").addEventListener("click", () => {
-    document.getElementById("csv-input").click();
+  // Upload CSV — click the hidden input
+  on("btn-upload-csv", "click", () => {
+    const input = document.getElementById("csv-input");
+    if (input) input.click();
   });
 
-  document.getElementById("csv-input").addEventListener("change", (e) => {
+  // Handle the file change
+  on("csv-input", "change", (e) => {
     const file = e.target.files[0];
     if (file) uploadCSV(file);
     e.target.value = "";
