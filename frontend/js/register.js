@@ -50,12 +50,6 @@ function showCheckMessage(text, isError) {
 /* ------------------------------------------------------------
    Session helper — reads the current user from whichever
    mechanism the rest of the app uses.
-   Order of preference:
-     1. getUser()          — defined in main.js / auth.js
-     2. Auth.currentUser() — alternate convention
-     3. Auth.getUser()
-     4. Auth.user
-     5. localStorage       — legacy keys
    ------------------------------------------------------------ */
 function getSessionUser() {
   try {
@@ -94,15 +88,42 @@ function getSessionUser() {
 }
 
 /* ------------------------------------------------------------
+   Normalise a user object across naming conventions so that
+   downstream code always finds .id / .fullName / .phone etc.
+   ------------------------------------------------------------ */
+function normaliseUser(u) {
+  if (!u || typeof u !== "object") return u;
+
+  return {
+    ...u,
+    id:         u.id         ?? u.residentId ?? u.userId ?? u.resident_id ?? u.user_id,
+    fullName:   u.fullName   ?? u.full_name  ?? u.name    ?? "",
+    name:       u.name       ?? u.full_name  ?? u.fullName ?? "",
+    phone:      u.phone      ?? u.phone_number ?? "",
+    courtName:  u.courtName  ?? u.court_name ?? "",
+    phase:      u.phase      ?? null,
+    role:       u.role       ?? "",
+    verified:   u.verified,
+  };
+}
+
+/* ------------------------------------------------------------
    Server-side session check — source of truth.
    Falls back to the cached session if the call fails.
    ------------------------------------------------------------ */
 async function fetchMe() {
   if (typeof Api === "undefined") return null;
   try {
-    if (typeof Api.me === "function")               return await Api.me();
-    if (typeof Api.getMe === "function")            return await Api.getMe();
-    if (typeof Api.getCurrentResident === "function") return await Api.getCurrentResident();
+    let r = null;
+    if (typeof Api.me === "function")                     r = await Api.me();
+    else if (typeof Api.getMe === "function")             r = await Api.getMe();
+    else if (typeof Api.getCurrentResident === "function") r = await Api.getCurrentResident();
+
+    // Unwrap common envelopes
+    if (r && r.data && typeof r.data === "object") r = r.data;
+    if (r && r.user && typeof r.user === "object") r = r.user;
+
+    return normaliseUser(r);
   } catch (err) {
     console.warn("[register] fetchMe failed:", err);
   }
@@ -130,11 +151,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
   /* ---------- 1. Require a session ---------- */
-  const cachedUser = getSessionUser();
-
-  // Ask the server who we are — this is the authoritative check.
+  const cachedUser   = normaliseUser(getSessionUser());
   const meFromServer = await fetchMe();
-  const me = meFromServer || cachedUser;
+  const me           = meFromServer || cachedUser;
 
   if (!me) {
     // Not logged in — bounce to login with a return URL
@@ -147,7 +166,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const role = String(me.role || "").toLowerCase().replace(/[_\s]/g, "-");
 
   if (role && !["resident", "provider", "vendor", "admin", "super-admin"].includes(role)) {
-    // Unknown role — send to a safe page
     window.location.replace("/index.html");
     return;
   }
@@ -159,19 +177,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /* ---------- 4. Verification check ---------- */
-  // If `verified` is explicitly false → block. If undefined/null → allow.
   if (me.verified === false || me.verified === 0) {
     showPanel("check");
     setStep(1);
     if (checkForm) {
       checkForm.innerHTML = `
-        <h2>Step 1 — Account pending</h2>
-        <p class="form-card_lead">
+        <h2 class="reg-card__title">Account pending</h2>
+        <p class="reg-card__sub">
           Hi ${me.fullName || me.name || "resident"} — your resident account is
           still waiting for admin approval. You'll be able to list a service
           once it's verified.
         </p>
-        <div class="form-actions">
+        <div class="reg-actions reg-actions--plain">
           <a href="/index.html" class="btn btn--ghost">Back to Discover</a>
         </div>`;
     }
@@ -181,16 +198,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   /* ---------- 5. Signed in + eligible → show the form ---------- */
   verifiedResident = me;
 
-  // Skip the phone-verification step — we already know who this is.
   if (checkForm) checkForm.hidden = true;
 
   const info = document.getElementById("resident-info");
   if (info) {
-    info.innerHTML =
-      `✅ Signed in as <strong>${me.fullName || me.name || "Resident"}</strong>`
-      + (me.phase     != null ? ` — Phase ${me.phase}`    : "")
-      + (me.courtName        ? `, ${me.courtName}`         : "")
-      + (me.phone            ? ` (${me.phone})`             : "");
+    const displayName = me.fullName || me.name || "Resident";
+    const bits = [`✅ Signed in as <strong>${displayName}</strong>`];
+    if (me.phase     != null) bits.push(`Phase ${me.phase}`);
+    if (me.courtName)          bits.push(me.courtName);
+    if (me.phone)              bits.push(me.phone);
+    info.innerHTML = bits.join(" · ");
   }
 
   await populateCategorySelect();
@@ -247,9 +264,9 @@ async function handleSubmitVendor(e) {
   }
 
   // The backend derives identity from the session; we send residentId
-  // as a convenience but the server MUST ignore it and use the session.
+  // as a convenience but the server ignores it.
   const residentId =
-    verifiedResident.id       ||
+    verifiedResident.id         ||
     verifiedResident.residentId ||
     verifiedResident.userId;
 
@@ -259,7 +276,7 @@ async function handleSubmitVendor(e) {
     name:       document.getElementById("r-name").value.trim(),
     category:   document.getElementById("r-category").value,
     hours:      document.getElementById("r-hours").value.trim(),
-    priceFrom:  Number(document.getElementById("r-price").value),
+    priceFrom:  Number(document.getElementById("r-price").value) || 0,
     priceUnit:  document.getElementById("r-price-unit").value,
     bio:        document.getElementById("r-bio").value.trim(),
     services,
@@ -267,8 +284,8 @@ async function handleSubmitVendor(e) {
 
   const btn   = document.getElementById("submit-btn");
   const msgEl = document.getElementById("submit-message");
-  if (btn) btn.disabled = true;
-  if (msgEl) msgEl.hidden = true;
+  if (btn)   btn.disabled = true;
+  if (msgEl) { msgEl.hidden = true; msgEl.textContent = ""; }
 
   try {
     if (typeof Api === "undefined" || typeof Api.registerProvider !== "function") {
@@ -294,7 +311,6 @@ async function handleSubmitVendor(e) {
     if (typeof toast === "function") {
       toast(`Thanks, ${payload.name}! Your listing is pending admin verification.`);
     }
-
   } catch (err) {
     console.error("[register] submit failed:", err);
     if (msgEl) {
@@ -355,8 +371,7 @@ function updatePreview() {
 }
 
 /* ------------------------------------------------------------
-   Reset the flow — in the login-first design, "reset" just
-   means: go back to Discover and start over.
+   Reset the flow — go back to Discover
    ------------------------------------------------------------ */
 function resetFlow() {
   verifiedResident = null;

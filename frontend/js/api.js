@@ -27,7 +27,7 @@ const BACKEND_PORT = 4050;
 /* Public tunnel URL — used when the page is not served from localhost/LAN.
    Regenerate when cloudflared restarts (each restart gives a new URL). 
    Can also be overridden via localStorage as noted above. */
-const FORCE_API_BASE = "https://informative-mercury-sonic-gifts.trycloudflare.com/api";
+const FORCE_API_BASE = "";
 
 /* Candidate LAN IPs to try from the mobile app.
    2s timeout per probe, all probes run in parallel. The first
@@ -440,6 +440,8 @@ const Api = {
     request(`/providers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   removeProvider: (id) =>
     request(`/providers/${id}`, { method: "DELETE" }),
+  getAllProviderOfferings: () =>
+    request(`/providers/offerings-all`),
 
   /* ---------- Reviews ---------- */
   getReviews: (providerId) =>
@@ -813,4 +815,24 @@ const Api = {
 
   deleteNotice: (id) =>
     request(`/notices/${id}`, { method: "DELETE" }),
+  /* ---- Provider offerings ---- */
+getProviderOfferings: (providerId) =>
+  request(`/providers/${providerId}/offerings`),
+
+addProviderOffering: (providerId, payload) =>
+  request(`/providers/${providerId}/offerings`, {
+    method: "POST",
+    body: payload,
+  }),
+
+updateProviderOffering: (offeringId, patch) =>
+  request(`/providers/offerings/${offeringId}`, {
+    method: "PATCH",
+    body: patch,
+  }),
+
+deleteProviderOffering: (offeringId) =>
+  request(`/providers/offerings/${offeringId}`, {
+    method: "DELETE",
+  }),
 };

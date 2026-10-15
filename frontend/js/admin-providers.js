@@ -1,8 +1,20 @@
 /* ============================================================
-   admin-providers.js - All providers list + Excel/PDF
+   admin-providers.js — All providers list + Excel/PDF
+   + tabs (Vendors / Service offerings)
+
    Mirrors admin-residents.js: Phase → searchable Court, plus
    status (verified) and free-text search.
    ============================================================ */
+
+/* ---------------- helpers ---------------- */
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 const PROVIDERS_PER_PAGE = 20;
 
@@ -14,11 +26,40 @@ const providersState = {
   search:  "",
   phase:   "",
   courtId: "",
-  verified: "",   // "" | "true" | "false"
+  verified: "",
 };
 
 let ALL_COURTS      = [];
 let FILTERED_COURTS = [];
+
+/* ============================================================
+   TABS
+   ============================================================ */
+function setupTabs() {
+  const tabs   = document.querySelectorAll(".admin-tab");
+  const panels = document.querySelectorAll(".admin-panel");
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.tab;
+
+      tabs.forEach((t) => t.classList.toggle("is-active", t === tab));
+      panels.forEach((p) => {
+        p.classList.toggle("is-active", p.dataset.panel === target);
+      });
+
+      if (history.replaceState) {
+        history.replaceState(null, "", "#" + target);
+      }
+    });
+  });
+
+  const initial = (location.hash || "").replace("#", "");
+  if (initial === "offerings") {
+    const tab = document.querySelector('.admin-tab[data-tab="offerings"]');
+    if (tab) tab.click();
+  }
+}
 
 /* ------------------------------------------------------------
    1. Load courts once + wire the Phase filter
@@ -171,7 +212,7 @@ function setupCourtPicker() {
 }
 
 /* ------------------------------------------------------------
-   3. Render providers
+   3. Render vendors table
    ------------------------------------------------------------ */
 async function renderProviders() {
   const el = document.getElementById("providers-list");
@@ -192,7 +233,7 @@ async function renderProviders() {
   } catch (err) {
     console.error("[admin-providers] load failed:", err);
     el.innerHTML = `<div class="empty-state" style="color:var(--clay)">
-      Could not load providers: ${err.message}
+      Could not load providers: ${escapeHtml(err.message)}
     </div>`;
     return;
   }
@@ -202,6 +243,9 @@ async function renderProviders() {
   providersState.page       = result.page       ?? 1;
   providersState.limit      = result.limit      ?? PROVIDERS_PER_PAGE;
   providersState.totalPages = result.totalPages ?? 1;
+
+  const badge = document.getElementById("count-vendors");
+  if (badge) badge.textContent = providersState.total;
 
   if (!providers.length) {
     el.innerHTML = `<div class="empty-state">No providers match your filters.</div>`;
@@ -216,7 +260,7 @@ async function renderProviders() {
         <thead>
           <tr>
             <th>Name</th>
-            <th>Category</th>
+            <th>Categories</th>
             <th>Phase</th>
             <th>Court</th>
             <th>Phone</th>
@@ -225,16 +269,30 @@ async function renderProviders() {
           </tr>
         </thead>
         <tbody>
-          ${providers.map((p) => `
-            <tr>
-              <td>${p.name || "-"}</td>
-              <td>${categoryLabel(p.category) || "-"}</td>
-              <td>${p.phase ? "Phase " + p.phase : "-"}</td>
-              <td>${p.courtName || "-"}</td>
-              <td>${p.phone || "-"}</td>
-              <td>${verifiedBadge(p.verified)}</td>
-              <td>${p.rating ? Number(p.rating).toFixed(1) : "-"}</td>
-            </tr>`).join("")}
+          ${providers.map((p) => {
+            const cats = (Array.isArray(p.offerings) && p.offerings.length)
+              ? p.offerings.map((o) => o.categoryLabel).filter(Boolean)
+              : (typeof categoryLabel === "function" && p.category
+                  ? [categoryLabel(p.category)]
+                  : []);
+
+            const statusBadge = (typeof verifiedBadge === "function")
+              ? verifiedBadge(p.verified)
+              : (p.verified
+                  ? `<span class="badge badge--verified">Verified</span>`
+                  : `<span class="badge badge--pending">Pending</span>`);
+
+            return `
+              <tr>
+                <td>${escapeHtml(p.name || "-")}</td>
+                <td>${cats.length ? escapeHtml(cats.join(", ")) : "-"}</td>
+                <td>${p.phase ? "Phase " + escapeHtml(p.phase) : "-"}</td>
+                <td>${escapeHtml(p.courtName || "-")}</td>
+                <td>${escapeHtml(p.phone || "-")}</td>
+                <td>${statusBadge}</td>
+                <td>${p.rating ? Number(p.rating).toFixed(1) : "-"}</td>
+              </tr>`;
+          }).join("")}
         </tbody>
       </table>
     </div>
@@ -242,6 +300,71 @@ async function renderProviders() {
 
   renderProvidersPagination();
   wireProvidersPagination();
+}
+
+/* ------------------------------------------------------------
+   3b. Render offerings table
+   ------------------------------------------------------------ */
+async function renderOfferings() {
+  const wrap  = document.getElementById("offerings-table-wrap");
+  const badge = document.getElementById("count-offerings");
+  if (!wrap) return;
+
+  wrap.innerHTML = `<div class="empty-state">Loading service offerings…</div>`;
+
+  let offerings = [];
+  try {
+    const raw = await Api.getAllProviderOfferings();
+    offerings = Array.isArray(raw) ? raw : [];
+  } catch (err) {
+    console.error("[admin-providers] offerings load failed:", err);
+    wrap.innerHTML = `<div class="empty-state" style="color:var(--clay);">
+      Could not load offerings: ${escapeHtml(err.message || "")}
+    </div>`;
+    return;
+  }
+
+  if (badge) badge.textContent = offerings.length;
+
+  if (!offerings.length) {
+    wrap.innerHTML = `<div class="empty-state">No service offerings registered yet.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th style="width:60px;">#</th>
+          <th>Provider</th>
+          <th>Category</th>
+          <th>Services</th>
+          <th style="width:130px;">Price from</th>
+          <th style="width:110px;">Unit</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${offerings.map((o, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>
+              <a href="provider.html?id=${o.providerId}">${escapeHtml(o.providerName || "—")}</a>
+              ${o.providerVerified ? ` <span class="badge badge--verified" style="font-size:10px;">Verified</span>` : ""}
+              ${!o.providerAvailable ? ` <span class="badge" style="font-size:10px;background:#e74c3c;color:white;">Busy</span>` : ""}
+            </td>
+            <td>${escapeHtml(o.categoryLabel || "—")}</td>
+            <td>
+              ${(o.services || []).map((s) =>
+                `<span class="tag" style="margin-right:4px;">${escapeHtml(s)}</span>`
+              ).join("")}
+            </td>
+            <td>KSh ${Number(o.priceFrom || 0).toLocaleString()}</td>
+            <td>${escapeHtml(o.priceUnit || "per visit")}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 /* ------------------------------------------------------------
@@ -305,9 +428,9 @@ function setupProvidersFilterForm() {
   });
 
   clear?.addEventListener("click", () => {
-    const phaseSel = document.getElementById("filter-phase");
+    const phaseSel  = document.getElementById("filter-phase");
     const statusSel = document.getElementById("filter-status");
-    const searchEl = document.getElementById("filter-search");
+    const searchEl  = document.getElementById("filter-search");
 
     if (searchEl)  searchEl.value  = "";
     if (phaseSel)  phaseSel.value  = "";
@@ -344,7 +467,7 @@ function applyFilters() {
 }
 
 /* ------------------------------------------------------------
-   6. Export - Excel + PDF
+   6. Export — Excel + PDF
    ------------------------------------------------------------ */
 async function downloadProvidersReport(kind /* "xlsx" | "pdf" */) {
   const btnId = kind === "xlsx" ? "btn-excel-providers" : "btn-pdf-providers";
@@ -399,6 +522,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof requireRole === "function" &&
     !requireRole("admin", "super-admin")) return;
 
+  setupTabs();
+
   const steps = [
     ["setupPhaseFilter",            setupPhaseFilter],
     ["setupCourtPicker",            setupCourtPicker],
@@ -415,9 +540,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  try {
-    await renderProviders();
-  } catch (err) {
-    console.error("[admin-providers] ❌ initial render failed:", err);
-  }
+  await Promise.all([
+    (async () => {
+      try {
+        await renderProviders();
+      } catch (err) {
+        console.error("[admin-providers] ❌ vendors render failed:", err);
+      }
+    })(),
+    (async () => {
+      try {
+        await renderOfferings();
+      } catch (err) {
+        console.error("[admin-providers] ❌ offerings render failed:", err);
+      }
+    })(),
+  ]);
 });

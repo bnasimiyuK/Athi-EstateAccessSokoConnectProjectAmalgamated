@@ -16,21 +16,13 @@ function escapeHtml(s) {
 
 function initialsOf(name) {
   return String(name || "?")
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+    .split(/\s+/).filter(Boolean).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
 function servicesArray(services) {
   if (Array.isArray(services)) return services;
   if (!services) return [];
-  return String(services)
-    .split(/,\s*/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return String(services).split(/,\s*/).map((s) => s.trim()).filter(Boolean);
 }
 
 function stars(rating) {
@@ -68,15 +60,16 @@ function getCurrentUser() {
 }
 
 function isLoggedIn() {
-  // Prefer the shared helper if present; fall back to user object in storage
   if (typeof getToken === "function" && getToken()) return true;
   return !!getCurrentUser();
 }
 
+function reviewAuthor(r) {
+  return r.authorName || r.reviewerName || r.name || "Resident";
+}
+
 /* ============================================================
    MODE DETECTION
-   - provider.html?id=N     → public view (someone else's profile)
-   - provider-profile.html  → own view (logged-in vendor)
    ============================================================ */
 function detectMode() {
   const page = window.location.pathname.split("/").pop();
@@ -92,7 +85,7 @@ function getCurrentRole() {
 }
 
 /* ============================================================
-   time-until formatter — used by the live countdown
+   time-until formatter
    ============================================================ */
 function formatTimeUntil(iso) {
   if (!iso) return null;
@@ -126,12 +119,16 @@ function priceText(p) {
 
 /* ---------------- render states ---------------- */
 function renderLoading() {
-  document.getElementById("provider-root").innerHTML =
+  const root = document.getElementById("provider-root");
+  if (!root) return;
+  root.innerHTML =
     `<div class="empty-state" style="margin-top:40px;">Loading provider…</div>`;
 }
 
 function renderError(msg) {
-  document.getElementById("provider-root").innerHTML = `
+  const root = document.getElementById("provider-root");
+  if (!root) return;
+  root.innerHTML = `
     <div class="empty-state" style="margin-top:40px;">
       <h3>${escapeHtml(msg)}</h3>
       <p><a href="index.html">← Back to Discover</a></p>
@@ -139,15 +136,8 @@ function renderError(msg) {
 }
 
 /* ============================================================
-   HEADER — includes the out-of-office banner + Busy badge
+   TOPBAR
    ============================================================ */
-function headerHtml(p, isOwnMode) {
-  const initials = initialsOf(p.name);
-  const locParts = [];
-  if (p.courtName) locParts.push(escapeHtml(p.courtName));
-  if (p.phase != null) locParts.push(`Phase ${p.phase}`);
-  const loc = locParts.join(" · ");
-
 function topbarHtml(p) {
   const parts = [];
   if (p.courtName) parts.push(escapeHtml(p.courtName));
@@ -162,11 +152,8 @@ function topbarHtml(p) {
         <p>${parts.join(" · ") || "Athi Highway Estate"}</p>
       </div>
       <div class="provider-topbar__actions">
-        <button type="button"
-                class="pill pill--interactive"
-                id="gate-clearance-pill"
-                data-open="gate-rules"
-                title="Click to see gate rules">
+        <button type="button" class="pill pill--interactive" id="gate-clearance-pill"
+                data-open="gate-rules" title="Click to see gate rules">
           Gate: —
         </button>
         <div class="provider-topbar__avatar">${escapeHtml(initialsOf(p.name))}</div>
@@ -174,21 +161,33 @@ function topbarHtml(p) {
     </div>`;
 }
 
-function bannerHtml(p) {
-  if (p.isAvailable !== false) return "";
+/* ============================================================
+   HEADER
+   ============================================================ */
+function headerHtml(p, isOwnMode) {
+  const locParts = [];
+  if (p.courtName) locParts.push(escapeHtml(p.courtName));
+  if (p.phase != null) locParts.push(`Phase ${p.phase}`);
+  const loc = locParts.join(" · ");
 
-  let bannerMessage;
-  if (p.unavailableUntil) {
-    const t = formatTimeUntil(p.unavailableUntil);
-    bannerMessage = (t && t.backTime)
-      ? `Expected back around <b>${t.backTime}</b> (${t.relative}). You can try booking again after that.`
-      : "Back any moment.";
-  } else {
-    bannerMessage = `${escapeHtml(p.name)} has marked themselves unavailable right now. Check back later.`;
-  }
+  const cat     = escapeHtml(p.categoryLabel || p.category || "Service Provider");
+  const rating  = Number(p.rating || 0);
+  const reviews = Number(p.reviewCount || 0);
+  const price   = Number(p.priceFrom || 0);
 
-  const unavailableBanner = p.isAvailable === false
-    ? `
+  let outOfOffice = "";
+  if (p.isAvailable === false) {
+    let bannerMessage;
+    if (p.unavailableUntil) {
+      const t = formatTimeUntil(p.unavailableUntil);
+      bannerMessage = (t && t.backTime)
+        ? `Expected back around <b>${t.backTime}</b> (${t.relative}). You can try booking again after that.`
+        : "Back any moment.";
+    } else {
+      bannerMessage = `${escapeHtml(p.name)} has marked themselves unavailable right now. Check back later.`;
+    }
+
+    outOfOffice = `
       <div class="out-of-office"
            style="background:#fff8e1;border:1px solid #f0c040;border-left:4px solid #f39c12;
                   border-radius:8px;padding:14px 18px;margin-bottom:22px;display:flex;
@@ -198,17 +197,16 @@ function bannerHtml(p) {
           <strong style="color:#a86c1c;display:block;margin-bottom:3px;">
             Currently not accepting new bookings
           </strong>
-          <span class="busy-countdown"
-                data-until="${p.unavailableUntil || ""}"
+          <span class="busy-countdown" data-until="${p.unavailableUntil || ""}"
                 style="color:#7a5a20;font-size:0.9rem;line-height:1.45;">
             ${bannerMessage}
           </span>
         </div>
-      </div>`
-    : "";
+      </div>`;
+  }
 
   const availabilityBadge = p.isAvailable === false
-    ? `<span class="badge" style="background:#e74c3c;color:white;margin-left:6px;">Busy</span>`
+    ? `<span class="badge badge--busy" style="background:#e74c3c;color:white;margin-left:6px;">Busy</span>`
     : "";
 
   const ownBadge = isOwnMode
@@ -216,20 +214,18 @@ function bannerHtml(p) {
     : "";
 
   return `
-    <div class="pv-banner out-of-office">
-      <span class="pv-banner__icon">⏸️</span>
+    ${outOfOffice}
+    <div class="pv-banner">
       <div>
         <h1 style="margin:0 0 4px;">${escapeHtml(p.name)}</h1>
         <div class="meta" style="color:var(--ink-70);">
-          ${escapeHtml(cat)}${loc ? " · " + loc : ""}
+          ${cat}${loc ? " · " + loc : ""}
         </div>
         <div class="rating" style="margin-top:6px;color:var(--ochre-dark);">
           ${stars(rating)} ${rating.toFixed(1)}
           ${reviews ? `<span style="color:var(--ink-40);">(${reviews} review${reviews === 1 ? "" : "s"})</span>` : ""}
-          <span style="color:var(--ink-40);">·</span>
-          <span style="color:var(--ink-70);">
-            From KSh ${price.toLocaleString()} ${escapeHtml(p.priceUnit || "")}
-          </span>
+          ${price ? `<span style="color:var(--ink-40);">·</span>
+            <span style="color:var(--ink-70);">From KSh ${price.toLocaleString()} ${escapeHtml(p.priceUnit || "")}</span>` : ""}
         </div>
       </div>
       <div>
@@ -242,52 +238,57 @@ function bannerHtml(p) {
     </div>`;
 }
 
-/* ---------------- left column ---------------- */
-function leftColumnHtml(p, reviews, isOwnMode) {
-  const services = servicesArray(p.services);
-  const showPhone = isLoggedIn();
+/* ============================================================
+   OFFERINGS BLOCK — grouped services by category
+   Falls back to the flat services list if offerings are absent
+   ============================================================ */
+function renderOfferingsBlock(p) {
+  const offerings = Array.isArray(p.offerings) ? p.offerings : [];
+
+  if (!offerings.length) {
+    const services = servicesArray(p.services);
+    if (!services.length) return "";
+    return `
+      <section class="provider-section">
+        <h4 class="provider-section__label">Services</h4>
+        <div class="provider-specs">
+          ${services.map((s) => `<span class="chip-pill">${escapeHtml(s)}</span>`).join("")}
+        </div>
+      </section>`;
+  }
 
   return `
-    ${p.bio ? `
-    <section class="provider-section">
-      <h3 class="provider-section__title">
-        <span class="provider-section__icon">⚡</span> About
-      </h3>
-      <p class="provider-section__body">${escapeHtml(p.bio)}</p>
-    </section>` : ""}
-
-    ${services.length ? `
     <section class="provider-section">
       <h4 class="provider-section__label">Services</h4>
-      <div class="provider-specs">
-        ${services.map((s) => `<span class="chip-pill">${escapeHtml(s)}</span>`).join("")}
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        ${offerings.map((o) => {
+          const svc = Array.isArray(o.services) ? o.services : servicesArray(o.services);
+          const price = Number(o.priceFrom || 0);
+          const unit  = o.priceUnit || "";
+          return `
+            <div style="border-left:3px solid var(--ochre, #c8862a);padding-left:12px;">
+              <div style="font-weight:600;color:var(--ink);margin-bottom:6px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">
+                <span>${escapeHtml(o.categoryLabel || "Category")}</span>
+                ${price
+                  ? `<span style="font-weight:400;font-size:12.5px;color:var(--ink-70);">
+                       · KSh ${price.toLocaleString()} ${escapeHtml(unit)}
+                     </span>`
+                  : ""}
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${svc.map((s) => `<span class="chip-pill">${escapeHtml(s)}</span>`).join("")}
+              </div>
+            </div>`;
+        }).join("")}
       </div>
-    </section>` : ""}
-
-    <section class="provider-section">
-      <h3 class="provider-section__title">
-        <span class="provider-section__icon">📋</span> Details
-      </h3>
-      <ul class="pv-details">
-        <li><span>Hours</span><span>${escapeHtml(p.hours || "-")}</span></li>
-        <li><span>Starting price</span><span>${priceText(p)}</span></li>
-        <li><span>Category</span><span>${escapeHtml(p.categoryLabel || "-")}</span></li>
-        <li><span>Court</span><span>${escapeHtml(p.courtName || "-")}</span></li>
-        <li><span>Phase</span><span>${p.phase != null ? "Phase " + p.phase : "-"}</span></li>
-        <li>
-          <span>Phone</span>
-          <span>
-            ${showPhone && p.phone
-              ? `<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`
-              : `<span class="pv-muted">Log in to view</span>`}
-          </span>
-        </li>
-      </ul>
     </section>`;
 }
 
-function reviewsHtml(reviews) {
-  const list = reviews.length
+/* ============================================================
+   REVIEWS
+   ============================================================ */
+function reviewsHtml(reviews, isOwnMode, provider) {
+  const list = (reviews && reviews.length)
     ? reviews.map((r) => `
         <div class="review">
           <div class="review-head">
@@ -301,9 +302,6 @@ function reviewsHtml(reviews) {
         </div>`).join("")
     : `<div class="empty-state" style="padding:20px;">No reviews yet.</div>`;
 
-  /* In own mode, don't show the "share with neighbors" / report options to yourself.
-     In public mode, only show the "Report" button to logged-in users — guests
-     get a "Log in to report" link instead (prevents anonymous reports). */
   const nextUrl = encodeURIComponent(location.pathname + location.search);
 
   const reportAction = isLoggedIn()
@@ -334,18 +332,12 @@ function reviewsHtml(reviews) {
           background:var(--paper);
         ">
           <p style="margin:0 0 10px;font-size:0.9rem;">
-            Help your neighbors find <b>${escapeHtml(p.name)}</b>:
+            Help your neighbors find <b>${escapeHtml(provider.name)}</b>:
           </p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="button" class="btn btn--primary btn--small" id="refer-copy">
-              📋 Copy link
-            </button>
-            <button type="button" class="btn btn--ghost btn--small" id="refer-whatsapp">
-              💬 Share on WhatsApp
-            </button>
-            <button type="button" class="btn btn--ghost btn--small" id="refer-close">
-              Cancel
-            </button>
+            <button type="button" class="btn btn--primary btn--small" id="refer-copy">📋 Copy link</button>
+            <button type="button" class="btn btn--ghost btn--small" id="refer-whatsapp">💬 Share on WhatsApp</button>
+            <button type="button" class="btn btn--ghost btn--small" id="refer-close">Cancel</button>
           </div>
         </div>
       </div>`;
@@ -354,60 +346,62 @@ function reviewsHtml(reviews) {
     <section class="provider-section">
       <h3 class="provider-section__title" id="reviews-heading">
         <span class="provider-section__icon">⭐</span>
-        Reviews <span>(${reviews.length})</span>
+        Reviews <span>(${(reviews || []).length})</span>
       </h3>
       <div class="provider-reviews">${list}</div>
+      ${shareBlock}
     </section>`;
 }
 
-function shareHtml(p) {
-  return `
-    <section class="provider-section pv-share">
-      <h4 class="provider-section__label">Share with a neighbor</h4>
-      <div class="pv-share__buttons">
-        <button type="button" class="btn btn--accent btn--small" id="refer-provider">
-          🔗 Refer this provider
-        </button>
-        <button type="button" class="btn btn--ghost btn--small" id="open-report">
-          <i class="fas fa-exclamation-triangle"></i> Report this provider
-        </button>
-      </div>
+/* ============================================================
+   LEFT COLUMN
+   ============================================================ */
+function leftColumnHtml(p, reviews, isOwnMode) {
+  const showPhone = isLoggedIn();
 
-      <h2 style="margin-top:28px;">Details</h2>
-      <ul class="info-list">
-        <li><span>Hours</span><span>${escapeHtml(p.hours || "—")}</span></li>
-        <li>
-          <span>Starting price</span>
-          <span>KSh ${Number(p.priceFrom || 0).toLocaleString()} ${escapeHtml(p.priceUnit || "")}</span>
-        </li>
-        <li><span>Court</span><span>${escapeHtml(p.courtName || "—")}</span></li>
-        <li><span>Phase</span><span>${p.phase != null ? "Phase " + p.phase : "—"}</span></li>
+  return `
+    ${p.bio ? `
+    <section class="provider-section">
+      <h3 class="provider-section__title">
+        <span class="provider-section__icon">⚡</span> About
+      </h3>
+      <p class="provider-section__body">${escapeHtml(p.bio)}</p>
+    </section>` : ""}
+
+    ${renderOfferingsBlock(p)}
+
+    <section class="provider-section">
+      <h3 class="provider-section__title">
+        <span class="provider-section__icon">📋</span> Details
+      </h3>
+      <ul class="pv-details">
+        <li><span>Hours</span><span>${escapeHtml(p.hours || "-")}</span></li>
+        <li><span>Starting price</span><span>${priceText(p)}</span></li>
+        <li><span>Category</span><span>${escapeHtml(p.categoryLabel || "-")}</span></li>
+        <li><span>Court</span><span>${escapeHtml(p.courtName || "-")}</span></li>
+        <li><span>Phase</span><span>${p.phase != null ? "Phase " + p.phase : "-"}</span></li>
         <li>
           <span>Phone</span>
           <span>
-            ${showPhone
+            ${showPhone && p.phone
               ? `<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>`
-              : `<span style="color:var(--ink-40);">Log in to view</span>`}
+              : `<span class="pv-muted">Log in to view</span>`}
           </span>
         </li>
       </ul>
+    </section>
 
-      <h2 style="margin-top:28px;">Reviews (${reviews.length})</h2>
-      ${reviewsHtml}
-
-      ${shareBlock}
-    </div>`;
+    ${reviewsHtml(reviews || [], isOwnMode, p)}`;
 }
 
 /* ============================================================
-   RIGHT COLUMN — booking form (public) / edit panel (own)
+   RIGHT COLUMN
    ============================================================ */
 function rightColumnHtml(p, isOwnMode) {
   if (isOwnMode) return ownProfilePanelHtml(p);
   return bookingFormHtml(p);
 }
 
-/* ---------- own profile side panel ---------- */
 function ownProfilePanelHtml(p) {
   return `
     <div class="booking-box" id="own-panel" style="border-top:4px solid var(--teal);">
@@ -420,12 +414,8 @@ function ownProfilePanelHtml(p) {
         <button class="btn btn--accent" id="btn-toggle-availability">
           ${p.isAvailable === false ? "✅ Mark as available" : "⏸️ Mark as unavailable"}
         </button>
-        <button class="btn btn--ghost" id="btn-edit-profile">
-          ✏️ Edit profile details
-        </button>
-        <button class="btn btn--ghost" id="btn-view-public">
-          👁️ View public page
-        </button>
+        <button class="btn btn--ghost" id="btn-edit-profile">✏️ Edit profile details</button>
+        <button class="btn btn--ghost" id="btn-view-public">👁️ View public page</button>
       </div>
 
       <p style="font-size:0.8rem;color:var(--ink-40);margin-top:16px;text-align:center;">
@@ -435,7 +425,6 @@ function ownProfilePanelHtml(p) {
   `;
 }
 
-/* ---------- public booking form ---------- */
 function bookingFormHtml(p) {
   if (!isLoggedIn()) {
     const next = encodeURIComponent("provider.html?id=" + p.id);
@@ -447,9 +436,8 @@ function bookingFormHtml(p) {
       </div>`;
   }
 
-  /* ---------- Vendor unavailable ---------- */
   if (p.isAvailable === false) {
-    let backMessage = "The vendor is currently not accepting new bookings.";
+    let backMessage;
     if (p.unavailableUntil) {
       const t = formatTimeUntil(p.unavailableUntil);
       backMessage = (t && t.backTime)
@@ -460,11 +448,10 @@ function bookingFormHtml(p) {
     }
 
     return `
-      <div class="booking-box" id="booking-box" style="text-align:center;">
+      <div class="booking-box booking-box--busy" id="booking-box" style="text-align:center;">
         <div style="font-size:2.5rem;line-height:1;margin-bottom:12px;">⏸️</div>
         <h3 style="margin:0 0 8px;">Currently unavailable</h3>
-        <p class="busy-countdown"
-           data-until="${p.unavailableUntil || ""}"
+        <p class="busy-countdown" data-until="${p.unavailableUntil || ""}"
            style="font-size:0.9rem;color:var(--ink-70);margin-bottom:16px;line-height:1.5;">
           ${backMessage}
         </p>
@@ -479,8 +466,7 @@ function bookingFormHtml(p) {
       </div>`;
   }
 
-  /* ---------- Normal booking form ---------- */
-  const user = getCurrentUser() || {};
+  const user  = getCurrentUser() || {};
   const name  = user.name  || "";
   const phone = user.phone || "";
 
@@ -494,35 +480,25 @@ function bookingFormHtml(p) {
           <label for="bf-name">Your name</label>
           <input id="bf-name" type="text" required value="${escapeHtml(name)}" />
         </div>
-
         <div class="field">
           <label for="bf-phone">Your phone</label>
-          <input id="bf-phone" type="tel" required
-                 value="${escapeHtml(phone)}" placeholder="+2547…" />
+          <input id="bf-phone" type="tel" required value="${escapeHtml(phone)}" placeholder="+2547…" />
         </div>
-
         <div class="field">
           <label for="bf-date">Date</label>
           <input id="bf-date" type="date" required value="${todayPlusDays(1)}" />
         </div>
-
         <div class="field">
           <label for="bf-service">What do you need?</label>
-          <input id="bf-service" type="text" required
-                 placeholder="e.g. 2 bags of laundry, pickup" />
+          <input id="bf-service" type="text" required placeholder="e.g. 2 bags of laundry, pickup" />
         </div>
-
         <div class="field">
-          <label for="bf-notes">
-            Notes <span class="pv-muted">(optional)</span>
-          </label>
+          <label for="bf-notes">Notes <span class="pv-muted">(optional)</span></label>
           <textarea id="bf-notes" rows="3" placeholder="Any details the provider should know"></textarea>
         </div>
-
         <button type="submit" class="btn btn--accent" style="width:100%;">
           Request booking
         </button>
-
         <p id="booking-msg" class="pv-msg" style="display:none;"></p>
       </form>
     </div>`;
@@ -549,7 +525,9 @@ function ctaHtml(p) {
     </div>`;
 }
 
-/* ---------------- booking success ---------------- */
+/* ============================================================
+   BOOKING
+   ============================================================ */
 function renderBookingSuccess(p) {
   const box = document.getElementById("booking-box");
   if (!box) return;
@@ -571,7 +549,6 @@ function renderBookingSuccess(p) {
   });
 }
 
-/* ---------------- wire booking form (single definition) ---------------- */
 function wireBookingForm(p) {
   const form = document.getElementById("booking-form");
   if (!form) return;
@@ -620,7 +597,9 @@ function wireBookingForm(p) {
   });
 }
 
-/* ---------------- wire own-profile side panel ---------------- */
+/* ============================================================
+   OWN PANEL
+   ============================================================ */
 function wireOwnPanel(p) {
   const toggleBtn = document.getElementById("btn-toggle-availability");
   const editBtn   = document.getElementById("btn-edit-profile");
@@ -628,7 +607,7 @@ function wireOwnPanel(p) {
 
   if (toggleBtn) {
     toggleBtn.addEventListener("click", async () => {
-      const newVal = p.isAvailable !== false;   // toggle
+      const newVal = p.isAvailable !== false;
       toggleBtn.disabled = true;
       const old = toggleBtn.textContent;
       toggleBtn.textContent = "Updating…";
@@ -647,7 +626,6 @@ function wireOwnPanel(p) {
   if (editBtn) {
     editBtn.addEventListener("click", () => {
       toast("Edit modal coming soon — for now, use the admin panel or contact support.");
-      // TODO: open an edit modal that PATCHes Api.updateProvider
     });
   }
 
@@ -659,24 +637,16 @@ function wireOwnPanel(p) {
 }
 
 /* ============================================================
-   wire report modal — AUTH-GUARDED
-   Guests cannot open the modal or submit a report.
-   The reporter's identity is attached to the payload so the
-   backend can log who filed each report.
+   REPORT MODAL
    ============================================================ */
 function wireReportModal(provider) {
   const openBtn = document.getElementById("open-report");
   const modal   = document.getElementById("report-modal");
   const cancel  = document.getElementById("report-cancel");
   const form    = document.getElementById("report-form");
-
-  // If the button wasn't rendered (guest sees the "Log in to report" link
-  // instead), there's nothing to wire. Guests cannot reach the modal at all.
   if (!openBtn || !modal || !cancel || !form) return;
 
   openBtn.addEventListener("click", () => {
-    // Belt-and-braces: even if the button somehow rendered for a guest,
-    // we still force a login before letting them open the modal.
     if (!isLoggedIn()) {
       const next = encodeURIComponent(location.pathname + location.search);
       window.location.href = `login.html?next=${next}`;
@@ -692,8 +662,6 @@ function wireReportModal(provider) {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-
-    // ---------- AUTH GUARD ----------
     const user = getCurrentUser();
     if (!user) {
       const next = encodeURIComponent(location.pathname + location.search);
@@ -704,15 +672,8 @@ function wireReportModal(provider) {
 
     const reason  = document.getElementById("report-reason").value;
     const details = document.getElementById("report-details").value.trim();
-
-    if (!reason) {
-      toast("Please select a reason.");
-      return;
-    }
-    if (!details) {
-      toast("Please describe what happened.");
-      return;
-    }
+    if (!reason)  { toast("Please select a reason."); return; }
+    if (!details) { toast("Please describe what happened."); return; }
 
     const submitBtn = form.querySelector("button[type=submit]");
     if (submitBtn) submitBtn.disabled = true;
@@ -722,11 +683,9 @@ function wireReportModal(provider) {
         providerId:   provider.id,
         reason,
         details,
-        // Traceability — backend MUST also verify these against the session.
         reporterId:   user.id,
         reporterName: user.name || user.full_name || "",
       });
-
       modal.classList.remove("is-open");
       form.reset();
       toast("✅ Report submitted. The estate admin will review it.");
@@ -739,14 +698,15 @@ function wireReportModal(provider) {
   });
 }
 
-/* ---------------- wire refer panel ---------------- */
+/* ============================================================
+   REFER PANEL
+   ============================================================ */
 function wireReferPanel(provider) {
   const referBtn    = document.getElementById("refer-provider");
   const panel       = document.getElementById("refer-panel");
   const copyBtn     = document.getElementById("refer-copy");
   const whatsappBtn = document.getElementById("refer-whatsapp");
   const closeBtn    = document.getElementById("refer-close");
-
   if (!referBtn || !panel || !copyBtn || !whatsappBtn || !closeBtn) return;
 
   const providerUrl = `${window.location.origin}/provider.html?id=${provider.id}`;
@@ -764,18 +724,14 @@ function wireReferPanel(provider) {
       await navigator.clipboard.writeText(providerUrl);
       toast("Link copied! Share it with your neighbors.");
       panel.style.display = "none";
-    } catch (err) {
-      const tempInput = document.createElement("input");
-      tempInput.value = providerUrl;
-      document.body.appendChild(tempInput);
-      tempInput.select();
-      try {
-        document.execCommand("copy");
-        toast("Link copied!");
-      } catch {
-        alert("Could not copy. Here is the link:\n\n" + providerUrl);
-      }
-      document.body.removeChild(tempInput);
+    } catch {
+      const temp = document.createElement("input");
+      temp.value = providerUrl;
+      document.body.appendChild(temp);
+      temp.select();
+      try { document.execCommand("copy"); toast("Link copied!"); }
+      catch { alert("Could not copy. Link:\n\n" + providerUrl); }
+      document.body.removeChild(temp);
       panel.style.display = "none";
     }
   });
@@ -785,12 +741,12 @@ function wireReferPanel(provider) {
     panel.style.display = "none";
   });
 
-  closeBtn.addEventListener("click", () => {
-    panel.style.display = "none";
-  });
+  closeBtn.addEventListener("click", () => { panel.style.display = "none"; });
 }
 
-/* ---------------- live busy ticker (30s, text-only refresh) ---------------- */
+/* ============================================================
+   LIVE TICKERS
+   ============================================================ */
 function startBusyTicker(p) {
   if (p.isAvailable !== false || !p.unavailableUntil) return;
 
@@ -798,10 +754,8 @@ function startBusyTicker(p) {
     document.querySelectorAll(".busy-countdown").forEach((el) => {
       const until = el.dataset.until;
       if (!until) return;
-
       const t = formatTimeUntil(until);
       if (!t || !t.backTime) return;
-
       if (el.tagName === "P") {
         el.innerHTML = `Expected back around <b>${t.backTime}</b> (${t.relative}). You can try booking again after that.`;
       } else {
@@ -811,30 +765,19 @@ function startBusyTicker(p) {
   }, 30000);
 }
 
-/* ============================================================
-   LIVE AVAILABILITY — auto-flip at the exact moment
-   ============================================================ */
-
-const _pvAvailability = {
-  isAvailable: true,
-  unavailableUntil: null,
-  timerId: null,
-};
+const _pvAvailability = { isAvailable: true, unavailableUntil: null, timerId: null };
 
 function startAvailabilityTicker(provider) {
   if (_pvAvailability.timerId) {
     clearInterval(_pvAvailability.timerId);
     _pvAvailability.timerId = null;
   }
-
-  _pvAvailability.isAvailable     = provider.isAvailable !== false;
+  _pvAvailability.isAvailable      = provider.isAvailable !== false;
   _pvAvailability.unavailableUntil = provider.unavailableUntil || null;
-
   if (_pvAvailability.isAvailable || !_pvAvailability.unavailableUntil) return;
 
   _pvAvailability.timerId = setInterval(() => {
     const remaining = new Date(_pvAvailability.unavailableUntil) - new Date();
-
     if (remaining <= 0) {
       clearInterval(_pvAvailability.timerId);
       _pvAvailability.timerId = null;
@@ -850,15 +793,12 @@ function startAvailabilityTicker(provider) {
 function updateBusyCountdown(ms) {
   const el = document.querySelector(".busy-countdown");
   if (!el) return;
-
   const mins = Math.floor(ms / 60000);
   const secs = Math.floor((ms % 60000) / 1000);
-
   let text;
-  if (mins >= 1)      text = `Back in ${mins}m ${secs}s`;
-  else if (secs > 0)  text = `Back in ${secs}s`;
-  else                text = "Back any moment";
-
+  if (mins >= 1)     text = `Back in ${mins}m ${secs}s`;
+  else if (secs > 0) text = `Back in ${secs}s`;
+  else               text = "Back any moment";
   el.textContent = text;
 }
 
@@ -866,14 +806,10 @@ async function refreshProviderAvailability() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
   if (!id) return;
-
   try {
     const fresh = await Api.getProvider(id);
-    if (fresh.isAvailable === false) {
-      startAvailabilityTicker(fresh);
-    } else {
-      applyAvailableUI(fresh);
-    }
+    if (fresh.isAvailable === false) startAvailabilityTicker(fresh);
+    else                             applyAvailableUI(fresh);
   } catch (err) {
     console.warn("[provider] availability refresh failed:", err);
     applyAvailableUI(null);
@@ -881,11 +817,9 @@ async function refreshProviderAvailability() {
 }
 
 function applyAvailableUI(provider) {
-  // 1. Remove the out-of-office banner
-  const banner = document.querySelector(".pv-banner");
+  const banner = document.querySelector(".out-of-office");
   if (banner) banner.remove();
 
-  // 2. Un-disable the sticky CTA and restore its real markup
   const bookBtn = document.querySelector(".provider-cta__btn");
   if (bookBtn) {
     bookBtn.disabled = false;
@@ -899,7 +833,6 @@ function applyAvailableUI(provider) {
       <small>${note}</small>`;
   }
 
-  // 3. Status chip
   const statusChip = document.querySelector(".chip-pill--busy");
   if (statusChip) {
     statusChip.classList.remove("chip-pill--busy");
@@ -907,7 +840,6 @@ function applyAvailableUI(provider) {
     statusChip.textContent = "Available Today";
   }
 
-  // 4. Hero badge
   const busyBadge = document.querySelector(".badge--busy");
   if (busyBadge) {
     busyBadge.classList.remove("badge--busy");
@@ -915,7 +847,6 @@ function applyAvailableUI(provider) {
     busyBadge.textContent = "AHE Verified";
   }
 
-  // 5. Replace the "Currently unavailable" panel with the real booking form
   const busyPanel = document.querySelector(".booking-box--busy");
   if (busyPanel && provider) {
     busyPanel.outerHTML = bookingFormHtml(provider);
@@ -924,7 +855,7 @@ function applyAvailableUI(provider) {
 }
 
 /* ============================================================
-   GATE CLEARANCE PILL
+   GATE PILL
    ============================================================ */
 async function renderGatePill() {
   const pill = document.getElementById("gate-clearance-pill");
@@ -933,9 +864,7 @@ async function renderGatePill() {
   const data = await Api.getGateStatus();
 
   if (!data || !data.status) {
-    const nowEAT = new Date(new Date().toLocaleString("en-US", {
-      timeZone: "Africa/Nairobi",
-    }));
+    const nowEAT = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Nairobi" }));
     const h = nowEAT.getHours();
     if (h >= 6 && h < 22) {
       pill.className = "pill pill--interactive pill--live";
@@ -953,17 +882,10 @@ async function renderGatePill() {
 
   let tooltip;
   switch (data.status) {
-    case "live":
-      tooltip = `Gate 2 open. Closes in ${data.nextChangeMinutes} min (22:00 EAT). Gate 1 open 24/7.`;
-      break;
-    case "busy":
-      tooltip = `Gate 2 closing in ${data.nextChangeMinutes} min. Gate 1 remains open.`;
-      break;
-    case "closed":
-      tooltip = `Gate 2 reopens in ${data.nextChangeMinutes} min (06:00 EAT). Gate 1 open 24/7.`;
-      break;
-    default:
-      tooltip = "Gate status unavailable";
+    case "live":   tooltip = `Gate 2 open. Closes in ${data.nextChangeMinutes} min (22:00 EAT). Gate 1 open 24/7.`; break;
+    case "busy":   tooltip = `Gate 2 closing in ${data.nextChangeMinutes} min. Gate 1 remains open.`; break;
+    case "closed": tooltip = `Gate 2 reopens in ${data.nextChangeMinutes} min (06:00 EAT). Gate 1 open 24/7.`; break;
+    default:       tooltip = "Gate status unavailable";
   }
   pill.title = tooltip;
 
@@ -975,22 +897,17 @@ async function renderGatePill() {
   }
 }
 
-/* ============================================================
-   GATE RULES MODAL
-   ============================================================ */
 function setupGateRulesModalOnProviderPage() {
   const modal = document.getElementById("gate-rules-modal");
   if (!modal) return;
-
-  const triggers      = document.querySelectorAll('[data-open="gate-rules"]');
-  const closeButtons  = modal.querySelectorAll("[data-close-modal]");
+  const triggers     = document.querySelectorAll('[data-open="gate-rules"]');
+  const closeButtons = modal.querySelectorAll("[data-close-modal]");
 
   const open = (e) => {
     if (e) e.preventDefault();
     modal.classList.add("is-open");
     document.body.style.overflow = "hidden";
   };
-
   const close = () => {
     modal.classList.remove("is-open");
     document.body.style.overflow = "";
@@ -998,11 +915,7 @@ function setupGateRulesModalOnProviderPage() {
 
   triggers.forEach((t) => t.addEventListener("click", open));
   closeButtons.forEach((b) => b.addEventListener("click", close));
-
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) close();
-  });
-
+  modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && modal.classList.contains("is-open")) close();
   });
@@ -1013,13 +926,14 @@ function setupGateRulesModalOnProviderPage() {
    ============================================================ */
 async function initProviderPage() {
   const root = document.getElementById("provider-root");
-  if (!root) return;
+  if (!root) {
+    console.warn("[provider] #provider-root not found in DOM");
+    return;
+  }
 
   const mode = detectMode();
 
-  /* ============================================================
-     OWN MODE — provider-profile.html
-     ============================================================ */
+  /* ---------- OWN MODE ---------- */
   if (mode === "own") {
     const role = getCurrentRole();
     if (!["vendor", "provider", "admin", "super-admin"].includes(role)) {
@@ -1028,29 +942,28 @@ async function initProviderPage() {
 
     renderLoading();
 
-    /* Find the logged-in user's provider record */
     const u = getCurrentUser();
     if (!u) return renderError("Please log in.");
 
     let provider;
     try {
-      const all  = await Api.getProviders({ limit: 500 });
-      const list = Array.isArray(all) ? all : (all.data || []);
-      provider   = list.find((p) => String(p.residentId) === String(u.residentId))
-                || list.find((p) => String(p.phone) === String(u.phone));
+      if (typeof Api.getMyProvider === "function") {
+        provider = await Api.getMyProvider();
+      } else {
+        const all  = await Api.getProviders({ limit: 500 });
+        const list = Array.isArray(all) ? all : (all.data || []);
+        provider   = list.find((p) => String(p.residentId) === String(u.residentId))
+                  || list.find((p) => String(p.phone) === String(u.phone));
+      }
     } catch (err) {
       console.error("[provider] own-mode load failed:", err);
       return renderError("Could not load your profile.");
     }
 
-    if (!provider) {
-      return renderError("You don't have a vendor profile yet. Apply from the register page.");
-    }
+    if (!provider) return renderError("You don't have a vendor profile yet. Apply from the register page.");
 
     let reviews = [];
-    try {
-      reviews = await Api.getReviews(provider.id);
-    } catch { /* empty ok */ }
+    try { reviews = await Api.getReviews(provider.id); } catch { /* empty */ }
 
     root.innerHTML = `
       ${headerHtml(provider, true)}
@@ -1063,9 +976,7 @@ async function initProviderPage() {
     return;
   }
 
-  /* ============================================================
-     PUBLIC MODE — provider.html?id=N
-     ============================================================ */
+  /* ---------- PUBLIC MODE ---------- */
   const id = getProviderId();
   if (!id) return renderError("No provider specified.");
 
@@ -1084,6 +995,9 @@ async function initProviderPage() {
 
   if (!provider) return renderError("Provider not found.");
 
+  /* Dev-only sanity log — verify offerings are arriving */
+  console.debug("[provider] public view offerings:", provider.offerings);
+
   root.innerHTML = `
     ${headerHtml(provider, false)}
     <div class="detail-grid">
@@ -1091,39 +1005,17 @@ async function initProviderPage() {
       ${rightColumnHtml(provider, false)}
     </div>`;
 
-  /* Wire everything */
   wireBookingForm(provider);
   wireReportModal(provider);
   wireReferPanel(provider);
 
-  /* Live countdown ticker — updates every 30 seconds */
   if (provider.isAvailable === false && provider.unavailableUntil) {
-    setInterval(() => {
-      document.querySelectorAll(".busy-countdown").forEach((el) => {
-        const until = el.dataset.until;
-        if (!until) return;
-
-        const t = formatTimeUntil(until);
-        if (!t || !t.backTime) return;
-
-        if (el.tagName === "P") {
-          el.innerHTML = `Expected back around <b>${t.backTime}</b> (${t.relative}). You can try booking again after that.`;
-        } else {
-          el.textContent = `Expected back around ${t.backTime} (${t.relative}).`;
-        }
-      });
-    }, 30000);
+    startBusyTicker(provider);
   }
 }
 
-/* ============================================================
-   BOOT — wait for API discovery before running
-   ============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    if (window.__apiReady) await window.__apiReady;
-  } catch (err) {
-    console.warn("[provider] API discovery failed:", err);
-  }
+  try { if (window.__apiReady) await window.__apiReady; }
+  catch (err) { console.warn("[provider] API discovery failed:", err); }
   initProviderPage();
 });

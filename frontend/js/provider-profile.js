@@ -1,7 +1,24 @@
 ﻿/* ============================================================
-   provider-profile.js - vendor manages their own profile
+   provider-profile.js — vendor manages their own profile
    + modal duration picker (specific durations only)
+   + multi-category offerings editor
    ============================================================ */
+
+/* ---------------- module state ---------------- */
+let _offerings  = [];   // each: { id?, category, priceFrom, priceUnit, services[], sortOrder }
+let _categories = [];   // [{ id, label }, …]
+
+/* ---------------- constants ---------------- */
+const UNIT_OPTIONS = [
+  "per visit",
+  "per hour",
+  "per day",
+  "per session",
+  "per trip",
+  "per kg",
+  "per load",
+  "per item",
+];
 
 /* ---------------- helpers ---------------- */
 function escapeHtml(s) {
@@ -23,10 +40,107 @@ function servicesToInput(services) {
   return String(services || "");
 }
 
-/* ---------------- render ---------------- */
+function splitServices(raw) {
+  return String(raw || "")
+    .split(/\s*,\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function isKnownUnit(unit) {
+  return UNIT_OPTIONS.includes(unit);
+}
+
+function unitFieldHtml(idx, currentUnit) {
+  const known = isKnownUnit(currentUnit);
+  const selected = known ? currentUnit : "__custom__";
+
+  const opts = UNIT_OPTIONS.map((u) =>
+    `<option value="${u}"${u === selected ? " selected" : ""}>${u}</option>`
+  ).join("");
+
+  return `
+    <select class="offering-unit-select" data-idx="${idx}">
+      ${opts}
+      <option value="__custom__"${selected === "__custom__" ? " selected" : ""}>Custom…</option>
+    </select>
+    <input type="text"
+           class="offering-unit-custom"
+           data-idx="${idx}"
+           placeholder="e.g. per 5kg load"
+           value="${escapeHtml(known ? "" : currentUnit || "")}"
+           style="margin-top:6px; ${known ? "display:none;" : ""}" />
+  `;
+}
+
+/* ============================================================
+   SYNCHRONISE — read the current DOM state back into _offerings
+   Called at the top of every save. This is the single most
+   important function in this file: it guarantees that what the
+   user sees on screen is exactly what gets sent to the server,
+   regardless of whether change/input events fired correctly.
+   ============================================================ */
+function syncOfferingsFromDom() {
+  const rows = document.querySelectorAll(".offering-row");
+
+  /* If the number of rows doesn't match _offerings, rebuild from scratch */
+  if (rows.length !== _offerings.length) {
+    const rebuilt = [];
+    rows.forEach((row) => {
+      const idx = Number(row.dataset.idx);
+
+      /* Preserve the id of the corresponding in-memory entry if it exists */
+      const previous = _offerings[idx] || {};
+      rebuilt.push({
+        id:        previous.id || null,
+        category:  null,
+        priceFrom: 0,
+        priceUnit: "per visit",
+        services:  [],
+        sortOrder: previous.sortOrder ?? idx,
+      });
+    });
+    _offerings = rebuilt;
+  }
+
+  rows.forEach((row, idx) => {
+    if (!_offerings[idx]) return;
+
+    const catEl     = row.querySelector(".offering-category");
+    const priceEl   = row.querySelector(".offering-price");
+    const unitSelEl = row.querySelector(".offering-unit-select");
+    const unitTxtEl = row.querySelector(".offering-unit-custom");
+    const svcEl     = row.querySelector(".offering-services");
+
+    if (catEl) {
+      const v = catEl.value;
+      _offerings[idx].category = v ? Number(v) : null;
+    }
+    if (priceEl) {
+      _offerings[idx].priceFrom = Number(priceEl.value) || 0;
+    }
+    if (svcEl) {
+      _offerings[idx].services = splitServices(svcEl.value);
+    }
+
+    if (unitSelEl && unitSelEl.value && unitSelEl.value !== "__custom__") {
+      _offerings[idx].priceUnit = unitSelEl.value;
+    } else if (unitTxtEl && unitTxtEl.value.trim()) {
+      _offerings[idx].priceUnit = unitTxtEl.value.trim();
+    } else if (!_offerings[idx].priceUnit) {
+      _offerings[idx].priceUnit = "per visit";
+    }
+  });
+}
+
+/* ============================================================
+   RENDER — whole profile card
+   ============================================================ */
 function renderProfile(p, categories) {
-  const catOptions = categories.map((c) =>
-    `<option value="${c.id}" ${c.id === p.category ? "selected" : ""}>${escapeHtml(c.label)}</option>`
+  _categories = Array.isArray(categories) ? categories : [];
+
+  const catOptions = _categories.map((c) =>
+    `<option value="${c.id}" ${c.id === p.category ? "selected" : ""}>${escapeHtml(c.label || c.name || "Category")}</option>`
   ).join("");
 
   const isAvailable = p.isAvailable !== false;
@@ -78,43 +192,38 @@ function renderProfile(p, categories) {
         </div>
 
         <div class="field">
-          <label for="pf-category">Category</label>
-          <select id="pf-category" required>
-            <option value="">- Select category -</option>
-            ${catOptions}
-          </select>
-        </div>
-
-        <div class="field">
           <label for="pf-hours">Working hours</label>
           <input id="pf-hours" type="text" value="${escapeHtml(p.hours || "")}"
                  placeholder="e.g. Mon-Sat, 8am-5pm" />
         </div>
 
-        <div style="display:grid; grid-template-columns:2fr 1fr; gap:12px;">
-          <div class="field">
-            <label for="pf-price">Starting price (KSh)</label>
-            <input id="pf-price" type="number" min="0" value="${Number(p.priceFrom || 0)}" />
-          </div>
-          <div class="field">
-            <label for="pf-unit">Price unit</label>
-            <input id="pf-unit" type="text" value="${escapeHtml(p.priceUnit || "per visit")}"
-                   placeholder="per visit / per hour" />
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="pf-services">Services (comma-separated)</label>
-          <input id="pf-services" type="text" value="${escapeHtml(servicesToInput(p.services))}"
-                 placeholder="e.g. Cleaning, Laundry, Ironing" />
-        </div>
-
         <div class="field">
           <label for="pf-bio">About your business</label>
-          <textarea id="pf-bio" rows="4" placeholder="Tell residents about your work…">${escapeHtml(p.bio || "")}</textarea>
+          <textarea id="pf-bio" rows="3" placeholder="Tell residents about your work…">${escapeHtml(p.bio || "")}</textarea>
         </div>
 
-        <div style="display:flex; gap:8px; margin-top:18px;">
+        <hr style="margin:22px 0 16px; border:none; border-top:1px solid var(--line);" />
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div>
+            <h3 style="margin:0; font-size:1rem;">Services &amp; categories</h3>
+            <p style="margin:2px 0 0; font-size:0.82rem; color:var(--ink-70);">
+              Add each category you offer, with its own price and services list.
+            </p>
+          </div>
+          <button type="button" class="btn btn--ghost btn--small" id="offering-add-btn">+ Add category</button>
+        </div>
+
+        <div id="offerings-list" style="display:flex; flex-direction:column; gap:10px; margin:12px 0 0;"></div>
+
+        <div style="display:none;">
+          <select id="pf-category">${catOptions}</select>
+          <input id="pf-price" type="number" />
+          <input id="pf-unit" type="text" />
+          <input id="pf-services" type="text" />
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:22px;">
           <button type="submit" class="btn btn--accent" id="save-btn">Save changes</button>
           <a href="provider-dashboard.html" class="btn btn--ghost">Cancel</a>
         </div>
@@ -124,41 +233,261 @@ function renderProfile(p, categories) {
     </div>
   `;
 
+  /* Load offerings into memory */
+  if (Array.isArray(p.offerings) && p.offerings.length) {
+    _offerings = p.offerings.map((o, idx) => ({
+      id:        o.id || null,
+      category:  o.category || null,
+      priceFrom: Number(o.priceFrom || 0),
+      priceUnit: o.priceUnit || "per visit",
+      services:  Array.isArray(o.services) ? o.services.slice() : splitServices(o.services),
+      sortOrder: o.sortOrder ?? idx,
+    }));
+  } else if (p.category) {
+    _offerings = [{
+      id:        null,
+      category:  p.category,
+      priceFrom: Number(p.priceFrom || 0),
+      priceUnit: p.priceUnit || "per visit",
+      services:  Array.isArray(p.services) ? p.services.slice() : splitServices(p.services),
+      sortOrder: 0,
+    }];
+  } else {
+    _offerings = [];
+  }
+
+  renderOfferings();
+  wireAddOffering();
   wireForm(p);
   wireAvailabilityToggle(p);
 }
 
-/* ---------------- wire form ---------------- */
+/* ============================================================
+   OFFERINGS EDITOR
+   ============================================================ */
+function renderOfferings() {
+  const root = document.getElementById("offerings-list");
+  if (!root) return;
+
+  if (!_offerings.length) {
+    root.innerHTML = `
+      <div class="empty-state" style="padding:14px; font-size:0.88rem;">
+        No service offerings yet. Click <b>+ Add category</b> to start.
+      </div>`;
+    return;
+  }
+
+  const catOptsFor = (selected) =>
+    `<option value="">- Select category -</option>` +
+    _categories.map((c) => {
+      const label = c.label || c.name || "Category";
+      const sel = String(c.id) === String(selected) ? " selected" : "";
+      return `<option value="${c.id}"${sel}>${escapeHtml(label)}</option>`;
+    }).join("");
+
+  root.innerHTML = _offerings.map((o, idx) => `
+    <div class="offering-row" data-idx="${idx}"
+         style="border:1px solid var(--line); border-radius:8px; padding:12px; background:#fafbfc;">
+
+      <div style="display:flex; gap:10px; align-items:flex-start;">
+        <div class="field" style="flex:1;">
+          <label style="font-size:0.78rem;">Category</label>
+          <select class="offering-category" data-idx="${idx}">
+            ${catOptsFor(o.category)}
+          </select>
+        </div>
+        <div class="field" style="width:110px;">
+          <label style="font-size:0.78rem;">Price (KSh)</label>
+          <input type="number" min="0" class="offering-price"
+                 data-idx="${idx}" value="${Number(o.priceFrom || 0)}" />
+        </div>
+        <div class="field" style="width:160px;">
+          <label style="font-size:0.78rem;">Unit</label>
+          ${unitFieldHtml(idx, o.priceUnit)}
+        </div>
+        <button type="button" class="btn btn--ghost btn--small offering-remove"
+                data-idx="${idx}" title="Remove this category"
+                style="margin-top:22px;">✕</button>
+      </div>
+
+      <div class="field" style="margin-top:10px;">
+        <label style="font-size:0.78rem;">Services (comma-separated)</label>
+        <input type="text" class="offering-services" data-idx="${idx}"
+               value="${escapeHtml((o.services || []).join(", "))}"
+               placeholder="e.g. Laundry, Ironing, Dry cleaning" />
+      </div>
+    </div>
+  `).join("");
+
+  /* Bind events — kept as a belt-and-braces sync, but they
+     are no longer relied upon for correctness because
+     syncOfferingsFromDom() runs at save time. */
+
+  root.querySelectorAll(".offering-category").forEach((el) => {
+    el.addEventListener("change", () => {
+      _offerings[el.dataset.idx].category = el.value ? Number(el.value) : null;
+    });
+  });
+
+  root.querySelectorAll(".offering-price").forEach((el) => {
+    el.addEventListener("input", () => {
+      _offerings[el.dataset.idx].priceFrom = Number(el.value) || 0;
+    });
+  });
+
+  root.querySelectorAll(".offering-unit-select").forEach((el) => {
+    el.addEventListener("change", () => {
+      const idx = Number(el.dataset.idx);
+      const row = el.closest(".offering-row");
+      const customInput = row?.querySelector(".offering-unit-custom");
+
+      if (el.value === "__custom__") {
+        if (customInput) {
+          customInput.style.display = "";
+          customInput.focus();
+          customInput.value = isKnownUnit(_offerings[idx].priceUnit) ? "" : (_offerings[idx].priceUnit || "");
+          _offerings[idx].priceUnit = customInput.value.trim() || "per visit";
+        }
+      } else {
+        if (customInput) customInput.style.display = "none";
+        _offerings[idx].priceUnit = el.value;
+      }
+    });
+  });
+
+  root.querySelectorAll(".offering-unit-custom").forEach((el) => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.dataset.idx);
+      _offerings[idx].priceUnit = el.value.trim() || "per visit";
+    });
+  });
+
+  root.querySelectorAll(".offering-services").forEach((el) => {
+    el.addEventListener("input", () => {
+      _offerings[el.dataset.idx].services = splitServices(el.value);
+    });
+  });
+
+  root.querySelectorAll(".offering-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.idx);
+      const off = _offerings[idx];
+      if (off && off.id) {
+        if (!confirm("Remove this category from your profile?")) return;
+      }
+      _offerings.splice(idx, 1);
+      renderOfferings();
+    });
+  });
+}
+
+function wireAddOffering() {
+  const btn = document.getElementById("offering-add-btn");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    _offerings.push({
+      id: null,
+      category: _categories[0]?.id ?? null,
+      priceFrom: 0,
+      priceUnit: "per visit",
+      services: [],
+      sortOrder: _offerings.length,
+    });
+    renderOfferings();
+
+    const rows = document.querySelectorAll(".offering-row");
+    const last = rows[rows.length - 1];
+    last?.querySelector(".offering-services")?.focus();
+  });
+}
+
+/* ============================================================
+   SAVE — primary fields + full offerings array
+   ============================================================ */
 function wireForm(p) {
   const form = document.getElementById("profile-form");
   const msg  = document.getElementById("profile-msg");
+  if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+
     const btn = document.getElementById("save-btn");
     btn.disabled = true;
     btn.textContent = "Saving…";
     msg.style.display = "none";
 
-    const servicesRaw = document.getElementById("pf-services").value.trim();
-    const servicesArr = servicesRaw ? servicesRaw.split(/\s*,\s*/).filter(Boolean) : [];
+    /* ---------- CRITICAL: pull current values from DOM ---------- */
+    syncOfferingsFromDom();
+
+    /* ---------- sanitise offerings ---------- */
+    const dropped = [];
+    const cleanedOfferings = _offerings.filter((o) => {
+      const keep = o.category && Array.isArray(o.services) && o.services.length;
+      if (!keep) dropped.push(o);
+      return keep;
+    }).map((o, idx) => ({
+      ...(o.id ? { id: o.id } : {}),
+      category:  Number(o.category),
+      priceFrom: Number(o.priceFrom) || 0,
+      priceUnit: o.priceUnit || "per visit",
+      services:  o.services.slice(),
+      sortOrder: o.sortOrder ?? idx,
+    }));
+
+    if (dropped.length) {
+      console.warn("[provider-profile] dropped incomplete offerings:", dropped);
+      msg.textContent = `Skipped ${dropped.length} incomplete service row${dropped.length > 1 ? "s" : ""}. Fill in a category and at least one service.`;
+      msg.style.color = "var(--clay)";
+      msg.style.display = "block";
+    }
+
+    if (!cleanedOfferings.length) {
+      msg.textContent = "Add at least one category with services before saving.";
+      msg.style.color = "var(--clay)";
+      msg.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Save changes";
+      return;
+    }
+
+    /* ---------- primary fields = first offering ---------- */
+    const primary = cleanedOfferings[0];
 
     const payload = {
       name:      document.getElementById("pf-name").value.trim(),
-      category:  document.getElementById("pf-category").value,
       hours:     document.getElementById("pf-hours").value.trim(),
-      priceFrom: Number(document.getElementById("pf-price").value) || 0,
-      priceUnit: document.getElementById("pf-unit").value.trim() || "per visit",
       bio:       document.getElementById("pf-bio").value.trim(),
-      services:  servicesArr,
+
+      category:  primary.category,
+      priceFrom: primary.priceFrom,
+      priceUnit: primary.priceUnit,
+      services:  primary.services.slice(),
+
+      offerings: cleanedOfferings,
     };
 
+    /* Log the exact payload so you can confirm it in the console */
+    console.log("[provider-profile] PATCH payload:", payload);
+
     try {
-      await Api.updateProvider(p.id, payload);
+      const saved = await Api.updateProvider(p.id, payload);
       toast("Profile saved.");
       msg.textContent = "✅ Saved successfully.";
       msg.style.color = "var(--teal)";
       msg.style.display = "block";
+
+      if (saved && Array.isArray(saved.offerings)) {
+        _offerings = saved.offerings.map((o, idx) => ({
+          id:        o.id || null,
+          category:  o.category || null,
+          priceFrom: Number(o.priceFrom || 0),
+          priceUnit: o.priceUnit || "per visit",
+          services:  Array.isArray(o.services) ? o.services.slice() : splitServices(o.services),
+          sortOrder: o.sortOrder ?? idx,
+        }));
+        renderOfferings();
+      }
     } catch (err) {
       console.error("[provider-profile] save failed:", err);
       msg.textContent = err.message || "Could not save. Please try again.";
@@ -186,7 +515,6 @@ function wireAvailabilityToggle(p) {
     const sublabel = document.getElementById("availability-sublabel");
     const slider   = document.getElementById("availability-slider");
 
-    /* ---------- Turning ON ---------- */
     if (newValue) {
       try {
         await Api.updateProvider(p.id, { isAvailable: true, unavailableUntil: null });
@@ -206,10 +534,8 @@ function wireAvailabilityToggle(p) {
       return;
     }
 
-    /* ---------- Turning OFF - ask for duration ---------- */
     const minutes = await askForDurationModal();
     if (minutes === null) {
-      // User cancelled - revert the toggle
       toggle.checked = true;
       return;
     }
@@ -250,8 +576,7 @@ function wireAvailabilityToggle(p) {
 }
 
 /* ------------------------------------------------------------
-   Modal picker (specific durations only - no indefinite)
-   Resolves to: null (cancel) | minutes > 0
+   Modal picker
    ------------------------------------------------------------ */
 function askForDurationModal() {
   return new Promise((resolve) => {
@@ -306,10 +631,9 @@ function askForDurationModal() {
 
     let selectedMins = null;
     const confirmBtn  = overlay.querySelector("#dur-confirm");
-    const customBox   = overlay.querySelector("#custom-box") || overlay.querySelector("#dur-custom-box");
+    const customBox   = overlay.querySelector("#dur-custom-box");
     const customInput = overlay.querySelector("#dur-custom-hours");
 
-    /* Preset buttons */
     overlay.querySelectorAll(".dur-opt").forEach((btn) => {
       btn.addEventListener("click", () => {
         selectedMins = parseInt(btn.dataset.mins, 10);
@@ -324,7 +648,6 @@ function askForDurationModal() {
       });
     });
 
-    /* Custom hours */
     overlay.querySelector("#dur-show-custom").addEventListener("click", () => {
       customBox.style.display = "block";
       customInput.focus();
@@ -342,7 +665,6 @@ function askForDurationModal() {
       else { selectedMins = null; confirmBtn.disabled = true; }
     });
 
-    /* Cancel */
     overlay.querySelector("#dur-cancel").addEventListener("click", () => {
       overlay.remove();
       resolve(null);
@@ -351,7 +673,6 @@ function askForDurationModal() {
       if (e.target === overlay) { overlay.remove(); resolve(null); }
     });
 
-    /* Confirm */
     confirmBtn.addEventListener("click", () => {
       if (selectedMins === null || selectedMins <= 0) return;
       overlay.remove();
@@ -360,20 +681,16 @@ function askForDurationModal() {
   });
 }
 
-/* ---------------- init ---------------- */
-/* ---------------- init ---------------- */
+/* ============================================================
+   INIT
+   ============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
   const user = getUser();
 
-  // Roles allowed to open this page:
-  // - vendor / provider: full edit access to their own profile
-  // - admin / super-admin: read-only view (they can see the form but
-  //   edits target their own user id and will be rejected by the API)
   const allowed = ["vendor", "provider", "admin", "super-admin"];
   const role = String(user?.role || "").toLowerCase().replace(/[_\s]+/g, "-");
 
   if (!user || !allowed.includes(role)) {
-    // Only redirect if we aren't already on login.html
     if (!/\/login\.html$/.test(location.pathname)) {
       window.location.replace(
         "login.html?next=" + encodeURIComponent(location.pathname)
@@ -382,7 +699,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // ---- Super-admin / admin: show a read-only banner and skip the edit form
   if (role === "admin" || role === "super-admin") {
     document.getElementById("profile-root").innerHTML = `
       <div class="empty-state" style="text-align:left; padding:24px;">
@@ -403,10 +719,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // ---- Vendor / provider: normal flow
   try {
     const [provider, categories] = await Promise.all([
-      Api.getProvider(user.id),
+      (typeof Api.getMyProvider === "function"
+        ? Api.getMyProvider()
+        : Api.getProvider(user.id)),
       Api.getCategories(),
     ]);
 
@@ -420,6 +737,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (err) {
     console.error("[provider-profile] init failed:", err);
     document.getElementById("profile-root").innerHTML =
-      `<div class="empty-state">Could not load your profile.</div>`;
+      `<div class="empty-state">
+         Could not load your profile. <br>
+         <small style="color:var(--ink-70);">${escapeHtml(err.message || "")}</small>
+       </div>`;
   }
 });

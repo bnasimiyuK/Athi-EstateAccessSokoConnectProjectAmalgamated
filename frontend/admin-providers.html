@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Approved vendors &mdash; AthiEstateAccessSokoConnectProjectAmalgamated</title>
+  <script src="js/access.js"></script>
   <link rel="stylesheet" href="css/styles.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 </head>
@@ -33,67 +32,54 @@
       <i class="fas fa-circle-info" aria-hidden="true"></i>
       <span>About AHE</span>
     </a>
-
     <a href="index.html" data-nav="index.html">
       <i class="fas fa-compass" aria-hidden="true"></i>
       <span>Discover</span>
     </a>
-
     <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden>
       <i class="fas fa-user-plus" aria-hidden="true"></i>
       <span>Become a Provider</span>
     </a>
-
     <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden>
       <i class="fas fa-calendar-check" aria-hidden="true"></i>
       <span>My Bookings</span>
     </a>
-
     <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden>
       <i class="fas fa-store" aria-hidden="true"></i>
       <span>My Profile</span>
     </a>
-
     <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden>
       <i class="fas fa-user-friends" aria-hidden="true"></i>
       <span>My Visitors</span>
     </a>
-
     <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden>
       <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
       <span>My Billing &amp; Payments</span>
     </a>
-
     <a href="notices.html" data-nav="notices.html">
       <i class="fas fa-bullhorn" aria-hidden="true"></i>
       <span>Estate Notice Board</span>
     </a>
-
     <a href="ahewa.html" data-nav="ahewa.html" data-ahewa-only hidden>
       <i class="fas fa-chart-pie" aria-hidden="true"></i>
       <span>AHEWA</span>
     </a>
-
     <a href="ahewa-events.html" data-nav="ahewa-events.html" data-ahewa-only hidden>
       <i class="fas fa-calendar-alt" aria-hidden="true"></i>
       <span>AHEWA Events</span>
     </a>
-
     <a href="ahewa-event.html" data-nav="ahewa-event.html" data-ahewa-only hidden>
       <i class="fas fa-calendar-day" aria-hidden="true"></i>
       <span>AHEWA Event</span>
     </a>
-
     <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
       <i class="fas fa-shield-halved" aria-hidden="true"></i>
       <span>Security &mdash; Visitors</span>
     </a>
-
     <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden>
       <i class="fas fa-user-shield" aria-hidden="true"></i>
       <span>Admin</span>
     </a>
-
     <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden>
       <i class="fas fa-crown" aria-hidden="true"></i>
       <span>Super Admin</span>
@@ -114,7 +100,9 @@
 </button>
 <div class="side-rail__backdrop" id="side-rail-backdrop"></div>
 
-
+<!-- ============================================================
+     PAGE CONTENT
+     ============================================================ -->
 <div class="side-rail__content">
   <div class="side-rail__topbar">
     <div class="side-rail__topbar-inner">
@@ -124,105 +112,123 @@
   </div>
 
   <main class="container dx-main">
-  <div class="page-head page-head--with-actions">
-    <div class="page-head__text">
-      <h1>All vendors</h1>
-      <p>
-        Every provider on the platform &mdash; verified and pending.
-        <br><small style="color:var(--ink-70);">
-          Residents without vendor listings are on
-          <a href="admin-residents.html">Approved residents</a>
-          <a href="admin-house-numbers.html">House numbers</a>
-          <a href="admin-invoices.html">Invoices</a>
-          <a href="admin-payments.html">Payments</a>
-          <a href="admin-visitors.html">Visitors</a>.
-        </small>
-      </p>
-    </div>
 
-    <div class="admin-actions">
-      <button id="btn-excel-providers" class="btn btn-export" type="button">&#x1F4E5; Excel</button>
-      <button id="btn-pdf-providers"   class="btn btn-export" type="button">&#x1F4C4; PDF</button>
-    </div>
-  </div>
-
-  <!-- Filters: PHASE â†’ searchable COURT + status + search -->
-  <form id="providers-filter"
-        style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-start;">
-
-    <select id="filter-phase" class="input" disabled>
-      <option value="">Loading phases&hellip;</option>
-    </select>
-
-    <div class="court-picker" style="position:relative; min-width:220px;">
-      <input type="text"
-             id="filter-court-search"
-             class="input"
-             placeholder="All courts &mdash; type to search&hellip;"
-             autocomplete="off"
-             disabled
-             style="width:100%;" />
-
-      <div id="filter-court-list"
-           style="display:none;
-                  position:absolute;
-                  top:100%; left:0; right:0;
-                  margin-top:4px;
-                  max-height:220px;
-                  overflow-y:auto;
-                  border:1px solid var(--line);
-                  border-radius:var(--radius-s);
-                  background:#fff;
-                  box-shadow:0 4px 12px rgba(0,0,0,0.08);
-                  z-index:100;">
+    <!-- ============================================================
+         PAGE HEADER
+         ============================================================ -->
+    <div class="page-head page-head--with-actions">
+      <div class="page-head__text">
+        <h1>All vendors</h1>
+        <p>
+          Every provider on the platform &mdash; verified and pending.
+          <br><small style="color:var(--ink-70);">
+            Residents without vendor listings are on
+            <a href="admin-residents.html">Approved residents</a>
+            <a href="admin-house-numbers.html">House numbers</a>
+            <a href="admin-invoices.html">Invoices</a>
+            <a href="admin-payments.html">Payments</a>
+            <a href="admin-visitors.html">Visitors</a>.
+          </small>
+        </p>
       </div>
 
-      <select id="filter-status" class="input">
-        <option value="">All statuses</option>
-        <option value="true">Verified</option>
-        <option value="false">Pending review</option>
-      </select>
-
-      <input type="text" id="filter-search" class="input"
-             placeholder="Search name, phone, category…" />
-
-      <button type="submit" class="btn btn--accent">Filter</button>
-      <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
-    </form>
-
-    <div id="providers-list">
-      <div class="empty-state">Loading providers…</div>
+      <div class="admin-actions">
+        <button id="btn-excel-providers" class="btn btn-export" type="button">&#x1F4E5; Excel</button>
+        <button id="btn-pdf-providers"   class="btn btn-export" type="button">&#x1F4C4; PDF</button>
+      </div>
     </div>
 
-    <div id="providers-pagination"></div>
+    <!-- ============================================================
+         TABS
+         ============================================================ -->
+    <div class="admin-tabs" role="tablist">
+      <button type="button" class="admin-tab is-active" data-tab="vendors" role="tab">
+        Vendors <span class="admin-tab__count" id="count-vendors">—</span>
+      </button>
+      <button type="button" class="admin-tab" data-tab="offerings" role="tab">
+        Service offerings <span class="admin-tab__count" id="count-offerings">—</span>
+      </button>
+    </div>
+
+    <!-- ============================================================
+         PANEL: VENDORS
+         ============================================================ -->
+    <section class="admin-panel is-active" data-panel="vendors" role="tabpanel">
+
+      <!-- Filters: PHASE → searchable COURT + status + search -->
+      <form id="providers-filter"
+            style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-start;">
+
+        <select id="filter-phase" class="input" disabled>
+          <option value="">Loading phases&hellip;</option>
+        </select>
+
+        <div class="court-picker" style="position:relative; min-width:220px;">
+          <input type="text"
+                 id="filter-court-search"
+                 class="input"
+                 placeholder="All courts &mdash; type to search&hellip;"
+                 autocomplete="off"
+                 disabled
+                 style="width:100%;" />
+
+          <div id="filter-court-list"
+               style="display:none;
+                      position:absolute;
+                      top:100%; left:0; right:0;
+                      margin-top:4px;
+                      max-height:220px;
+                      overflow-y:auto;
+                      border:1px solid var(--line);
+                      border-radius:var(--radius-s);
+                      background:#fff;
+                      box-shadow:0 4px 12px rgba(0,0,0,0.08);
+                      z-index:100;">
+          </div>
+        </div>
+
+        <select id="filter-status" class="input">
+          <option value="">All statuses</option>
+          <option value="true">Verified</option>
+          <option value="false">Pending review</option>
+        </select>
+
+        <input type="text" id="filter-search" class="input"
+               placeholder="Search name, phone, category&hellip;" />
+
+        <button type="submit" class="btn btn--accent">Filter</button>
+        <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
+      </form>
+
+      <div id="providers-list">
+        <div class="empty-state">Loading providers&hellip;</div>
+      </div>
+
+      <div id="providers-pagination"></div>
+    </section>
+
+    <!-- ============================================================
+         PANEL: SERVICE OFFERINGS
+         ============================================================ -->
+    <section class="admin-panel" data-panel="offerings" role="tabpanel">
+      <div class="table-wrap" id="offerings-table-wrap">
+        <div class="empty-state">Loading service offerings&hellip;</div>
+      </div>
+    </section>
+
   </main>
 
-    <input type="text" id="filter-search" class="input"
-           placeholder="Search name, phone, category&hellip;" />
-
-    <button type="submit" class="btn btn--accent">Filter</button>
-    <button type="button" id="filter-clear" class="btn btn--ghost">Clear</button>
-  </form>
-
-  <div id="providers-list">
-    <div class="empty-state">Loading providers&hellip;</div>
-  </div>
-
-  <div id="providers-pagination"></div>
-</main>
+  <footer class="site-footer">
+    <div class="container" style="width:100%;">
+      Only verified vendors appear to residents. Pending listings are shown here for admin review.
+    </div>
+  </footer>
 </div>
 
-<footer class="site-footer">
-  <div class="container" style="width:100%;">
-    Only verified vendors appear to residents. Pending listings are shown here for admin review.
-  </div>
-</footer>
-
 <script src="js/auth.js?v=8"></script>
-<script src="js/api.js?v=14"></script>
+<script src="js/api.js?v=15"></script>
 <script src="js/main.js?v=11"></script>
-  <script src="js/ahewa-nav.js"></script>
-<script src="js/admin-providers.js"></script>
+<script src="js/ahewa-nav.js"></script>
+<script src="js/admin-providers.js?v=2"></script>
 </body>
 </html>
-

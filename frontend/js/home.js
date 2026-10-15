@@ -23,6 +23,17 @@ function servicesArray(p) {
   return String(p.services).split(/,\s*/).map((s) => s.trim()).filter(Boolean);
 }
 
+/* Collect every service string across all offerings; falls back
+   to the primary `services` array for legacy providers. */
+function allServicesOf(p) {
+  if (Array.isArray(p.offerings) && p.offerings.length) {
+    return p.offerings.flatMap((o) =>
+      Array.isArray(o.services) ? o.services : []
+    );
+  }
+  return servicesArray(p);
+}
+
 function formatTimeUntil(iso) {
   if (!iso) return null;
   const diffMs   = new Date(iso) - new Date();
@@ -436,7 +447,12 @@ function providerCard(p) {
 
   const rating      = Number(p.rating || 0).toFixed(1);
   const reviewCount = Number(p.reviews || 0);
-  const services    = servicesArray(p).slice(0, 3);
+
+  /* Pull every service from every offering, cap at 3 chips. */
+  const allServices = allServicesOf(p);
+  const services    = allServices.slice(0, 3);
+  const extraCount  = Math.max(0, allServices.length - 3);
+
   const price       = Number(p.priceFrom || 0);
 
   const locParts = [];
@@ -477,10 +493,22 @@ function providerCard(p) {
       <div class="rating">
         ⭐ ${rating} ${reviewCount ? `(${reviewCount})` : ""}
       </div>
-
-      <div class="tags">
-        ${services.map((s) => `<span class="tag">${escapeHtml(s)}</span>`).join("")}
-      </div>
+            ${(Array.isArray(p.offerings) && p.offerings.length)
+        ? `<div class="tags" style="flex-direction:column;align-items:flex-start;gap:2px;">
+             ${p.offerings.slice(0, 2).map((o) => `
+               <div style="font-size:10.5px;color:var(--ink-70);">
+                 <span style="font-weight:600;color:var(--ink);">${escapeHtml(o.categoryLabel || "Service")}:</span>
+                 ${(o.services || []).slice(0, 2).map((s) =>
+                   `<span class="tag" style="margin-left:4px;">${escapeHtml(s)}</span>`
+                 ).join("")}
+               </div>`).join("")}
+             ${p.offerings.length > 2
+               ? `<div style="font-size:10px;color:var(--ink-40);">+${p.offerings.length - 2} more</div>`
+               : ""}
+           </div>`
+        : `<div class="tags">
+             ${services.map((s) => `<span class="tag">${escapeHtml(s)}</span>`).join("")}
+           </div>`}
 
       ${busyLine}
 
@@ -762,7 +790,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupGateRulesModal();
   } catch (err) {
     console.error("[home] init failed:", err);
-    // Last-resort: make sure the grid is never stuck on "Loading…"
     const grid = document.getElementById("provider-grid");
     if (grid && grid.querySelector(".empty-state")) {
       grid.innerHTML = `<div class="empty-state">Could not load providers. Please refresh.</div>`;

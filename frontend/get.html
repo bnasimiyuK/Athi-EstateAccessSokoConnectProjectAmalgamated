@@ -13,7 +13,41 @@
   <meta property="og:url" content="https://athi-soko-connect.netlify.app/get.html">
   <meta property="og:image" content="https://athi-soko-connect.netlify.app/img/get-app-qr.png">
 
+  <!-- External Stylesheet FIRST -->
   <link rel="stylesheet" href="css/styles.css">
+  
+  <!-- Inline Overrides SECOND (takes priority) -->
+  <style>
+    /* Force the body to center its contents */
+    body.get-body {
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: center !important;
+      align-items: center !important;
+      min-height: 100vh !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 20px !important;
+      box-sizing: border-box !important;
+      background-color: #f4f6f8 !important; /* Change this to your preferred bg color */
+    }
+
+    /* Force the main card to be centered and have a max-width */
+    main.get-hero {
+      margin: 0 auto !important;
+      width: 100% !important;
+      max-width: 420px !important; /* Adjust this to match your card's ideal width */
+      box-sizing: border-box !important;
+    }
+
+    /* Center the footer text and align it with the card */
+    .get-footer {
+      text-align: center !important;
+      width: 100% !important;
+      max-width: 420px !important;
+      margin-top: 20px !important;
+    }
+  </style>
   <!-- v165921 -->
 </head>
 <body class="get-body">

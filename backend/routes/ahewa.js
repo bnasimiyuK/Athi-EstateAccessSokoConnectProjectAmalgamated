@@ -30,14 +30,62 @@ function amountFor(eventType) {
   throw new Error("Invalid event type. Must be PRINCIPAL or DEPENDANT.");
 }
 
+function normaliseRole(role) {
+  return String(role || "").toLowerCase().replace(/[_\s]/g, "-");
+}
+
+function isAdminRole(role) {
+  const r = normaliseRole(role);
+  return (
+    r === "admin"       ||
+    r === "super-admin" ||
+    r === "superadmin"
+  );
+}
+
+/* Is this user an active AHEWA signatory? */
+async function isActiveSignatory(pool, userId) {
+  if (!userId) return false;
+  const q = await pool.request()
+    .input("rid", userId)
+    .query("SELECT 1 FROM AhewaSignatories WHERE resident_id = @rid AND is_active = 1");
+  return q.recordset.length > 0;
+}
+
+/* Guard: only admins or active signatories may proceed.
+   Sends the response and returns false if the caller is not allowed. */
+async function requireEventManager(pool, req, res) {
+  if (!req.user || req.user.id == null) {
+    res.status(401).json({ error: "Authentication required." });
+    return false;
+  }
+  if (isAdminRole(req.user.role)) return true;
+  if (await isActiveSignatory(pool, req.user.id)) return true;
+  res.status(403).json({ error: "Only AHEWA signatories or admins can perform this action." });
+  return false;
+}
+
 /* ============================================================
    GET /api/ahewa/members
-   Live roster of all AHEWA members with contribution totals.
+   ------------------------------------------------------------
+   Admins + active signatories → full roster with contribution
+                                 totals (needed for approvals).
+   Everyone else              → ONLY their own row.
    ============================================================ */
 router.get("/members", requireAuth, async (req, res, next) => {
   try {
     const pool = await getPool();
-    const result = await pool.request().query(`
+    const me = req.user.id;
+    const isAdmin = isAdminRole(req.user.role);
+
+    let isSignatory = false;
+    if (!isAdmin && me != null) {
+      isSignatory = await isActiveSignatory(pool, me);
+    }
+
+    const fullAccess = isAdmin || isSignatory;
+
+    const queryText = `
       SELECT
         r.id, r.full_name, r.house_number,
         c.name AS court_name, c.phase,
@@ -50,8 +98,14 @@ router.get("/members", requireAuth, async (req, res, next) => {
       FROM Residents r
       LEFT JOIN Courts c ON c.id = r.court_id
       WHERE r.verified = 1 AND r.join_ahewa = 1
+      ${fullAccess ? "" : "AND r.id = @me"}
       ORDER BY r.full_name ASC
-    `);
+    `;
+
+    const r2 = pool.request();
+    if (!fullAccess) r2.input("me", me);
+
+    const result = await r2.query(queryText);
     res.json(result.recordset);
   } catch (err) {
     next(err);
@@ -61,6 +115,7 @@ router.get("/members", requireAuth, async (req, res, next) => {
 /* ============================================================
    GET /api/ahewa/events
    List all welfare events with contribution summary.
+   (Shared ledger — visible to every authenticated member.)
    ============================================================ */
 router.get("/events", requireAuth, async (req, res, next) => {
   try {
@@ -105,14 +160,11 @@ router.get("/events/:id", requireAuth, async (req, res, next) => {
     const userRole = req.user.role;
 
     /* ---- Determine access level ---- */
-    const isAdmin = userRole === "admin";
+    const isAdmin = isAdminRole(userRole);
 
     let isSignatory = false;
-    if (userRole === "resident") {
-      const sigQ = await pool.request()
-        .input("rid", userId)
-        .query("SELECT 1 FROM AhewaSignatories WHERE resident_id = @rid AND is_active = 1");
-      isSignatory = sigQ.recordset.length > 0;
+    if (!isAdmin && normaliseRole(userRole) === "resident") {
+      isSignatory = await isActiveSignatory(pool, userId);
     }
 
     const fullAccess = isAdmin || isSignatory;
@@ -226,9 +278,15 @@ router.get("/events/:id", requireAuth, async (req, res, next) => {
    POST /api/ahewa/events
    Create a welfare event and generate contribution invoices
    for every AHEWA member (excluding the affected member).
+   AUTHORIZATION: admins or active signatories only.
    ============================================================ */
 router.post("/events", requireAuth, async (req, res, next) => {
   const pool = await getPool();
+
+  /* ---- AUTHORIZATION (before opening a transaction) ---- */
+  const allowed = await requireEventManager(pool, req, res);
+  if (!allowed) return;
+
   const tx = pool.transaction();
   await tx.begin();
 
@@ -347,13 +405,14 @@ router.post("/events", requireAuth, async (req, res, next) => {
       total_expected: memberIds.length * amount,
     });
   } catch (err) {
-    await tx.rollback();
+    try { await tx.rollback(); } catch (_) { /* already rolled back */ }
     next(err);
   }
 });
 
 /* ============================================================
    DELETE /api/ahewa/events/:id
+   AUTHORIZATION: admins or active signatories only.
    ============================================================ */
 router.delete("/events/:id", requireAuth, async (req, res, next) => {
   try {
@@ -361,6 +420,11 @@ router.delete("/events/:id", requireAuth, async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ error: "Invalid event id" });
 
     const pool = await getPool();
+
+    /* ---- AUTHORIZATION ---- */
+    const allowed = await requireEventManager(pool, req, res);
+    if (!allowed) return;
+
     const check = await pool.request()
       .input("id", id)
       .query("SELECT COUNT(*) AS paid_count FROM AhewaContributions WHERE event_id = @id AND status = 'paid'");
@@ -386,27 +450,34 @@ router.delete("/events/:id", requireAuth, async (req, res, next) => {
 
 /* ============================================================
    POST /api/ahewa/events/:id/approve-disbursement
+   AUTHORIZATION: active signatories OR admins / super-admins.
    ============================================================ */
 router.post("/events/:id/approve-disbursement", requireAuth, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const signatoryId = req.user.id;
-    const notes = req.body.notes || null;
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid event id" });
+
+    const userId = req.user.id;
+    const notes  = req.body.notes || null;
 
     const pool = await getPool();
+    const isAdmin = isAdminRole(req.user.role);
 
-    // Only residents can be signatories — see note in mark-disbursed
-    if (req.user.role !== "resident") {
-      return res.status(403).json({
-        error: "Only AHEWA resident signatories can approve disbursements."
-      });
-    }
-
-    const isSigQ = await pool.request()
-      .input("rid", signatoryId)
-      .query("SELECT 1 FROM AhewaSignatories WHERE resident_id = @rid AND is_active = 1");
-    if (!isSigQ.recordset.length) {
-      return res.status(403).json({ error: "Only AHEWA signatories can approve disbursements." });
+    /* ---- AUTHORIZATION ----
+       Admins bypass the signatory requirement.
+       Everyone else must be a resident AND an active signatory. */
+    if (!isAdmin) {
+      if (normaliseRole(req.user.role) !== "resident") {
+        return res.status(403).json({
+          error: "Only AHEWA signatories or admins can approve disbursements."
+        });
+      }
+      const okSignatory = await isActiveSignatory(pool, userId);
+      if (!okSignatory) {
+        return res.status(403).json({
+          error: "Only AHEWA signatories or admins can approve disbursements."
+        });
+      }
     }
 
     const evQ = await pool.request().input("id", id).query("SELECT 1 FROM AhewaEvents WHERE id = @id");
@@ -415,7 +486,7 @@ router.post("/events/:id/approve-disbursement", requireAuth, async (req, res, ne
     try {
       await pool.request()
         .input("eid", id)
-        .input("sid", signatoryId)
+        .input("sid", userId)
         .input("notes", notes)
         .query(`
           INSERT INTO AhewaDisbursementApprovals (event_id, signatory_id, notes)
@@ -436,19 +507,35 @@ router.post("/events/:id/approve-disbursement", requireAuth, async (req, res, ne
 
 /* ============================================================
    POST /api/ahewa/events/:id/mark-disbursed
+   AUTHORIZATION: active signatories OR admins / super-admins.
+   Requires ALL configured signatories to have approved.
    ============================================================ */
 router.post("/events/:id/mark-disbursed", requireAuth, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const notes = req.body.notes || null;
-    const pool = await getPool();
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid event id" });
 
-    if (req.user.role !== "resident") {
-      return res.status(403).json({
-        error: "Only AHEWA resident signatories can mark events as disbursed."
-      });
+    const notes = req.body.notes || null;
+    const pool  = await getPool();
+
+    const isAdmin = isAdminRole(req.user.role);
+
+    /* ---- AUTHORIZATION ---- */
+    if (!isAdmin) {
+      if (normaliseRole(req.user.role) !== "resident") {
+        return res.status(403).json({
+          error: "Only AHEWA signatories or admins can mark events as disbursed."
+        });
+      }
+      const isSig = await isActiveSignatory(pool, req.user.id);
+      if (!isSig) {
+        return res.status(403).json({
+          error: "Only AHEWA signatories or admins can mark events as disbursed."
+        });
+      }
     }
 
+    /* ---- Signatory count check still applies to everyone ---- */
     const sigQ = await pool.request().query("SELECT COUNT(*) AS n FROM AhewaSignatories WHERE is_active = 1");
     const apprQ = await pool.request().input("id", id)
       .query("SELECT COUNT(*) AS n FROM AhewaDisbursementApprovals WHERE event_id = @id");
@@ -502,6 +589,7 @@ router.post("/events/:id/mark-disbursed", requireAuth, async (req, res, next) =>
 
 /* ============================================================
    GET /api/ahewa/events/:id/export.xlsx
+   AUTHORIZATION: admins or active signatories only.
    ============================================================ */
 router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
   try {
@@ -509,6 +597,10 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ error: "Invalid event id" });
 
     const pool = await getPool();
+
+    /* ---- AUTHORIZATION ---- */
+    const allowed = await requireEventManager(pool, req, res);
+    if (!allowed) return;
 
     const evQ = await pool.request()
       .input("id", id)
@@ -676,6 +768,7 @@ router.get("/events/:id/export.xlsx", requireAuth, async (req, res, next) => {
 
 /* ============================================================
    GET /api/ahewa/events/:id/export.pdf
+   AUTHORIZATION: admins or active signatories only.
    ============================================================ */
 router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
   try {
@@ -683,6 +776,10 @@ router.get("/events/:id/export.pdf", requireAuth, async (req, res, next) => {
     if (isNaN(id)) return res.status(400).json({ error: "Invalid event id" });
 
     const pool = await getPool();
+
+    /* ---- AUTHORIZATION ---- */
+    const allowed = await requireEventManager(pool, req, res);
+    if (!allowed) return;
 
     const evQ = await pool.request()
       .input("id", id)
@@ -883,8 +980,8 @@ const upload = multer({
 
 /* ============================================================
    POST /api/ahewa/events/:id/photos
-   Upload a photo to an event. Only members billed for the event
-   (or admins) can upload.
+   Upload a photo to an event. Allowed for admins, active
+   signatories, and any AHEWA member billed for the event.
    ============================================================ */
 router.post("/events/:id/photos", requireAuth, upload.single("photo"), async (req, res, next) => {
   try {
@@ -905,10 +1002,11 @@ router.post("/events/:id/photos", requireAuth, upload.single("photo"), async (re
       return res.status(404).json({ error: "Event not found." });
     }
 
-    const isAdmin = userRole === "admin";
-    let isBilledMember = false;
+    const isAdmin = isAdminRole(userRole);
+    const isSig = !isAdmin && await isActiveSignatory(pool, userId);
 
-    if (!isAdmin && userRole === "resident") {
+    let isBilledMember = false;
+    if (!isAdmin && !isSig && normaliseRole(userRole) === "resident") {
       const billQ = await pool.request()
         .input("eid", eventId)
         .input("rid", userId)
@@ -919,7 +1017,7 @@ router.post("/events/:id/photos", requireAuth, upload.single("photo"), async (re
       isBilledMember = billQ.recordset.length > 0;
     }
 
-    if (!isAdmin && !isBilledMember) {
+    if (!isAdmin && !isSig && !isBilledMember) {
       try { fs.unlinkSync(req.file.path); } catch {}
       return res.status(403).json({
         error: "Only AHEWA members billed for this event can upload photos.",
@@ -1020,7 +1118,7 @@ router.delete("/photos/:photoId", requireAuth, async (req, res, next) => {
     if (!pQ.recordset.length) return res.status(404).json({ error: "Photo not found." });
 
     const photo = pQ.recordset[0];
-    const isAdmin = userRole === "admin";
+    const isAdmin = isAdminRole(userRole);
     const isUploader = photo.uploaded_by === userId;
 
     if (!isAdmin && !isUploader) {

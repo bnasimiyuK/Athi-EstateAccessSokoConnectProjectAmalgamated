@@ -11,8 +11,63 @@ const { getPool } = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
 /* ------------------------------------------------------------
+   Helpers
+   ------------------------------------------------------------ */
+function toNumber(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Batch-load offerings for a set of provider ids.
+ * Returns Map<provider_id, offering[]>.
+ *
+ * Used by the vendor exports so each vendor row can list every
+ * category it offers, and so the "Offerings" sheet has one row
+ * per (provider, category) tuple.
+ */
+async function fetchOfferingsFor(pool, providerIds) {
+  const map = new Map();
+  if (!Array.isArray(providerIds) || !providerIds.length) return map;
+
+  const req = pool.request();
+  const placeholders = providerIds.map((id, i) => {
+    req.input("pid" + i, id);
+    return "@pid" + i;
+  }).join(",");
+
+  const q = await req.query(`
+    SELECT
+      o.provider_id,
+      o.category_id,
+      cat.label AS category_label,
+      o.price_from,
+      o.price_unit,
+      o.services,
+      o.sort_order
+    FROM ProviderOfferings o
+    LEFT JOIN Categories cat ON cat.id = o.category_id
+    WHERE o.provider_id IN (${placeholders})
+    ORDER BY o.provider_id, o.sort_order, o.id
+  `);
+
+  for (const r of q.recordset) {
+    if (!map.has(r.provider_id)) map.set(r.provider_id, []);
+    map.get(r.provider_id).push({
+      categoryLabel: r.category_label || "—",
+      priceFrom:     toNumber(r.price_from, 0),
+      priceUnit:     r.price_unit || "per visit",
+      services:      r.services
+                       ? r.services.split(",").map((s) => s.trim()).filter(Boolean)
+                       : [],
+      sortOrder:     r.sort_order || 0,
+    });
+  }
+  return map;
+}
+
+/* ------------------------------------------------------------
    Shared helper: legacy dashboard payload
-   (still used by /dashboard and /export.pdf)
    ------------------------------------------------------------ */
 async function getDashboardData() {
   const pool = await getPool();
@@ -80,7 +135,6 @@ async function getDashboardData() {
 
 /* ------------------------------------------------------------
    Shared helper: full stats payload
-   (powers both /stats and /export.xlsx so they never drift)
    ------------------------------------------------------------ */
 async function getAdminStats() {
   const pool = await getPool();
@@ -280,8 +334,6 @@ router.get("/dashboard",
 
 /* ------------------------------------------------------------
    Build an Excel workbook with chart PNGs embedded.
-   (exceljs cannot create native Excel chart objects, so we
-   embed images of the Chart.js canvases sent by the frontend.)
    ------------------------------------------------------------ */
 function buildWorkbookWithChartImages(stats, images = {}) {
   const wb = new ExcelJS.Workbook();
@@ -293,7 +345,6 @@ function buildWorkbookWithChartImages(stats, images = {}) {
     fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F4E78" } },
   };
 
-  /* ---------- Sheet 1: Summary (metrics + embedded charts) ---------- */
   const summary = wb.addWorksheet("Summary");
   summary.columns = [
     { header: "Metric", key: "metric", width: 40 },
@@ -322,7 +373,6 @@ function buildWorkbookWithChartImages(stats, images = {}) {
   summary.getRow(1).font = headerStyle.font;
   summary.getRow(1).fill = headerStyle.fill;
 
-  /* ---------- Embed chart PNGs ---------- */
   const chartMap = [
     { key: "chart-trend",    label: "Bookings - last 6 months" },
     { key: "chart-status",   label: "Bookings by status" },
@@ -331,7 +381,6 @@ function buildWorkbookWithChartImages(stats, images = {}) {
   ];
 
   let imageCount = 0;
-  // Start two rows below the metric table so we don't clash with cell content
   let currentRow = summary.rowCount + 2;
 
   chartMap.forEach(({ key, label }) => {
@@ -343,27 +392,23 @@ function buildWorkbookWithChartImages(stats, images = {}) {
 
     const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
 
-    /* --- Title row, written directly at currentRow --- */
     const titleRow = summary.getRow(currentRow);
     titleRow.getCell(1).value = label;
     titleRow.getCell(1).font = { bold: true, size: 12 };
     titleRow.height = 22;
 
-    /* --- Image anchored one row below the title so it can't overlap --- */
     const imageId = wb.addImage({ base64, extension: "png" });
     summary.addImage(imageId, {
-      tl:  { col: 0, row: currentRow },   // column A, one row under the title
-      ext: { width: 720, height: 380 },    // px - bigger and clearer
+      tl:  { col: 0, row: currentRow },
+      ext: { width: 720, height: 380 },
     });
 
-    /* --- Advance cursor past the title + the image + a small gap --- */
     currentRow += 22;
     imageCount++;
   });
 
   console.log(`[admin] embedded ${imageCount} chart(s) into the workbook`);
 
-  /* ---------- Sheet 2: Trend data ---------- */
   const trend = wb.addWorksheet("Trend");
   trend.columns = [
     { header: "Month",     key: "month",     width: 14 },
@@ -375,7 +420,6 @@ function buildWorkbookWithChartImages(stats, images = {}) {
   trend.getRow(1).font = headerStyle.font;
   trend.getRow(1).fill = headerStyle.fill;
 
-  /* ---------- Sheet 3: Status data ---------- */
   const status = wb.addWorksheet("Status");
   status.columns = [
     { header: "Status", key: "status", width: 14 },
@@ -388,7 +432,6 @@ function buildWorkbookWithChartImages(stats, images = {}) {
   status.getRow(1).font = headerStyle.font;
   status.getRow(1).fill = headerStyle.fill;
 
-  /* ---------- Sheet 4: Categories data ---------- */
   const cats = wb.addWorksheet("Categories");
   cats.columns = [
     { header: "Category", key: "label",    width: 22 },
@@ -399,7 +442,6 @@ function buildWorkbookWithChartImages(stats, images = {}) {
   cats.getRow(1).font = headerStyle.font;
   cats.getRow(1).fill = headerStyle.fill;
 
-  /* ---------- Sheet 5: Weekday data ---------- */
   const weekday = wb.addWorksheet("Weekday");
   weekday.columns = [
     { header: "Day",   key: "day",   width: 14 },
@@ -414,8 +456,6 @@ function buildWorkbookWithChartImages(stats, images = {}) {
 
 /* ============================================================
    POST /api/admin/export.xlsx
-   Body: { images: { "chart-trend": "data:image/png;base64,...", ... } }
-   Returns: .xlsx workbook with the images embedded.
    ============================================================ */
 router.post("/export.xlsx",
   requireAuth,
@@ -511,13 +551,7 @@ router.get("/export.pdf",
 
 /* ============================================================
    Residents export - Excel + PDF
-   Reuses the same filter shape as routes/residents.js:
-     ?verified=true|false&phase=1|2&courtId=N&q=text
    ============================================================ */
-
-/* ------------------------------------------------------------
-   Shared query - mirrors applyResidentFilters() in residents.js
-   ------------------------------------------------------------ */
 async function fetchResidentsForExport(query) {
   const { phase, courtId, q, verified } = query;
   const pool = await getPool();
@@ -564,9 +598,6 @@ async function fetchResidentsForExport(query) {
   return result.recordset;
 }
 
-/* ------------------------------------------------------------
-   Column definitions (shared by Excel + PDF)
-   ------------------------------------------------------------ */
 const RESIDENT_EXPORT_COLUMNS = [
   { header: "ID",          key: "id",       width: 10 },
   { header: "Full name",   key: "fullName", width: 28 },
@@ -601,9 +632,6 @@ function residentRowToExportShape(r) {
   };
 }
 
-/* ============================================================
-   GET /api/admin/residents/export.xlsx
-   ============================================================ */
 router.get("/residents/export.xlsx",
   requireAuth,
   requireRole("super-admin"),
@@ -625,7 +653,6 @@ router.get("/residents/export.xlsx",
 
       rows.forEach((r) => ws.addRow(residentRowToExportShape(r)));
 
-      /* Style header */
       ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
       ws.getRow(1).fill = {
         type: "pattern", pattern: "solid",
@@ -633,7 +660,6 @@ router.get("/residents/export.xlsx",
       };
       ws.getRow(1).alignment = { vertical: "middle", horizontal: "left" };
 
-      /* Freeze + autofilter */
       ws.views = [{ state: "frozen", ySplit: 1 }];
       ws.autoFilter = {
         from: { row: 1, column: 1 },
@@ -660,9 +686,6 @@ router.get("/residents/export.xlsx",
   }
 );
 
-/* ============================================================
-   GET /api/admin/residents/export.pdf
-   ============================================================ */
 router.get("/residents/export.pdf",
   requireAuth,
   requireRole("super-admin"),
@@ -683,7 +706,6 @@ router.get("/residents/export.pdf",
       });
       doc.pipe(res);
 
-      /* ---------- Header ---------- */
       doc.fontSize(20).fillColor("#16233f")
          .text("Athi Soko Connect");
       doc.moveDown(0.3);
@@ -694,7 +716,6 @@ router.get("/residents/export.pdf",
          .text("Generated: " + new Date().toLocaleString("en-GB"));
       doc.moveDown(1);
 
-      /* ---------- Table layout ---------- */
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
       const cols      = RESIDENT_EXPORT_COLUMNS;
       const totalW    = cols.reduce((s, c) => s + c.width, 0);
@@ -709,7 +730,6 @@ router.get("/residents/export.pdf",
       const rowH    = 18;
       const headerY = doc.y;
 
-      /* ---------- Header row ---------- */
       doc.rect(doc.page.margins.left, headerY, pageWidth, rowH).fill("#16233f");
       doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold");
       cols.forEach((c, i) => {
@@ -720,12 +740,10 @@ router.get("/residents/export.pdf",
         });
       });
 
-      /* ---------- Body ---------- */
       let y = headerY + rowH;
       doc.font("Helvetica").fontSize(9).fillColor("#222");
 
       rows.forEach((r, idx) => {
-        /* page break */
         if (y + rowH > doc.page.height - doc.page.margins.bottom - 20) {
           doc.addPage();
           y = doc.page.margins.top;
@@ -743,7 +761,6 @@ router.get("/residents/export.pdf",
           doc.font("Helvetica").fillColor("#222");
         }
 
-        /* zebra */
         if (idx % 2 === 0) {
           doc.rect(doc.page.margins.left, y, pageWidth, rowH)
              .fill("#f5f5f5")
@@ -776,9 +793,10 @@ router.get("/residents/export.pdf",
     }
   }
 );
+
 /* ============================================================
    Providers export - Excel + PDF
-   Mirrors residents export but for the Providers table.
+   Now includes every offering per vendor (multi-category).
    ============================================================ */
 
 async function fetchProvidersForExport(query) {
@@ -793,12 +811,23 @@ async function fetchProvidersForExport(query) {
     request.input("phase", parseInt(phase, 10));
   }
   if (courtId) {
-    // court_id lives on Residents (r), NOT on Providers (p)
     where.push("r.court_id = @courtId");
     request.input("courtId", parseInt(courtId, 10));
   }
   if (q && q.trim()) {
-    where.push("(p.name LIKE @q OR p.phone LIKE @q OR cat.label LIKE @q)");
+    /* Search across provider name, phone, primary category,
+       and any offering's category label or services. */
+    where.push(`(
+      p.name LIKE @q
+      OR p.phone LIKE @q
+      OR cat.label LIKE @q
+      OR EXISTS (
+        SELECT 1 FROM ProviderOfferings po
+        LEFT JOIN Categories oc ON oc.id = po.category_id
+        WHERE po.provider_id = p.id
+          AND (po.services LIKE @q OR oc.label LIKE @q)
+      )
+    )`);
     request.input("q", `%${q.trim()}%`);
   }
   if (verified === "true" || verified === "false") {
@@ -830,13 +859,16 @@ async function fetchProvidersForExport(query) {
     ORDER BY c.phase ASC, c.name ASC, p.name ASC
   `);
 
-  return result.recordset;
+  const providers = result.recordset;
+  const offeringMap = await fetchOfferingsFor(pool, providers.map((p) => p.id));
+
+  return { providers, offeringMap };
 }
 
 const PROVIDER_EXPORT_COLUMNS = [
   { header: "ID",          key: "id",        width: 8  },
   { header: "Business",    key: "name",      width: 28 },
-  { header: "Category",    key: "category",  width: 20 },
+  { header: "Categories",  key: "category",  width: 32 },
   { header: "Phase",       key: "phase",     width: 10 },
   { header: "Court",       key: "court",     width: 20 },
   { header: "Phone",       key: "phone",     width: 18 },
@@ -846,17 +878,23 @@ const PROVIDER_EXPORT_COLUMNS = [
   { header: "Registered",  key: "created",   width: 16 },
 ];
 
-function providerRowToExportShape(p) {
+function providerRowToExportShape(p, offerings) {
   const created = p.created_at
     ? new Date(p.created_at).toLocaleDateString("en-GB", {
         day: "2-digit", month: "short", year: "numeric",
       })
     : "-";
 
+  /* Categories: prefer the offerings list if populated, fall back
+     to the primary category label. */
+  const categoryString = (offerings && offerings.length)
+    ? offerings.map((o) => o.categoryLabel).filter(Boolean).join(", ")
+    : (p.category_label || "-");
+
   return {
     id:       "PV-" + String(p.id).padStart(3, "0"),
     name:     p.name || "-",
-    category: p.category_label || "-",
+    category: categoryString || "-",
     phase:    p.phase ? "Phase " + p.phase : "-",
     court:    p.court_name || "-",
     phone:    p.phone || "-",
@@ -873,18 +911,22 @@ router.get("/providers/export.xlsx",
   requireRole("super-admin"),
   async (req, res) => {
     try {
-      const rows = await fetchProvidersForExport(req.query);
+      const { providers, offeringMap } = await fetchProvidersForExport(req.query);
 
       const wb = new ExcelJS.Workbook();
       wb.creator = "Athi Soko Connect";
       wb.created = new Date();
 
-      const ws = wb.addWorksheet("Providers");
+      /* ---------- Sheet 1: Vendors ---------- */
+      const ws = wb.addWorksheet("Vendors");
       ws.columns = PROVIDER_EXPORT_COLUMNS.map((c) => ({
         header: c.header, key: c.key, width: c.width,
       }));
 
-      rows.forEach((r) => ws.addRow(providerRowToExportShape(r)));
+      providers.forEach((p) => {
+        const offerings = offeringMap.get(p.id) || [];
+        ws.addRow(providerRowToExportShape(p, offerings));
+      });
 
       ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
       ws.getRow(1).fill = {
@@ -896,6 +938,64 @@ router.get("/providers/export.xlsx",
         from: { row: 1, column: 1 },
         to:   { row: 1, column: PROVIDER_EXPORT_COLUMNS.length },
       };
+
+      /* ---------- Sheet 2: Offerings ---------- */
+      const wsOffer = wb.addWorksheet("Offerings");
+      wsOffer.columns = [
+        { header: "#",         key: "n",         width: 6  },
+        { header: "Provider",  key: "provider",  width: 28 },
+        { header: "Category",  key: "category",  width: 22 },
+        { header: "Services",  key: "services",  width: 60 },
+        { header: "Price from",key: "priceFrom", width: 14 },
+        { header: "Unit",      key: "unit",      width: 14 },
+        { header: "Verified",  key: "verified",  width: 10 },
+      ];
+
+      let counter = 0;
+      providers.forEach((p) => {
+        const offerings = offeringMap.get(p.id) || [];
+
+        if (!offerings.length) {
+          counter++;
+          wsOffer.addRow({
+            n:         counter,
+            provider:  p.name || "-",
+            category:  p.category_label || "-",
+            services:  "(no offerings recorded)",
+            priceFrom: "-",
+            unit:      "-",
+            verified:  p.verified ? "Yes" : "No",
+          });
+          return;
+        }
+
+        offerings.forEach((o) => {
+          counter++;
+          wsOffer.addRow({
+            n:         counter,
+            provider:  p.name || "-",
+            category:  o.categoryLabel || "-",
+            services:  o.services.join(", "),
+            priceFrom: o.priceFrom,
+            unit:      o.priceUnit || "per visit",
+            verified:  p.verified ? "Yes" : "No",
+          });
+        });
+      });
+
+      wsOffer.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      wsOffer.getRow(1).fill = {
+        type: "pattern", pattern: "solid",
+        fgColor: { argb: "FF16233F" },
+      };
+      wsOffer.views = [{ state: "frozen", ySplit: 1 }];
+      wsOffer.autoFilter = {
+        from: { row: 1, column: 1 },
+        to:   { row: 1, column: 7 },
+      };
+
+      /* Right-align prices */
+      wsOffer.getColumn("priceFrom").numFmt = '"KSh "#,##0.00';
 
       const filename = `athi-soko-providers-${new Date()
         .toISOString().slice(0, 10)}.xlsx`;
@@ -923,7 +1023,34 @@ router.get("/providers/export.pdf",
   requireRole("super-admin"),
   async (req, res) => {
     try {
-      const rows = await fetchProvidersForExport(req.query);
+      const { providers, offeringMap } = await fetchProvidersForExport(req.query);
+
+      /* Flatten offerings into rows for the second table. */
+      const flat = [];
+      providers.forEach((p) => {
+        const offerings = offeringMap.get(p.id) || [];
+        if (!offerings.length) {
+          flat.push({
+            provider: p.name || "-",
+            category: p.category_label || "-",
+            services: [],
+            priceFrom: 0,
+            unit: "-",
+            verified: p.verified,
+          });
+        } else {
+          offerings.forEach((o) => {
+            flat.push({
+              provider: p.name || "-",
+              category: o.categoryLabel || "-",
+              services: o.services,
+              priceFrom: Number(o.priceFrom || 0),
+              unit: o.priceUnit || "per visit",
+              verified: p.verified,
+            });
+          });
+        }
+      });
 
       const filename = `athi-soko-providers-${new Date()
         .toISOString().slice(0, 10)}.pdf`;
@@ -936,71 +1063,136 @@ router.get("/providers/export.pdf",
       });
       doc.pipe(res);
 
+      const fmtKsh = (n) =>
+        "KSh " + Number(n || 0).toLocaleString("en-KE", {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        });
+
+      /* ---------- Page title ---------- */
       doc.fontSize(20).fillColor("#16233f").text("Athi Soko Connect");
       doc.moveDown(0.3);
-      doc.fontSize(14).fillColor("#16233f").text("Providers Report");
+      doc.fontSize(14).fillColor("#16233f").text("Vendors Report");
       doc.moveDown(0.2);
       doc.fontSize(9).fillColor("#666")
-         .text("Generated: " + new Date().toLocaleString("en-GB"));
+         .text(
+           `${providers.length} vendors · ${flat.length} offerings · ` +
+           `Generated ${new Date().toLocaleString("en-GB")}`
+         );
       doc.moveDown(1);
 
+      /* ---------- Shared table renderer ---------- */
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-      const cols      = PROVIDER_EXPORT_COLUMNS;
-      const totalW    = cols.reduce((s, c) => s + c.width, 0);
-      const scale     = pageWidth / totalW;
-      const colX      = [];
-      let x = doc.page.margins.left;
-      cols.forEach((c) => { colX.push(x); x += c.width * scale; });
 
-      const rowH    = 18;
-      const headerY = doc.y;
+      const renderTable = (title, columns, rows) => {
+        /* Section title */
+        doc.fontSize(12).fillColor("#16233f").font("Helvetica-Bold")
+           .text(title);
+        doc.moveDown(0.5);
 
-      doc.rect(doc.page.margins.left, headerY, pageWidth, rowH).fill("#16233f");
-      doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold");
-      cols.forEach((c, i) => {
-        doc.text(c.header, colX[i] + 4, headerY + 5, {
-          width: c.width * scale - 8, ellipsis: true, lineBreak: false,
-        });
-      });
+        const totalW = columns.reduce((s, c) => s + c.width, 0);
+        const scale  = pageWidth / totalW;
+        const colX   = [];
+        let x = doc.page.margins.left;
+        columns.forEach((c) => { colX.push(x); x += c.width * scale; });
 
-      let y = headerY + rowH;
-      doc.font("Helvetica").fontSize(9).fillColor("#222");
+        const rowH = 18;
 
-      rows.forEach((r, idx) => {
-        if (y + rowH > doc.page.height - doc.page.margins.bottom - 20) {
-          doc.addPage();
-          y = doc.page.margins.top;
-          doc.rect(doc.page.margins.left, y, pageWidth, rowH).fill("#16233f");
-          doc.fillColor("#ffffff").font("Helvetica-Bold");
-          cols.forEach((c, i) => {
-            doc.text(c.header, colX[i] + 4, y + 5, {
-              width: c.width * scale - 8, ellipsis: true, lineBreak: false,
-            });
+        /* Header */
+        const headerY = doc.y;
+        doc.rect(doc.page.margins.left, headerY, pageWidth, rowH).fill("#16233f");
+        doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold");
+        columns.forEach((c, i) => {
+          doc.text(c.header, colX[i] + 4, headerY + 5, {
+            width: c.width * scale - 8,
+            ellipsis: true,
+            lineBreak: false,
           });
-          y += rowH;
-          doc.font("Helvetica").fillColor("#222");
-        }
-
-        if (idx % 2 === 0) {
-          doc.rect(doc.page.margins.left, y, pageWidth, rowH)
-             .fill("#f5f5f5").fillColor("#222");
-        }
-
-        const shaped = providerRowToExportShape(r);
-        cols.forEach((c, i) => {
-          doc.fillColor("#222").text(
-            String(shaped[c.key] + "-"),
-            colX[i] + 4, y + 5,
-            { width: c.width * scale - 8, ellipsis: true, lineBreak: false }
-          );
         });
 
-        y += rowH;
-      });
+        let y = headerY + rowH;
+        doc.font("Helvetica").fontSize(9).fillColor("#222");
 
-      doc.moveDown(1);
+        rows.forEach((r, idx) => {
+          if (y + rowH > doc.page.height - doc.page.margins.bottom - 20) {
+            doc.addPage();
+            y = doc.page.margins.top;
+            doc.rect(doc.page.margins.left, y, pageWidth, rowH).fill("#16233f");
+            doc.fillColor("#ffffff").font("Helvetica-Bold");
+            columns.forEach((c, i) => {
+              doc.text(c.header, colX[i] + 4, y + 5, {
+                width: c.width * scale - 8, ellipsis: true, lineBreak: false,
+              });
+            });
+            y += rowH;
+            doc.font("Helvetica").fillColor("#222");
+          }
+
+          if (idx % 2 === 0) {
+            doc.rect(doc.page.margins.left, y, pageWidth, rowH)
+               .fill("#f5f5f5").fillColor("#222");
+          }
+
+          columns.forEach((c, i) => {
+            doc.fillColor("#222").text(
+              String(r[c.key] ?? "-"),
+              colX[i] + 4, y + 5,
+              { width: c.width * scale - 8, ellipsis: true, lineBreak: false }
+            );
+          });
+
+          y += rowH;
+        });
+
+        doc.y = y + 12;
+        doc.moveDown(0.6);
+      };
+
+      /* ---------- Table 1: Vendors ---------- */
+      renderTable(
+        `Vendors (${providers.length})`,
+        [
+          { header: "ID",         key: "id",       width: 8  },
+          { header: "Business",   key: "name",     width: 28 },
+          { header: "Categories", key: "category", width: 32 },
+          { header: "Phase",      key: "phase",    width: 10 },
+          { header: "Court",      key: "court",    width: 20 },
+          { header: "Phone",      key: "phone",    width: 18 },
+          { header: "Status",     key: "status",   width: 14 },
+          { header: "Registered", key: "created",  width: 16 },
+        ],
+        providers.map((p) => {
+          const offerings = offeringMap.get(p.id) || [];
+          return providerRowToExportShape(p, offerings);
+        })
+      );
+
+      /* ---------- Table 2: Offerings ---------- */
+      renderTable(
+        `Vendor offerings (${flat.length})`,
+        [
+          { header: "Provider",  key: "provider",  width: 26 },
+          { header: "Category",  key: "category",  width: 20 },
+          { header: "Services",  key: "services",  width: 60 },
+          { header: "Price",     key: "price",     width: 16 },
+          { header: "Unit",      key: "unit",      width: 16 },
+          { header: "Verified",  key: "verified",  width: 10 },
+        ],
+        flat.map((o) => ({
+          provider:  o.provider,
+          category:  o.category,
+          services:  o.services.length ? o.services.join(", ") : "(no services)",
+          price:     fmtKsh(o.priceFrom),
+          unit:      o.unit,
+          verified:  o.verified ? "Yes" : "No",
+        }))
+      );
+
       doc.fontSize(8).fillColor("#888")
-         .text(`Total: ${rows.length} provider${rows.length === 1 ? "" : "s"}`);
+         .text(
+           "Prices are set by providers. Payment is arranged directly between residents and providers.",
+           { align: "center" }
+         );
 
       doc.end();
     } catch (err) {

@@ -2,10 +2,14 @@
    ahewa.js — Welfare Portal home
    Renders: signatories strip, member roster, events list,
             and the "Create event" modal.
+
+   Access control:
+     - Signatories, admins, super-admins see the full roster.
+     - Regular AHEWA members see ONLY their own financial row
+       and personal stats. The create-event button is hidden.
    ============================================================ */
 
-/* API base is resolved asynchronously by api.js at page load.
-   Store it in this module-local variable once discovery finishes. */
+/* API base is resolved asynchronously by api.js at page load. */
 let API = null;
 if (window.__apiReady) {
   window.__apiReady.then((base) => { API = base; });
@@ -13,7 +17,6 @@ if (window.__apiReady) {
 
 /* ------------------------------------------------------------ */
 async function authFetch(path, options = {}) {
-  // Wait for discovery on first call if it hasn't finished yet.
   if (!API && typeof window.discoverApiBase === "function") {
     API = await window.discoverApiBase();
   }
@@ -32,6 +35,74 @@ async function authFetch(path, options = {}) {
   return res.json();
 }
 
+/* ---------------- identity helpers ---------------- */
+function getCurrentUser() {
+  try {
+    const raw = localStorage.getItem("asc_user");
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function normaliseRole(role) {
+  return String(role || "").toLowerCase().replace(/[_\s]/g, "-");
+}
+
+function isAdminUser(user) {
+  const r = normaliseRole(user && user.role);
+  return r === "admin" || r === "super-admin";
+}
+
+/**
+ * Try to find this user's AHEWA member record.
+ * We try several common identifiers so this works whether the
+ * backend exposes resident_id, user_id, phone, or just a name.
+ */
+function findMyMember(members, user) {
+  if (!user || !Array.isArray(members)) return null;
+
+  // Preferred: match by stable id fields
+  if (user.residentId != null) {
+    const m = members.find(x =>
+      String(x.resident_id ?? x.residentId) === String(user.residentId));
+    if (m) return m;
+  }
+  if (user.id != null) {
+    const m = members.find(x =>
+      String(x.user_id ?? x.userId ?? x.id) === String(user.id));
+    if (m) return m;
+  }
+
+  // Fallback: phone
+  if (user.phone) {
+    const digits = String(user.phone).replace(/\D/g, "");
+    const m = members.find(x => {
+      const p = String(x.phone || "").replace(/\D/g, "");
+      return p && p === digits;
+    });
+    if (m) return m;
+  }
+
+  // Last resort: name match (case-insensitive)
+  if (user.name) {
+    const n = String(user.name).trim().toLowerCase();
+    const m = members.find(x =>
+      String(x.full_name || "").trim().toLowerCase() === n);
+    if (m) return m;
+  }
+
+  return null;
+}
+
+/**
+ * Privileged = admin / super-admin, OR the matched member is a
+ * designated signatory (chairperson, secretary, treasurer).
+ */
+function isPrivileged(user, myMember) {
+  if (isAdminUser(user)) return true;
+  return !!(myMember && myMember.is_signatory);
+}
+
+/* ---------------- formatting ---------------- */
 function escapeHtml(s) {
   return String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -40,7 +111,9 @@ function escapeHtml(s) {
 
 function fmtDate(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-KE", { year: "numeric", month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString("en-KE", {
+    year: "numeric", month: "short", day: "numeric",
+  });
 }
 
 function fmtMoney(n) {
@@ -48,10 +121,11 @@ function fmtMoney(n) {
 }
 
 /* ============================================================
-   SIGNATORIES STRIP
+   SIGNATORIES STRIP — visible to all AHEWA members
    ============================================================ */
 async function loadSignatories(members) {
   const el = document.getElementById("signatories-strip");
+  if (!el) return;
   const sigs = members.filter(m => m.is_signatory);
 
   if (!sigs.length) {
@@ -70,21 +144,64 @@ async function loadSignatories(members) {
 
 /* ============================================================
    MEMBERS TABLE
+   ------------------------------------------------------------
+   viewAll = true   → full roster + group totals (privileged)
+   viewAll = false  → only the signed-in member's own row +
+                      personal stats
    ============================================================ */
-function renderMembers(members) {
+function renderMembers(members, viewAll, myMember) {
   const el = document.getElementById("members-table-wrap");
+  if (!el) return;
 
-  if (!members.length) {
-    el.innerHTML = `<div class="empty-state">No AHEWA members yet.</div>`;
-    return;
+  /* ---------- stat tiles ---------- */
+  const tileMembers     = document.getElementById("stat-members");
+  const tileCollected   = document.getElementById("stat-collected");
+  const tileOutstanding = document.getElementById("stat-outstanding");
+  const tileEvents      = document.getElementById("stat-events");
+
+  const labelMembers     = tileMembers     && tileMembers.parentElement.querySelector(".stat-tile__label");
+  const labelCollected   = tileCollected   && tileCollected.parentElement.querySelector(".stat-tile__label");
+  const labelOutstanding = tileOutstanding && tileOutstanding.parentElement.querySelector(".stat-tile__label");
+
+  if (viewAll) {
+    /* -------- privileged: group-wide totals -------- */
+    const totalCollected   = members.reduce((s, m) => s + Number(m.total_contributed || 0), 0);
+    const totalOutstanding = members.reduce((s, m) => s + Number(m.outstanding || 0), 0);
+
+    if (tileMembers)     tileMembers.textContent     = members.length;
+    if (tileCollected)   tileCollected.textContent   = totalCollected.toLocaleString();
+    if (tileOutstanding) tileOutstanding.textContent = totalOutstanding.toLocaleString();
+    if (labelMembers)     labelMembers.textContent     = "Total members";
+    if (labelCollected)   labelCollected.textContent   = "Total collected (KSh)";
+    if (labelOutstanding) labelOutstanding.textContent = "Total outstanding (KSh)";
+  } else {
+    /* -------- regular member: personal stats -------- */
+    if (!myMember) {
+      if (tileMembers)     tileMembers.textContent     = "—";
+      if (tileCollected)   tileCollected.textContent   = "—";
+      if (tileOutstanding) tileOutstanding.textContent = "—";
+      if (labelMembers)     labelMembers.textContent     = "My membership";
+      if (labelCollected)   labelCollected.textContent   = "My contribution (KSh)";
+      if (labelOutstanding) labelOutstanding.textContent = "My outstanding (KSh)";
+    } else {
+      if (tileMembers)     tileMembers.textContent     = 1;
+      if (tileCollected)   tileCollected.textContent   = Number(myMember.total_contributed || 0).toLocaleString();
+      if (tileOutstanding) tileOutstanding.textContent = Number(myMember.outstanding || 0).toLocaleString();
+      if (labelMembers)     labelMembers.textContent     = "My membership";
+      if (labelCollected)   labelCollected.textContent   = "My contribution (KSh)";
+      if (labelOutstanding) labelOutstanding.textContent = "My outstanding (KSh)";
+    }
   }
 
-  const totalCollected = members.reduce((s, m) => s + Number(m.total_contributed || 0), 0);
-  const totalOutstanding = members.reduce((s, m) => s + Number(m.outstanding || 0), 0);
+  /* ---------- table rows ---------- */
+  const rows = viewAll
+    ? members
+    : (myMember ? [myMember] : []);
 
-  document.getElementById("stat-members").textContent = members.length;
-  document.getElementById("stat-collected").textContent = totalCollected.toLocaleString();
-  document.getElementById("stat-outstanding").textContent = totalOutstanding.toLocaleString();
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty-state">You are not registered as an AHEWA member yet.</div>`;
+    return;
+  }
 
   el.innerHTML = `
     <table>
@@ -101,7 +218,7 @@ function renderMembers(members) {
         </tr>
       </thead>
       <tbody>
-        ${members.map((m, i) => `
+        ${rows.map((m, i) => `
           <tr>
             <td>${i + 1}</td>
             <td>${escapeHtml(m.full_name)}</td>
@@ -124,15 +241,23 @@ function renderMembers(members) {
 
 /* ============================================================
    EVENTS TABLE
+   ------------------------------------------------------------
+   Community-wide welfare events are shown to everyone (this
+   is a mutual-aid ledger, not private data), but only privileged
+   users can create new ones. The "View →" link is available to
+   all so members can see the event they are contributing to.
    ============================================================ */
 function renderEvents(events) {
   const el = document.getElementById("events-table-wrap");
+  if (!el) return;
 
-  document.getElementById("stat-events").textContent =
-    events.filter(e => !e.is_closed).length;
+  const tileEvents = document.getElementById("stat-events");
+  if (tileEvents) {
+    tileEvents.textContent = events.filter(e => !e.is_closed).length;
+  }
 
   if (!events.length) {
-    el.innerHTML = `<div class="empty-state">No welfare events yet. Click "Create welfare event" to start.</div>`;
+    el.innerHTML = `<div class="empty-state">No welfare events yet.</div>`;
     return;
   }
 
@@ -153,9 +278,9 @@ function renderEvents(events) {
       </thead>
       <tbody>
         ${events.map(e => {
-          const expected = Number(e.expected || 0);
+          const expected  = Number(e.expected || 0);
           const collected = Number(e.collected || 0);
-          const pct = expected ? Math.round((collected / expected) * 100) : 0;
+          const pct       = expected ? Math.round((collected / expected) * 100) : 0;
           const typeLabel = e.event_type === "PRINCIPAL" ? "Principal" : "Dependant";
           const statusBadge = e.is_disbursed
             ? `<span class="badge" style="background:#d1fae5;color:#065f46;">Disbursed</span>`
@@ -183,86 +308,98 @@ function renderEvents(events) {
 }
 
 /* ============================================================
-   CREATE EVENT MODAL
+   CREATE EVENT MODAL — only wired for privileged users
    ============================================================ */
-function setupCreateModal(members) {
-  const modal = document.getElementById("modal-new-event");
-  const openBtn = document.getElementById("btn-new-event");
-  const closeBtn = document.getElementById("btn-cancel-event");
-  const form = document.getElementById("form-new-event");
+function setupCreateModal(members, canCreate) {
+  const modal       = document.getElementById("modal-new-event");
+  const openBtn     = document.getElementById("btn-new-event");
+  const closeBtn    = document.getElementById("btn-cancel-event");
+  const form        = document.getElementById("form-new-event");
   const affectedSel = document.getElementById("ev-affected");
-  const typeSel = document.getElementById("ev-type");
-  const titleInput = document.getElementById("ev-title");
-  const dateInput = document.getElementById("ev-date");
-  const preview = document.getElementById("ev-preview");
+  const typeSel     = document.getElementById("ev-type");
+  const titleInput  = document.getElementById("ev-title");
+  const dateInput   = document.getElementById("ev-date");
+  const preview     = document.getElementById("ev-preview");
+
+  /* ---------- hide the trigger for non-privileged users ---------- */
+  if (!canCreate) {
+    if (openBtn) openBtn.style.display = "none";
+    if (modal)   modal.classList.remove("is-open");
+    // Don't bind any listeners; the modal is unreachable.
+    return;
+  }
+
+  if (!modal || !openBtn || !form || !affectedSel) return;
+  if (openBtn) openBtn.style.display = "";
 
   // Populate affected member dropdown
   affectedSel.innerHTML =
     `<option value="">Select AHEWA member…</option>` +
-    members.map(m => `<option value="${m.id}">${escapeHtml(m.full_name)} — ${escapeHtml(m.house_number || "—")}</option>`).join("");
+    members.map(m =>
+      `<option value="${m.id}">${escapeHtml(m.full_name)} — ${escapeHtml(m.house_number || "—")}</option>`
+    ).join("");
 
   // Default date = today
-  dateInput.value = new Date().toISOString().slice(0, 10);
+  if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
 
   openBtn.addEventListener("click", () => {
     modal.classList.add("is-open");
     form.reset();
-    dateInput.value = new Date().toISOString().slice(0, 10);
-    preview.style.display = "none";
-    // Refresh member list in case one was added
+    if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+    if (preview) preview.style.display = "none";
     loadAll();
   });
 
-  closeBtn.addEventListener("click", () => modal.classList.remove("is-open"));
+  closeBtn && closeBtn.addEventListener("click", () => modal.classList.remove("is-open"));
   modal.addEventListener("click", (e) => {
     if (e.target === modal) modal.classList.remove("is-open");
   });
 
-  // Live preview of amount + recipient count
+  /* Live preview of amount + recipient count */
   function updatePreview() {
     const affectedId = parseInt(affectedSel.value, 10);
     const type = typeSel.value;
-    if (!affectedId || !type) { preview.style.display = "none"; return; }
+    if (!affectedId || !type) { if (preview) preview.style.display = "none"; return; }
 
     const amount = type === "PRINCIPAL" ? 1200 : 700;
-    const billingCount = members.length - 1;  // exclude affected member
+    const billingCount = members.length - 1;   // exclude affected member
     const total = amount * billingCount;
 
     const affectedName = affectedSel.options[affectedSel.selectedIndex].textContent;
 
-    // Auto-fill title if empty
     if (!titleInput.value || titleInput.dataset.autofilled === "1") {
       const firstName = affectedName.split(" — ")[0];
       titleInput.value = `AHEWA Welfare contributions update for ${firstName}`;
       titleInput.dataset.autofilled = "1";
     }
 
-    preview.style.display = "block";
-    preview.innerHTML = `
-      <b>Preview:</b> ${billingCount} members billed × ${fmtMoney(amount)} =
-      <b>${fmtMoney(total)}</b> expected.
-      <br><small>Affected member (${escapeHtml(affectedName)}) is excluded.</small>
-    `;
+    if (preview) {
+      preview.style.display = "block";
+      preview.innerHTML = `
+        <b>Preview:</b> ${billingCount} members billed × ${fmtMoney(amount)} =
+        <b>${fmtMoney(total)}</b> expected.
+        <br><small>Affected member (${escapeHtml(affectedName)}) is excluded.</small>
+      `;
+    }
   }
 
   affectedSel.addEventListener("change", updatePreview);
-  typeSel.addEventListener("change", updatePreview);
-
-  // Clear autofill flag when user manually edits
-  titleInput.addEventListener("input", () => { titleInput.dataset.autofilled = "0"; });
+  typeSel && typeSel.addEventListener("change", updatePreview);
+  titleInput && titleInput.addEventListener("input", () => {
+    titleInput.dataset.autofilled = "0";
+  });
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = document.getElementById("btn-submit-event");
-    btn.disabled = true;
-    btn.textContent = "Creating…";
+    if (btn) { btn.disabled = true; btn.textContent = "Creating…"; }
 
     try {
       const payload = {
         affected_member_id: parseInt(affectedSel.value, 10),
         event_type: typeSel.value,
         event_title: titleInput.value.trim(),
-        description: document.getElementById("ev-description").value.trim() || null,
+        description: (document.getElementById("ev-description").value || "").trim() || null,
         event_date: dateInput.value,
       };
 
@@ -278,8 +415,7 @@ function setupCreateModal(members) {
       console.error("[ahewa] create failed:", err);
       alert("Could not create event: " + err.message);
     } finally {
-      btn.disabled = false;
-      btn.textContent = "Create & invoice members";
+      if (btn) { btn.disabled = false; btn.textContent = "Create & invoice members"; }
     }
   });
 }
@@ -288,45 +424,75 @@ function setupCreateModal(members) {
    MAIN LOAD
    ============================================================ */
 async function loadAll() {
+  const user = getCurrentUser();
+
   try {
     const [members, events] = await Promise.all([
       authFetch("/ahewa/members"),
       authFetch("/ahewa/events"),
     ]);
 
+    /* Identify the logged-in user's own member record + permissions */
+    const myMember  = findMyMember(members, user);
+    const viewAll   = isPrivileged(user, myMember);
+
+    /* Signatories strip is fine to show to everyone */
     await loadSignatories(members);
-    renderMembers(members);
+
+    /* Roster: full for privileged users, single-row for members */
+    renderMembers(members, viewAll, myMember);
+
+    /* Events ledger stays visible to everyone */
     renderEvents(events);
 
-    // Keep the affected member dropdown fresh
-    const affectedSel = document.getElementById("ev-affected");
-    if (affectedSel) {
-      const current = affectedSel.value;
-      affectedSel.innerHTML =
-        `<option value="">Select AHEWA member…</option>` +
-        members.map(m => `<option value="${m.id}">${escapeHtml(m.full_name)} — ${escapeHtml(m.house_number || "—")}</option>`).join("");
-      affectedSel.value = current;
+    /* Only privileged users can create new events.
+       Non-privileged users get the button hidden and no listeners. */
+    const createBtn = document.getElementById("btn-new-event");
+    if (createBtn && !viewAll) createBtn.style.display = "none";
+
+    /* Keep the affected-member dropdown fresh (only populated for
+       privileged users — regular members have no modal). */
+    if (viewAll) {
+      const affectedSel = document.getElementById("ev-affected");
+      if (affectedSel) {
+        const current = affectedSel.value;
+        affectedSel.innerHTML =
+          `<option value="">Select AHEWA member…</option>` +
+          members.map(m =>
+            `<option value="${m.id}">${escapeHtml(m.full_name)} — ${escapeHtml(m.house_number || "—")}</option>`
+          ).join("");
+        affectedSel.value = current;
+      }
     }
   } catch (err) {
     console.error("[ahewa] load failed:", err);
-    document.getElementById("members-table-wrap").innerHTML =
-      `<div class="empty-state" style="color:var(--clay);">Failed to load: ${escapeHtml(err.message)}</div>`;
+    const wrap = document.getElementById("members-table-wrap");
+    if (wrap) {
+      wrap.innerHTML =
+        `<div class="empty-state" style="color:var(--clay);">Failed to load: ${escapeHtml(err.message)}</div>`;
+    }
   }
 }
 
 /* ============================================================
    INIT
    ------------------------------------------------------------
-   Access control is enforced by access.js via
-     <body data-requires="auth ahewa">
-   which allows any resident with join_ahewa = 1, plus admins.
+   Access control (who can open this page at all) is enforced
+   by access.js via <body data-requires="auth ahewa">.
+   Per-user visibility of member data is enforced here.
    ============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
   try {
+    const user = getCurrentUser();
     const members = await authFetch("/ahewa/members");
-    setupCreateModal(members);
+    const myMember = findMyMember(members, user);
+    const canCreate = isPrivileged(user, myMember);
+
+    setupCreateModal(members, canCreate);
   } catch (err) {
     console.error("[ahewa] init failed:", err);
+    // Even if init partially fails, loadAll() below can still
+    // render whatever the user is allowed to see.
   }
 
   await loadAll();
