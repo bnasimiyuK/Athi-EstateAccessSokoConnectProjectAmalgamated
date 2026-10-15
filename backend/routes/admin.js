@@ -1,5 +1,5 @@
 ﻿/* ============================================================
-   routes/admin.js - admin-only stats, dashboard & exports
+   routes/admin.js — admin + super-admin stats, dashboard & exports
    ============================================================ */
 
 const express = require("express");
@@ -9,6 +9,13 @@ const PDFDocument = require("pdfkit");
 
 const { getPool } = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
+
+/* ------------------------------------------------------------
+   Role gate — every route in this file allows BOTH:
+     • admin
+     • super-admin  (passes automatically per middleware/auth.js)
+   ------------------------------------------------------------ */
+const ADMIN_OR_SUPER = ["admin", "super-admin"];
 
 /* ------------------------------------------------------------
    Helpers
@@ -21,10 +28,6 @@ function toNumber(v, fallback = 0) {
 /**
  * Batch-load offerings for a set of provider ids.
  * Returns Map<provider_id, offering[]>.
- *
- * Used by the vendor exports so each vendor row can list every
- * category it offers, and so the "Offerings" sheet has one row
- * per (provider, category) tuple.
  */
 async function fetchOfferingsFor(pool, providerIds) {
   const map = new Map();
@@ -302,11 +305,11 @@ async function getAdminStats() {
 }
 
 /* ============================================================
-   GET /api/admin/stats
+   GET /api/admin/stats        → admin + super-admin
    ============================================================ */
 router.get("/stats",
   requireAuth,
-  requireRole("super-admin"),
+  requireRole("admin", "super-admin"),
   async (req, res, next) => {
     try {
       res.json(await getAdminStats());
@@ -317,11 +320,11 @@ router.get("/stats",
 );
 
 /* ============================================================
-   GET /api/admin/dashboard
+   GET /api/admin/dashboard    → admin + super-admin
    ============================================================ */
 router.get("/dashboard",
   requireAuth,
-  requireRole("super-admin"),
+  requireRole("admin", "super-admin"),
   async (req, res) => {
     try {
       res.json(await getDashboardData());
@@ -332,8 +335,113 @@ router.get("/dashboard",
   }
 );
 
+/* ============================================================
+   GET /api/admin/verification-queue    → admin + super-admin
+   ============================================================ */
+router.get("/verification-queue",
+  requireAuth,
+  requireRole("admin", "super-admin"),
+  async (req, res) => {
+    try {
+      const pool = await getPool();
+      const r = await pool.request().query(`
+        SELECT id,
+               name,
+               phone,
+               created_at AS createdAt,
+               (SELECT label FROM Categories WHERE id = p.category_id) AS category
+          FROM Providers p
+         WHERE verified = 0
+         ORDER BY created_at DESC
+      `);
+      res.json({ items: r.recordset });
+    } catch (err) {
+      console.error("[admin] /verification-queue failed:", err);
+      res.status(500).json({ error: "Could not load verification queue." });
+    }
+  }
+);
+
+/* ============================================================
+   GET /api/admin/reports    → admin + super-admin
+   ============================================================ */
+router.get("/reports",
+  requireAuth,
+  requireRole("admin", "super-admin"),
+  async (req, res) => {
+    try {
+      const pool = await getPool();
+      const r = await pool.request().query(`
+        SELECT id,
+               subject,
+               status,
+               created_at AS createdAt,
+               (SELECT full_name FROM Residents WHERE id = r.reporter_id) AS reportedBy,
+               (SELECT full_name FROM Residents WHERE id = r.target_id)   AS against
+          FROM Reports r
+         WHERE status = 'open'
+         ORDER BY created_at DESC
+      `);
+      res.json({ items: r.recordset });
+    } catch (err) {
+      console.error("[admin] /reports failed:", err);
+      res.status(500).json({ error: "Could not load reports." });
+    }
+  }
+);
+
+/* ============================================================
+   POST /api/admin/listings/:id/approve    → admin + super-admin
+   ============================================================ */
+router.post("/listings/:id/approve",
+  requireAuth,
+  requireRole("admin", "super-admin"),
+  async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id." });
+
+      const pool = await getPool();
+      const r = await pool.request()
+        .input("id", id)
+        .query(`UPDATE Providers SET verified = 1 WHERE id = @id`);
+
+      if (!r.rowsAffected[0]) return res.status(404).json({ error: "Listing not found." });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[admin] approve failed:", err);
+      res.status(500).json({ error: "Could not approve listing." });
+    }
+  }
+);
+
+/* ============================================================
+   POST /api/admin/listings/:id/reject    → admin + super-admin
+   ============================================================ */
+router.post("/listings/:id/reject",
+  requireAuth,
+  requireRole("admin", "super-admin"),
+  async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id." });
+
+      const pool = await getPool();
+      const r = await pool.request()
+        .input("id", id)
+        .query(`DELETE FROM Providers WHERE id = @id AND verified = 0`);
+
+      if (!r.rowsAffected[0]) return res.status(404).json({ error: "Listing not found." });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[admin] reject failed:", err);
+      res.status(500).json({ error: "Could not reject listing." });
+    }
+  }
+);
+
 /* ------------------------------------------------------------
-   Build an Excel workbook with chart PNGs embedded.
+   Excel workbook with embedded chart images
    ------------------------------------------------------------ */
 function buildWorkbookWithChartImages(stats, images = {}) {
   const wb = new ExcelJS.Workbook();
@@ -455,11 +563,11 @@ function buildWorkbookWithChartImages(stats, images = {}) {
 }
 
 /* ============================================================
-   POST /api/admin/export.xlsx
+   POST /api/admin/export.xlsx    → admin + super-admin
    ============================================================ */
 router.post("/export.xlsx",
   requireAuth,
-  requireRole("super-admin"),
+  requireRole("admin", "super-admin"),
   express.json({ limit: "25mb" }),
   async (req, res) => {
     try {
@@ -488,11 +596,11 @@ router.post("/export.xlsx",
 );
 
 /* ============================================================
-   GET /api/admin/export.pdf
+   GET /api/admin/export.pdf    → admin + super-admin
    ============================================================ */
 router.get("/export.pdf",
   requireAuth,
-  requireRole("super-admin"),
+  requireRole("admin", "super-admin"),
   async (req, res) => {
     try {
       const data = await getDashboardData();
@@ -550,7 +658,7 @@ router.get("/export.pdf",
 );
 
 /* ============================================================
-   Residents export - Excel + PDF
+   Residents export — admin + super-admin
    ============================================================ */
 async function fetchResidentsForExport(query) {
   const { phase, courtId, q, verified } = query;
@@ -634,7 +742,7 @@ function residentRowToExportShape(r) {
 
 router.get("/residents/export.xlsx",
   requireAuth,
-  requireRole("super-admin"),
+  requireRole("admin", "super-admin"),
   async (req, res) => {
     try {
       const rows = await fetchResidentsForExport(req.query);
@@ -688,7 +796,7 @@ router.get("/residents/export.xlsx",
 
 router.get("/residents/export.pdf",
   requireAuth,
-  requireRole("super-admin"),
+  requireRole("admin", "super-admin"),
   async (req, res) => {
     try {
       const rows = await fetchResidentsForExport(req.query);
@@ -706,11 +814,9 @@ router.get("/residents/export.pdf",
       });
       doc.pipe(res);
 
-      doc.fontSize(20).fillColor("#16233f")
-         .text("Athi Soko Connect");
+      doc.fontSize(20).fillColor("#16233f").text("Athi Soko Connect");
       doc.moveDown(0.3);
-      doc.fontSize(14).fillColor("#16233f")
-         .text("Approved Residents Report");
+      doc.fontSize(14).fillColor("#16233f").text("Approved Residents Report");
       doc.moveDown(0.2);
       doc.fontSize(9).fillColor("#666")
          .text("Generated: " + new Date().toLocaleString("en-GB"));
@@ -795,8 +901,7 @@ router.get("/residents/export.pdf",
 );
 
 /* ============================================================
-   Providers export - Excel + PDF
-   Now includes every offering per vendor (multi-category).
+   Providers export — admin + super-admin
    ============================================================ */
 
 async function fetchProvidersForExport(query) {
@@ -815,8 +920,6 @@ async function fetchProvidersForExport(query) {
     request.input("courtId", parseInt(courtId, 10));
   }
   if (q && q.trim()) {
-    /* Search across provider name, phone, primary category,
-       and any offering's category label or services. */
     where.push(`(
       p.name LIKE @q
       OR p.phone LIKE @q
@@ -885,8 +988,6 @@ function providerRowToExportShape(p, offerings) {
       })
     : "-";
 
-  /* Categories: prefer the offerings list if populated, fall back
-     to the primary category label. */
   const categoryString = (offerings && offerings.length)
     ? offerings.map((o) => o.categoryLabel).filter(Boolean).join(", ")
     : (p.category_label || "-");
@@ -905,10 +1006,9 @@ function providerRowToExportShape(p, offerings) {
   };
 }
 
-/* GET /api/admin/providers/export.xlsx */
 router.get("/providers/export.xlsx",
   requireAuth,
-  requireRole("super-admin"),
+  requireRole("admin", "super-admin"),
   async (req, res) => {
     try {
       const { providers, offeringMap } = await fetchProvidersForExport(req.query);
@@ -917,7 +1017,6 @@ router.get("/providers/export.xlsx",
       wb.creator = "Athi Soko Connect";
       wb.created = new Date();
 
-      /* ---------- Sheet 1: Vendors ---------- */
       const ws = wb.addWorksheet("Vendors");
       ws.columns = PROVIDER_EXPORT_COLUMNS.map((c) => ({
         header: c.header, key: c.key, width: c.width,
@@ -939,7 +1038,6 @@ router.get("/providers/export.xlsx",
         to:   { row: 1, column: PROVIDER_EXPORT_COLUMNS.length },
       };
 
-      /* ---------- Sheet 2: Offerings ---------- */
       const wsOffer = wb.addWorksheet("Offerings");
       wsOffer.columns = [
         { header: "#",         key: "n",         width: 6  },
@@ -994,7 +1092,6 @@ router.get("/providers/export.xlsx",
         to:   { row: 1, column: 7 },
       };
 
-      /* Right-align prices */
       wsOffer.getColumn("priceFrom").numFmt = '"KSh "#,##0.00';
 
       const filename = `athi-soko-providers-${new Date()
@@ -1017,15 +1114,13 @@ router.get("/providers/export.xlsx",
   }
 );
 
-/* GET /api/admin/providers/export.pdf */
 router.get("/providers/export.pdf",
   requireAuth,
-  requireRole("super-admin"),
+  requireRole("admin", "super-admin"),
   async (req, res) => {
     try {
       const { providers, offeringMap } = await fetchProvidersForExport(req.query);
 
-      /* Flatten offerings into rows for the second table. */
       const flat = [];
       providers.forEach((p) => {
         const offerings = offeringMap.get(p.id) || [];
@@ -1069,7 +1164,6 @@ router.get("/providers/export.pdf",
           maximumFractionDigits: 2,
         });
 
-      /* ---------- Page title ---------- */
       doc.fontSize(20).fillColor("#16233f").text("Athi Soko Connect");
       doc.moveDown(0.3);
       doc.fontSize(14).fillColor("#16233f").text("Vendors Report");
@@ -1081,11 +1175,9 @@ router.get("/providers/export.pdf",
          );
       doc.moveDown(1);
 
-      /* ---------- Shared table renderer ---------- */
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
       const renderTable = (title, columns, rows) => {
-        /* Section title */
         doc.fontSize(12).fillColor("#16233f").font("Helvetica-Bold")
            .text(title);
         doc.moveDown(0.5);
@@ -1098,7 +1190,6 @@ router.get("/providers/export.pdf",
 
         const rowH = 18;
 
-        /* Header */
         const headerY = doc.y;
         doc.rect(doc.page.margins.left, headerY, pageWidth, rowH).fill("#16233f");
         doc.fillColor("#ffffff").fontSize(9).font("Helvetica-Bold");
@@ -1148,7 +1239,6 @@ router.get("/providers/export.pdf",
         doc.moveDown(0.6);
       };
 
-      /* ---------- Table 1: Vendors ---------- */
       renderTable(
         `Vendors (${providers.length})`,
         [
@@ -1167,7 +1257,6 @@ router.get("/providers/export.pdf",
         })
       );
 
-      /* ---------- Table 2: Offerings ---------- */
       renderTable(
         `Vendor offerings (${flat.length})`,
         [

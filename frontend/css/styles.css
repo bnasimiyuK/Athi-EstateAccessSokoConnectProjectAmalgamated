@@ -7432,3 +7432,700 @@ main.get-hero {
 }
 .admin-panel { display: none; }
 .admin-panel.is-active { display: block; }
+/* ============================================================
+   Skeleton loading placeholders
+   ============================================================ */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--paper-dim) 25%,
+    #eef1f6 37%,
+    var(--paper-dim) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-m);
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+.skeleton--card {
+  height: 180px;
+  border: 1px solid var(--line);
+}
+
+.skeleton--row {
+  height: 44px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+/* ============================================================
+   ADMIN DASHBOARD v2 — compact single-page layout
+   ============================================================ */
+
+/* ---------- Compact KPI strip ---------- */
+.admin-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink-40);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kpi:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(22, 35, 63, 0.06);
+}
+
+.kpi--warn   { border-left-color: var(--ochre); }
+.kpi--ok     { border-left-color: var(--teal); }
+.kpi--danger { border-left-color: var(--clay); }
+.kpi--info   { border-left-color: var(--ink-40); }
+
+.kpi_value {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.kpi_label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-70);
+}
+
+.kpi_delta {
+  font-size: 0.68rem;
+  color: var(--ink-40);
+}
+.kpi_delta.is-good { color: var(--teal); font-weight: 600; }
+.kpi_delta.is-bad  { color: var(--clay); font-weight: 600; }
+
+/* ---------- Two-column layout ---------- */
+.admin-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 1024px) {
+  .admin-split { grid-template-columns: 1fr; }
+}
+
+/* ---------- Compact charts grid ---------- */
+.admin-charts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 700px) {
+  .admin-charts { grid-template-columns: 1fr; }
+}
+
+.chart-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.chart-card__head {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-70);
+  margin-bottom: 10px;
+}
+
+.chart-card__body {
+  position: relative;
+  height: 180px;
+}
+
+/* ---------- Compact alert list ---------- */
+.admin-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alert-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.alert-card__head {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-70);
+  margin-bottom: 8px;
+}
+
+.alert-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.alert-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 0.82rem;
+  color: var(--ink-70);
+  border-bottom: 1px dashed var(--line);
+}
+.alert-list li:last-child { border-bottom: none; }
+
+.alert-empty {
+  font-size: 0.82rem;
+  color: var(--ink-40);
+  font-style: italic;
+}
+
+/* ---------- Compact tabs ---------- */
+.admin-tab-row {
+  display: flex;
+  gap: 2px;
+  margin: 20px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-tab-row .tab-btn {
+  padding: 9px 16px 11px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-70);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.admin-tab-row .tab-btn:hover { color: var(--ink); }
+
+.admin-tab-row .tab-btn.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--ochre);
+}
+
+.admin-tab-row .tab-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.admin-tab-row .tab-btn a {
+  color: inherit;
+  text-decoration: none;
+}
+/* ============================================================
+   ADMIN DASHBOARD — 4-column grid
+   ============================================================ */
+
+/* Container for the four columns */
+.admin-columns {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+  align-items: start;
+}
+
+/* Each column is a vertical stack of card groups */
+.admin-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Column header (small caption) */
+.admin-col__head {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--ink-70);
+  padding: 0 2px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Inside each column, KPI tiles stack vertically */
+.admin-col .kpi {
+  width: 100%;
+}
+
+/* Chart cards inside a column */
+.admin-col .chart-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.admin-col .chart-card__head {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-70);
+  margin-bottom: 8px;
+}
+
+.admin-col .chart-card__body {
+  position: relative;
+  height: 160px;
+}
+
+/* Alert cards inside a column */
+.admin-col .alert-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.admin-col .alert-card__head {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-70);
+  margin-bottom: 6px;
+}
+
+.admin-col .alert-list li {
+  padding: 4px 0;
+  font-size: 0.78rem;
+}
+
+/* Alert-list link styles (from before) */
+.alert-list__item--link { padding: 0 !important; }
+.alert-list__item--link > a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 0;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.12s ease, padding-left 0.12s ease;
+}
+.alert-list__item--link > a::after {
+  content: "→";
+  color: var(--ink-40);
+  font-size: 0.8rem;
+  transition: transform 0.12s ease, color 0.12s ease;
+}
+.alert-list__item--link > a:hover {
+  color: var(--ochre-dark);
+  padding-left: 4px;
+}
+.alert-list__item--link > a:hover::after {
+  transform: translateX(2px);
+  color: var(--ochre-dark);
+}
+
+/* Tabs stay full width below the grid */
+.admin-tab-row {
+  display: flex;
+  gap: 2px;
+  margin: 22px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-tab-row .tab-btn {
+  padding: 9px 16px 11px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-70);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s;
+}
+.admin-tab-row .tab-btn:hover { color: var(--ink); }
+.admin-tab-row .tab-btn.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--ochre);
+}
+
+/* Responsive collapse */
+@media (max-width: 1280px) {
+  .admin-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .admin-columns { grid-template-columns: 1fr; }
+}
+/* ============================================================
+   CAR POOLING & HAILING
+   Uses existing dx-*, vp-*, form-card, form-grid, input-group,
+   tab-btn, alert-card, badge classes. Only adds trip-card shapes.
+   ============================================================ */
+
+/* ---------- Trip card (extends .dx-card) ---------- */
+.trip-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(22, 35, 63, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.trip-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--ochre);
+  box-shadow: 0 10px 22px rgba(22, 35, 63, 0.09);
+}
+
+/* Kind badge: offer vs need */
+.trip-card_kind {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.trip-card_kind--offer {
+  background: var(--teal-tint);
+  color: var(--teal);
+}
+.trip-card_kind--need {
+  background: var(--amber-tint);
+  color: var(--ochre-dark);
+}
+
+/* Route line — origin → destination */
+.trip-card_route {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+  padding-right: 90px; /* room for the kind badge */
+}
+.trip-card_route i {
+  color: var(--ochre);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.trip-card_route .arrow {
+  color: var(--ink-40);
+  font-size: 0.75rem;
+}
+
+/* Meta row: date, time, seats */
+.trip-card_meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 0.82rem;
+  color: var(--ink-70);
+}
+.trip-card_meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.trip-card_meta i {
+  color: var(--ink-40);
+  width: 14px;
+  text-align: center;
+}
+
+/* Driver row */
+.trip-card_driver {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.trip-card_driver .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  background: var(--teal-tint);
+  color: var(--teal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.trip-card_driver_name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.trip-card_driver_house {
+  font-size: 0.72rem;
+  color: var(--ink-40);
+}
+
+/* Footer: seats left + price + CTA */
+.trip-card_footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+}
+.trip-card_seats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--teal);
+  background: var(--teal-tint);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.trip-card_seats--low {
+  color: var(--ochre-dark);
+  background: var(--amber-tint);
+}
+.trip-card_seats--full {
+  color: var(--clay);
+  background: var(--clay-tint);
+}
+
+.trip-card_price {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+}
+.trip-card_price small {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--ink-40);
+  margin-left: 4px;
+}
+
+.trip-card_btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--teal);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background 0.15s ease;
+}
+.trip-card_btn:hover { background: #235b4c; }
+.trip-card_btn:disabled {
+  background: #cfcac0;
+  cursor: not-allowed;
+}
+
+.trip-card_note {
+  font-size: 0.8rem;
+  color: var(--ink-70);
+  line-height: 1.4;
+  padding-top: 4px;
+}
+
+/* Destination tiles (mini) */
+.trip-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 118px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--ink);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.trip-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--ochre);
+  box-shadow: 0 8px 18px rgba(22, 35, 63, 0.08);
+}
+.trip-tile.is-active {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.trip-tile_icon {
+  font-size: 1.4rem;
+  margin-bottom: 14px;
+  line-height: 1;
+}
+.trip-tile_count {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+.trip-tile_label { font-size: 0.92rem; font-weight: 700; }
+.trip-tile_desc  { font-size: 0.72rem; color: var(--ink-40); }
+.trip-tile.is-active .trip-tile_desc { color: rgba(255,255,255,0.7); }
+
+/* ============================================================
+   Trip detail page (pooling-trip.html)
+   ============================================================ */
+.trip-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+}
+
+.trip-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.trip-header_route {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.trip-header_route i { color: var(--ochre); font-size: 1rem; margin: 0 8px; }
+.trip-header_when {
+  font-size: 0.9rem;
+  color: var(--ink-70);
+}
+
+.trip-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--amber-tint);
+  border: 1px dashed var(--ochre);
+  border-radius: 12px;
+  margin: 20px 0;
+}
+.trip-code_label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--ochre-dark);
+}
+.trip-code_value {
+  font-family: monospace;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: var(--ink);
+}
+.trip-code_hint {
+  font-size: 0.75rem;
+  color: var(--ink-70);
+  margin-top: 2px;
+}
+
+.trip-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.trip-review {
+  padding: 14px 16px;
+  background: var(--paper-dim);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-top: 20px;
+}
+.trip-review_label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.trip-review_stars {
+  display: flex;
+  gap: 6px;
+  font-size: 1.4rem;
+  color: var(--ink-40);
+  cursor: pointer;
+}
+.trip-review_stars i.is-on { color: var(--ochre); }
+.trip-review textarea {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 640px) {
+  .trip-card_route { padding-right: 0; padding-top: 26px; }
+  .trip-card_kind  { top: 12px; right: 12px; }
+  .trip-card_footer { flex-wrap: wrap; }
+  .trip-code_value { font-size: 1.3rem; letter-spacing: 4px; }
+}

@@ -4,15 +4,10 @@
   <script src="js/access.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin dashboard &mdash; Athi Soko Connect</title>
+  <title>Admin dashboard — Athi Soko Connect</title>
 
-  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
-  <!-- Single stylesheet (sidebar + page styles) -->
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" href="data:,">
 </head>
@@ -35,75 +30,21 @@
   </a>
 
   <nav class="side-rail__nav" aria-label="Main">
-    <a href="about.html" data-nav="about.html">
-      <i class="fas fa-circle-info" aria-hidden="true"></i>
-      <span>About AHE</span>
-    </a>
-
-    <a href="index.html" data-nav="index.html">
-      <i class="fas fa-compass" aria-hidden="true"></i>
-      <span>Discover</span>
-    </a>
-
-    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden>
-      <i class="fas fa-user-plus" aria-hidden="true"></i>
-      <span>Become a Provider</span>
-    </a>
-
-    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden>
-      <i class="fas fa-calendar-check" aria-hidden="true"></i>
-      <span>My Bookings</span>
-    </a>
-
-    <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden>
-      <i class="fas fa-store" aria-hidden="true"></i>
-      <span>My Profile</span>
-    </a>
-
-    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden>
-      <i class="fas fa-user-friends" aria-hidden="true"></i>
-      <span>My Visitors</span>
-    </a>
-
-    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden>
-      <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i>
-      <span>My Billing &amp; Payments</span>
-    </a>
-
-    <a href="notices.html" data-nav="notices.html">
-      <i class="fas fa-bullhorn" aria-hidden="true"></i>
-      <span>Estate Notice Board</span>
-    </a>
-
-    <a href="ahewa.html" data-nav="ahewa.html" data-ahewa-only hidden>
-      <i class="fas fa-chart-pie" aria-hidden="true"></i>
-      <span>AHEWA</span>
-    </a>
-
-    <a href="ahewa-events.html" data-nav="ahewa-events.html" data-ahewa-only hidden>
-      <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-      <span>AHEWA Events</span>
-    </a>
-
-    <a href="ahewa-event.html" data-nav="ahewa-event.html" data-ahewa-only hidden>
-      <i class="fas fa-calendar-day" aria-hidden="true"></i>
-      <span>AHEWA Event</span>
-    </a>
-
-    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden>
-      <i class="fas fa-shield-halved" aria-hidden="true"></i>
-      <span>Security &mdash; Visitors</span>
-    </a>
-
-    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden>
-      <i class="fas fa-user-shield" aria-hidden="true"></i>
-      <span>Admin</span>
-    </a>
-
-    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden>
-      <i class="fas fa-crown" aria-hidden="true"></i>
-      <span>Super Admin</span>
-    </a>
+    <a href="about.html" data-nav="about.html"><i class="fas fa-circle-info"></i><span>About AHE</span></a>
+    <a href="index.html" data-nav="index.html"><i class="fas fa-compass"></i><span>Discover</span></a>
+    <a href="pooling.html" data-nav="pooling.html" data-roles="resident,admin,super-admin"><i class="fas fa-car-side"></i><span>Car Pooling &amp; Hailing</span></a>
+    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden><i class="fas fa-user-plus"></i><span>Become a Provider</span></a>
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden><i class="fas fa-calendar-check"></i><span>My Bookings</span></a>
+    <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden><i class="fas fa-store"></i><span>My Profile</span></a>
+    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden><i class="fas fa-user-friends"></i><span>My Visitors</span></a>
+    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden><i class="fas fa-file-invoice-dollar"></i><span>My Billing &amp; Payments</span></a>
+    <a href="notices.html" data-nav="notices.html"><i class="fas fa-bullhorn"></i><span>Estate Notice Board</span></a>
+    <a href="ahewa.html" data-nav="ahewa.html" data-ahewa-only hidden><i class="fas fa-chart-pie"></i><span>AHEWA</span></a>
+    <a href="ahewa-events.html" data-nav="ahewa-events.html" data-ahewa-only hidden><i class="fas fa-calendar-alt"></i><span>AHEWA Events</span></a>
+    <a href="ahewa-event.html" data-nav="ahewa-event.html" data-ahewa-only hidden><i class="fas fa-calendar-day"></i><span>AHEWA Event</span></a>
+    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden><i class="fas fa-shield-halved"></i><span>Security — Visitors</span></a>
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden><i class="fas fa-user-shield"></i><span>Admin</span></a>
+    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden><i class="fas fa-crown"></i><span>Super Admin</span></a>
   </nav>
 
   <div class="side-rail__footer">
@@ -114,7 +55,6 @@
   </div>
 </aside>
 
-<!-- Mobile toggle -->
 <button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
   <i class="fas fa-bars"></i>
 </button>
@@ -134,265 +74,332 @@
 
   <main class="container dx-main">
 
-    <div class="page-head page-head--with-actions">
-      <div class="page-head__text">
+    <!-- ---------- NOTICE BAR (Discover pattern) ---------- -->
+    <div class="dx-notice" role="note">
+      <span class="dx-notice_dot" aria-hidden="true"></span>
+      <b class="dx-notice_label">ADMIN CONSOLE</b>
+      <span class="dx-notice_text">
+        Approve listings, review reports, and monitor estate activity.
+      </span>
+      <span class="dx-notice_right">
+        <button type="button" id="btn-excel" class="dx-chip dx-chip--btn">
+          <i class="fas fa-file-excel"></i> Excel
+        </button>
+        <button type="button" id="btn-pdf" class="dx-chip dx-chip--btn">
+          <i class="fas fa-file-pdf"></i> PDF
+        </button>
+        <a href="#action-queue">Action queue <i class="fas fa-arrow-down"></i></a>
+      </span>
+    </div>
+
+    <!-- ---------- HERO (Discover pattern — no video) ---------- -->
+    <section class="dx-hero">
+      <div class="dx-hero_copy">
+        <span class="dx-pill">
+          <i class="fas fa-user-shield"></i> Estate administration
+        </span>
         <h1>Estate admin dashboard</h1>
-        <p>Approve new provider listings and review resident reports. Verification confirms submitted details only, not the quality of future work.</p>
+        <p>
+          One console for the whole estate — approve listings, review reports,
+          and keep an eye on residents, vendors, bookings, and quality signals.
+        </p>
+        <ul class="dx-trust">
+          <li><i class="fas fa-shield-alt"></i> Verified listings</li>
+          <li><i class="fas fa-flag"></i> Logged reports</li>
+          <li><i class="fas fa-chart-line"></i> Live estate metrics</li>
+        </ul>
       </div>
 
-      <div class="admin-actions">
-        <button id="btn-excel" class="btn btn-export" type="button">&#x1F4E5; Excel</button>
-        <button id="btn-pdf"   class="btn btn-export" type="button">&#x1F4C4; PDF</button>
-      </div>
-    </div>
+      <div class="dx-stats">
+        <div class="dx-stat">
+          <div class="dx-stat_body">
+            <b id="tile-pending-vendors">&mdash;</b>
+            <strong>Pending vendors</strong>
+            <small>Awaiting verification</small>
+          </div>
+          <span class="dx-stat_icon dx-stat_icon--amber"><i class="fas fa-store"></i></span>
+        </div>
 
-    <!-- ============================================================
-         USERS &mdash; approvals + signups
-         ============================================================ -->
-    <section class="stat-section">
-      <h3 class="stat-section__title">Users</h3>
-      <div class="stat-tiles">
-        <a href="pending.html" class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-pending-residents">&mdash;</div>
-          <div class="stat-tile__label">Pending residents</div>
-        </a>
-        <a href="admin-providers.html?verified=false" class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-pending-vendors">&mdash;</div>
-          <div class="stat-tile__label">Pending vendors</div>
-        </a>
-        <a href="admin-residents.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-approved-residents">&mdash;</div>
-          <div class="stat-tile__label">Approved residents</div>
-        </a>
-        <a href="admin-providers.html?verified=true" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-approved-vendors">&mdash;</div>
-          <div class="stat-tile__label">Approved vendors</div>
-        </a>
-        <a href="admin-residents.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-residents-joined">&mdash;</div>
-          <div class="stat-tile__label">New residents (month)</div>
-        </a>
-        <a href="admin-providers.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-vendors-joined">&mdash;</div>
-          <div class="stat-tile__label">New vendors (month)</div>
-        </a>
-      </div>
-    </section>
+        <div class="dx-stat">
+          <div class="dx-stat_body">
+            <b id="tile-pending-residents">&mdash;</b>
+            <strong>Pending residents</strong>
+            <small>Awaiting approval</small>
+          </div>
+          <span class="dx-stat_icon dx-stat_icon--amber"><i class="fas fa-user-clock"></i></span>
+        </div>
 
-    <!-- ============================================================
-         BOOKINGS
-         ============================================================ -->
-    <section class="stat-section">
-      <h3 class="stat-section__title">Bookings</h3>
-      <div class="stat-tiles">
-        <div class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-bookings-open">&mdash;</div>
-          <div class="stat-tile__label">Open (requested)</div>
-        </div>
-        <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-confirmed">&mdash;</div>
-          <div class="stat-tile__label">Confirmed</div>
-        </div>
-        <div class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-bookings-completed">&mdash;</div>
-          <div class="stat-tile__label">Completed</div>
-        </div>
-        <div class="stat-tile stat-tile--danger">
-          <div class="stat-tile__value" id="tile-bookings-cancelled">&mdash;</div>
-          <div class="stat-tile__label">Cancelled</div>
-        </div>
-        <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-total">&mdash;</div>
-          <div class="stat-tile__label">Total (all time)</div>
-        </div>
-        <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-month">&mdash;</div>
-          <div class="stat-tile__label">This month</div>
-          <div class="stat-tile__delta" id="delta-bookings-month"></div>
-        </div>
-        <div class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-completed-month">&mdash;</div>
-          <div class="stat-tile__label">Completed (month)</div>
-          <div class="stat-tile__delta" id="delta-completed-month"></div>
-        </div>
-        <div class="stat-tile stat-tile--danger">
-          <div class="stat-tile__value" id="tile-cancelled-month">&mdash;</div>
-          <div class="stat-tile__label">Cancelled (month)</div>
-          <div class="stat-tile__delta" id="delta-cancelled-month"></div>
-        </div>
-        <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-7d">&mdash;</div>
-          <div class="stat-tile__label">Last 7 days</div>
-        </div>
-        <div class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-bookings-30d">&mdash;</div>
-          <div class="stat-tile__label">Last 30 days</div>
+        <div class="dx-stat">
+          <div class="dx-stat_body">
+            <b id="tile-reviews-low">&mdash;</b>
+            <strong>Low reviews</strong>
+            <small>Below 3 stars</small>
+          </div>
+          <span class="dx-stat_icon dx-stat_icon--teal"><i class="fas fa-star-half-stroke"></i></span>
         </div>
       </div>
     </section>
 
     <!-- ============================================================
-         QUALITY
+         SECTION — Visual overview (charts)
          ============================================================ -->
-    <section class="stat-section">
-      <h3 class="stat-section__title">Quality</h3>
-      <div class="stat-tiles">
-        <a href="admin-reviews.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-reviews-total">&mdash;</div>
-          <div class="stat-tile__label">Reviews</div>
-        </a>
-        <a href="admin-reviews.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-avg-rating">&mdash;</div>
-          <div class="stat-tile__label">Avg estate rating</div>
-        </a>
-        <a href="admin-reviews.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-reviews-5star">&mdash;</div>
-          <div class="stat-tile__label">5-star reviews</div>
-        </a>
-        <a href="admin-reviews.html" class="stat-tile stat-tile--danger">
-          <div class="stat-tile__value" id="tile-reviews-low">&mdash;</div>
-          <div class="stat-tile__label">Low reviews (1&ndash;2â˜…)</div>
-        </a>
-      </div>
-    </section>
+    <section class="vp-section" style="padding-top: 8px;">
+      <header class="vp-section-head">
+        <h2 class="vp-title vp-title--left" style="margin-bottom: 0;">Visual overview</h2>
+        <span class="vp-location-tag">
+          <i class="fas fa-chart-line"></i> Live estate metrics
+        </span>
+      </header>
 
-    <!-- ============================================================
-         PROVIDER HEALTH
-         ============================================================ -->
-    <section class="stat-section">
-      <h3 class="stat-section__title">Provider health</h3>
-      <div class="stat-tiles">
-        <a href="admin-providers.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-vendors-active">&mdash;</div>
-          <div class="stat-tile__label">Active (30 days)</div>
-        </a>
-        <a href="admin-providers.html" class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-vendors-dead">&mdash;</div>
-          <div class="stat-tile__label">No bookings yet</div>
-        </a>
-        <a href="admin-providers.html" class="stat-tile stat-tile--warn">
-          <div class="stat-tile__value" id="tile-cats-empty">&mdash;</div>
-          <div class="stat-tile__label">Categories w/o vendor</div>
-        </a>
-        <a href="admin-providers.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-courts-total">&mdash;</div>
-          <div class="stat-tile__label">Courts covered</div>
-        </a>
-      </div>
-    </section>
-
-    <!-- ============================================================
-         RESIDENT ENGAGEMENT
-         ============================================================ -->
-    <section class="stat-section">
-      <h3 class="stat-section__title">Resident engagement</h3>
-      <div class="stat-tiles">
-        <a href="admin-residents.html" class="stat-tile stat-tile--info">
-          <div class="stat-tile__value" id="tile-distinct-bookers">&mdash;</div>
-          <div class="stat-tile__label">Residents who booked</div>
-        </a>
-        <a href="admin-residents.html" class="stat-tile stat-tile--ok">
-          <div class="stat-tile__value" id="tile-repeat-bookers">&mdash;</div>
-          <div class="stat-tile__label">Repeat bookers (2+)</div>
-        </a>
-      </div>
-    </section>
-
-    <!-- ============================================================
-         CHARTS
-         ============================================================ -->
-    <section class="stat-section">
-      <h3 class="stat-section__title">Visual overview</h3>
-
-      <div class="chart-grid">
+      <div class="chart-grid" style="margin-top: 16px;">
         <div class="chart-card">
-          <div class="chart-card__head">Bookings &mdash; last 6 months</div>
-          <div class="chart-card__body">
-            <canvas id="chart-trend"></canvas>
+          <div class="chart-card_head">Bookings — last 6 months</div>
+          <div class="chart-card_body"><canvas id="chart-trend"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card_head">Bookings by status</div>
+          <div class="chart-card_body"><canvas id="chart-status"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card_head">Providers by category</div>
+          <div class="chart-card_body"><canvas id="chart-category"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card_head">Bookings by weekday</div>
+          <div class="chart-card_body"><canvas id="chart-weekday"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SECTION — Key metrics (4-column KPI grid)
+         ============================================================ -->
+    <section class="vp-section" style="padding-top: 8px;">
+      <header class="vp-section-head">
+        <h2 class="vp-title vp-title--left" style="margin-bottom: 0;">Key metrics</h2>
+        <span class="vp-location-tag">
+          <i class="fas fa-circle-info"></i> Grouped by domain
+        </span>
+      </header>
+
+      <div class="admin-columns" style="margin-top: 16px;">
+
+        <!-- ===== Column 1 — Users + Quality ===== -->
+        <div class="admin-col">
+          <div class="admin-col__head">Users</div>
+
+          <a href="pending.html" class="kpi kpi--warn">
+            <span class="kpi_value" id="tile-pending-residents-2">&mdash;</span>
+            <span class="kpi_label">Pending residents</span>
+          </a>
+          <a href="admin-providers.html?verified=false" class="kpi kpi--warn">
+            <span class="kpi_value" id="tile-pending-vendors-2">&mdash;</span>
+            <span class="kpi_label">Pending vendors</span>
+          </a>
+          <a href="admin-residents.html" class="kpi kpi--ok">
+            <span class="kpi_value" id="tile-approved-residents">&mdash;</span>
+            <span class="kpi_label">Approved residents</span>
+          </a>
+          <a href="admin-providers.html?verified=true" class="kpi kpi--ok">
+            <span class="kpi_value" id="tile-approved-vendors">&mdash;</span>
+            <span class="kpi_label">Approved vendors</span>
+          </a>
+          <div class="kpi kpi--info">
+            <span class="kpi_value" id="tile-residents-joined">&mdash;</span>
+            <span class="kpi_label">New residents (month)</span>
+          </div>
+          <div class="kpi kpi--info">
+            <span class="kpi_value" id="tile-vendors-joined">&mdash;</span>
+            <span class="kpi_label">New vendors (month)</span>
+          </div>
+
+          <div class="admin-col__head" style="margin-top:8px;">Quality</div>
+
+          <a href="admin-reviews.html" class="kpi kpi--info">
+            <span class="kpi_value" id="tile-reviews-total">&mdash;</span>
+            <span class="kpi_label">Reviews</span>
+          </a>
+          <a href="admin-reviews.html" class="kpi kpi--ok">
+            <span class="kpi_value" id="tile-avg-rating">&mdash;</span>
+            <span class="kpi_label">Avg rating</span>
+          </a>
+          <a href="admin-reviews.html" class="kpi kpi--ok">
+            <span class="kpi_value" id="tile-reviews-5star">&mdash;</span>
+            <span class="kpi_label">5-star</span>
+          </a>
+          <a href="admin-reviews.html" class="kpi kpi--danger">
+            <span class="kpi_value" id="tile-reviews-low-2">&mdash;</span>
+            <span class="kpi_label">Low reviews</span>
+          </a>
+        </div>
+
+        <!-- ===== Column 2 — Bookings + Provider health ===== -->
+        <div class="admin-col">
+          <div class="admin-col__head">Bookings</div>
+
+          <div class="kpi kpi--warn">
+            <span class="kpi_value" id="tile-bookings-open">&mdash;</span>
+            <span class="kpi_label">Open</span>
+          </div>
+          <div class="kpi kpi--info">
+            <span class="kpi_value" id="tile-bookings-confirmed">&mdash;</span>
+            <span class="kpi_label">Confirmed</span>
+          </div>
+          <div class="kpi kpi--ok">
+            <span class="kpi_value" id="tile-bookings-completed">&mdash;</span>
+            <span class="kpi_label">Completed</span>
+          </div>
+          <div class="kpi kpi--danger">
+            <span class="kpi_value" id="tile-bookings-cancelled">&mdash;</span>
+            <span class="kpi_label">Cancelled</span>
+          </div>
+          <div class="kpi kpi--info">
+            <span class="kpi_value" id="tile-bookings-total">&mdash;</span>
+            <span class="kpi_label">All time</span>
+          </div>
+          <div class="kpi kpi--info">
+            <span class="kpi_value" id="tile-bookings-month">&mdash;</span>
+            <span class="kpi_label">This month</span>
+            <span class="kpi_delta" id="delta-bookings-month"></span>
+          </div>
+          <div class="kpi kpi--ok">
+            <span class="kpi_value" id="tile-completed-month">&mdash;</span>
+            <span class="kpi_label">Completed (month)</span>
+            <span class="kpi_delta" id="delta-completed-month"></span>
+          </div>
+          <div class="kpi kpi--danger">
+            <span class="kpi_value" id="tile-cancelled-month">&mdash;</span>
+            <span class="kpi_label">Cancelled (month)</span>
+            <span class="kpi_delta" id="delta-cancelled-month"></span>
+          </div>
+          <div class="kpi kpi--info">
+            <span class="kpi_value" id="tile-bookings-7d">&mdash;</span>
+            <span class="kpi_label">Last 7 days</span>
+          </div>
+          <div class="kpi kpi--info">
+            <span class="kpi_value" id="tile-bookings-30d">&mdash;</span>
+            <span class="kpi_label">Last 30 days</span>
+          </div>
+
+          <div class="admin-col__head" style="margin-top:8px;">Provider health</div>
+
+          <a href="admin-providers.html" class="kpi kpi--ok">
+            <span class="kpi_value" id="tile-vendors-active">&mdash;</span>
+            <span class="kpi_label">Active (30d)</span>
+          </a>
+          <a href="admin-providers.html" class="kpi kpi--warn">
+            <span class="kpi_value" id="tile-vendors-dead">&mdash;</span>
+            <span class="kpi_label">No bookings</span>
+          </a>
+          <a href="admin-providers.html" class="kpi kpi--warn">
+            <span class="kpi_value" id="tile-cats-empty">&mdash;</span>
+            <span class="kpi_label">Empty categories</span>
+          </a>
+          <a href="admin-providers.html" class="kpi kpi--info">
+            <span class="kpi_value" id="tile-courts-total">&mdash;</span>
+            <span class="kpi_label">Courts</span>
+          </a>
+        </div>
+
+        <!-- ===== Column 3 — Charts (compact column view) ===== -->
+        <div class="admin-col">
+          <div class="admin-col__head">Charts</div>
+
+          <div class="chart-card">
+            <div class="chart-card__head">Bookings — last 6 months</div>
+            <div class="chart-card__body"><canvas id="chart-trend-col"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card__head">Bookings by status</div>
+            <div class="chart-card__body"><canvas id="chart-status-col"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card__head">Providers by category</div>
+            <div class="chart-card__body"><canvas id="chart-category-col"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card__head">Bookings by weekday</div>
+            <div class="chart-card__body"><canvas id="chart-weekday-col"></canvas></div>
           </div>
         </div>
 
-        <div class="chart-card">
-          <div class="chart-card__head">Bookings by status</div>
-          <div class="chart-card__body">
-            <canvas id="chart-status"></canvas>
+        <!-- ===== Column 4 — Alerts + Engagement ===== -->
+        <div class="admin-col">
+          <div class="admin-col__head">Needs attention</div>
+
+          <div class="alert-card">
+            <div class="alert-card__head">Categories with no vendors</div>
+            <div class="alert-card__body" id="alert-empty-categories-body">&mdash;</div>
           </div>
+          <div class="alert-card">
+            <div class="alert-card__head">Vendors with no bookings</div>
+            <div class="alert-card__body" id="alert-dead-vendors-body">&mdash;</div>
+          </div>
+          <div class="alert-card">
+            <div class="alert-card__head">Top rated vendors</div>
+            <div class="alert-card__body" id="alert-top-vendors-body">&mdash;</div>
+          </div>
+          <div class="alert-card">
+            <div class="alert-card__head">Bookings by weekday</div>
+            <div class="alert-card__body" id="alert-weekday-body">&mdash;</div>
+          </div>
+
+          <div class="admin-col__head" style="margin-top:8px;">Engagement</div>
+
+          <a href="admin-residents.html" class="kpi kpi--info">
+            <span class="kpi_value" id="tile-distinct-bookers">&mdash;</span>
+            <span class="kpi_label">Distinct bookers</span>
+          </a>
+          <a href="admin-residents.html" class="kpi kpi--ok">
+            <span class="kpi_value" id="tile-repeat-bookers">&mdash;</span>
+            <span class="kpi_label">Repeat bookers</span>
+          </a>
         </div>
 
-        <div class="chart-card">
-          <div class="chart-card__head">Providers by category</div>
-          <div class="chart-card__body">
-            <canvas id="chart-category"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-card__head">Bookings by weekday</div>
-          <div class="chart-card__body">
-            <canvas id="chart-weekday"></canvas>
-          </div>
-        </div>
       </div>
     </section>
 
     <!-- ============================================================
-         ALERTS
+         SECTION — Action queue (tabs: verification + reports)
          ============================================================ -->
-    <section class="stat-section" id="alerts-section">
-      <h3 class="stat-section__title">Needs attention</h3>
-      <div class="alert-grid">
-        <div class="alert-card" id="alert-empty-categories">
-          <div class="alert-card__head">Categories with no vendors</div>
-          <div class="alert-card__body" id="alert-empty-categories-body">&mdash;</div>
-        </div>
-        <div class="alert-card" id="alert-dead-vendors">
-          <div class="alert-card__head">Vendors with no bookings</div>
-          <div class="alert-card__body" id="alert-dead-vendors-body">&mdash;</div>
-        </div>
-        <div class="alert-card" id="alert-top-vendors">
-          <div class="alert-card__head">Top rated vendors</div>
-          <div class="alert-card__body" id="alert-top-vendors-body">&mdash;</div>
-        </div>
-        <div class="alert-card" id="alert-weekday">
-          <div class="alert-card__head">Bookings by weekday</div>
-          <div class="alert-card__body" id="alert-weekday-body">&mdash;</div>
-        </div>
+    <section class="vp-section" id="action-queue" style="padding-top: 8px;">
+      <header class="vp-section-head">
+        <h2 class="vp-title vp-title--left" style="margin-bottom: 0;">Action queue</h2>
+        <span class="vp-location-tag">
+          <i class="fas fa-clipboard-check"></i> Live verification &amp; reports
+        </span>
+      </header>
+
+      <div class="admin-tab-row">
+        <button class="tab-btn is-active" data-tab="verify">
+          Verification queue <span id="count-verify"></span>
+        </button>
+        <button class="tab-btn" data-tab="reports">
+          Reports <span id="count-reports"></span>
+        </button>
+        <a class="tab-btn" href="admin-providers.html" style="text-decoration:none;">
+          All providers &rarr;
+        </a>
       </div>
+
+      <div class="tab-panel is-active" id="tab-verify"></div>
+      <div class="tab-panel" id="tab-reports"></div>
     </section>
 
-    <!-- ============================================================
-         TABS
-         ============================================================ -->
-    <div class="tab-row">
-      <button class="tab-btn is-active" data-tab="verify">
-        Verification queue <span id="count-verify"></span>
-      </button>
-      <button class="tab-btn" data-tab="reports">
-        Reports <span id="count-reports"></span>
-      </button>
-      <a class="tab-btn" href="admin-providers.html">
-        All providers â†’
-      </a>
-    </div>
-
-    <div class="tab-panel is-active" id="tab-verify"></div>
-    <div class="tab-panel" id="tab-reports"></div>
   </main>
 
   <footer class="site-footer">
     <div class="container" style="width:100%; text-align:center;">
-      Reports are logged for estate management review &mdash; this dashboard is not a dispute-resolution system.
+      Reports are logged for estate management review — this dashboard is not a dispute-resolution system.
     </div>
   </footer>
 </div>
 
 <script src="js/auth.js?v=8"></script>
-<script src="js/api.js?v=14"></script>
+<script src="js/api.js?v=15"></script>
 <script src="js/main.js?v=11"></script>
-  <script src="js/ahewa-nav.js"></script>
+<script src="js/ahewa-nav.js"></script>
 <script src="js/notices.js"></script>
-<script src="js/admin.js"></script>
-<!-- js/sidebar.js intentionally removed -->
+<script src="js/admin.js?v=5"></script>
 </body>
 </html>
-

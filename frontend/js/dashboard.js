@@ -1,13 +1,46 @@
 ﻿/* ============================================================
-   dashboard.js - resident's booking list + review flow
+   dashboard.js — resident's booking list + review flow
    + Prev/Next pagination
+
+   Depends on (loaded before this file):
+     • js/auth.js
+     • js/api.js
+     • js/main.js   (provides global `toast`, `formatDate` if present)
+   Falls back to local implementations if main.js doesn't define them.
    ============================================================ */
 
+/* ---------- Defensive helpers (only used if not already global) ---------- */
+if (typeof window.formatDate !== "function") {
+  window.formatDate = function (value) {
+    if (!value) return "—";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return d.toLocaleDateString("en-GB", {
+      day: "2-digit", month: "short", year: "numeric",
+    });
+  };
+}
+
+if (typeof window.toast !== "function") {
+  window.toast = function (message) {
+    let el = document.getElementById("__global_toast");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "__global_toast";
+      el.className = "toast";
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.add("toast--visible");
+    clearTimeout(el.__t);
+    el.__t = setTimeout(() => el.classList.remove("toast--visible"), 2600);
+  };
+}
+
+/* ---------- Module state ---------- */
 let reviewTargetBooking = null;
 
-/* ---------------- pagination state ---------------- */
 const BOOKINGS_PER_PAGE = 10;
-
 const bookingsState = {
   page:       1,
   limit:      BOOKINGS_PER_PAGE,
@@ -16,24 +49,26 @@ const bookingsState = {
 };
 
 /* ------------------------------------------------------------
-   Status badge helper
+   Status badge
    ------------------------------------------------------------ */
 function getStatusBadge(status) {
   const badges = {
-    'requested':   '<span class="badge" style="background:#f39c12; color:white; padding:4px 8px; border-radius:4px;">Requested</span>',
-    'confirmed':   '<span class="badge" style="background:#3498db; color:white; padding:4px 8px; border-radius:4px;">Confirmed</span>',
-    'in_progress': '<span class="badge" style="background:#9b59b6; color:white; padding:4px 8px; border-radius:4px;">In Progress</span>',
-    'completed':   '<span class="badge" style="background:#27ae60; color:white; padding:4px 8px; border-radius:4px;">Completed</span>',
-    'cancelled':   '<span class="badge" style="background:#e74c3c; color:white; padding:4px 8px; border-radius:4px;">Cancelled</span>'
+    requested:   '<span class="badge" style="background:#f39c12;color:#fff;padding:4px 8px;border-radius:4px;">Requested</span>',
+    confirmed:   '<span class="badge" style="background:#3498db;color:#fff;padding:4px 8px;border-radius:4px;">Confirmed</span>',
+    in_progress: '<span class="badge" style="background:#9b59b6;color:#fff;padding:4px 8px;border-radius:4px;">In Progress</span>',
+    completed:   '<span class="badge" style="background:#27ae60;color:#fff;padding:4px 8px;border-radius:4px;">Completed</span>',
+    cancelled:   '<span class="badge" style="background:#e74c3c;color:#fff;padding:4px 8px;border-radius:4px;">Cancelled</span>',
   };
   return badges[status] || `<span class="badge">${status}</span>`;
 }
 
 /* ------------------------------------------------------------
-   Booking list (paginated)
+   Booking list
    ------------------------------------------------------------ */
 async function renderBookings() {
   const list = document.getElementById("booking-list");
+  if (!list) return;
+
   list.innerHTML = `<div class="empty-state">Loading bookings…</div>`;
 
   let result;
@@ -47,15 +82,16 @@ async function renderBookings() {
     return;
   }
 
-  // Handle both legacy (array) and paginated (envelope) responses
-  const bookings = Array.isArray(result) ? result : (result.data || []);
+  const bookings = Array.isArray(result) ? result : (result.data || result.items || []);
   bookingsState.total      = result.total      ?? bookings.length;
   bookingsState.page       = result.page       ?? 1;
   bookingsState.limit      = result.limit      ?? BOOKINGS_PER_PAGE;
   bookingsState.totalPages = result.totalPages ?? 1;
 
   if (!bookings.length) {
-    list.innerHTML = `<div class="empty-state">No bookings yet. <a href="index.html">Find a provider</a> to get started.</div>`;
+    list.innerHTML = `<div class="empty-state">
+      No bookings yet. <a href="index.html">Find a provider</a> to get started.
+    </div>`;
     return;
   }
 
@@ -63,11 +99,12 @@ async function renderBookings() {
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Provider</th><th>Service</th><th>Date</th><th>Status</th><th>Action</th></tr>
+          <tr>
+            <th>Provider</th><th>Service</th><th>Date</th>
+            <th>Status</th><th>Action</th>
+          </tr>
         </thead>
-        <tbody>
-          ${bookings.map(bookingRow).join("")}
-        </tbody>
+        <tbody>${bookings.map(bookingRow).join("")}</tbody>
       </table>
     </div>
     ${bookingsPaginationHtml()}
@@ -78,7 +115,7 @@ async function renderBookings() {
 }
 
 /* ------------------------------------------------------------
-   One row of the bookings table
+   One row
    ------------------------------------------------------------ */
 function bookingRow(b) {
   const bookingId = b.id || b._id;
@@ -100,13 +137,13 @@ function bookingRow(b) {
 
   let reasonHtml = "";
   if (b.status === "cancelled" && b.cancellationReason) {
-    reasonHtml = `<div class="meta" style="color:var(--clay); font-size:0.85em; margin-top:4px;">Reason: ${b.cancellationReason}</div>`;
+    reasonHtml = `<div class="meta" style="color:var(--clay);font-size:0.85em;margin-top:4px;">Reason: ${b.cancellationReason}</div>`;
   }
 
   return `<tr>
-    <td>${b.providerName}</td>
-    <td>${b.service}</td>
-    <td>${formatDate(b.date)}</td>
+    <td>${b.providerName || "—"}</td>
+    <td>${b.service || "—"}</td>
+    <td>${window.formatDate(b.date)}</td>
     <td>${getStatusBadge(b.status)}</td>
     <td>${action} ${reasonHtml}</td>
   </tr>`;
@@ -117,7 +154,6 @@ function bookingRow(b) {
    ------------------------------------------------------------ */
 function bookingsPaginationHtml() {
   const { page, limit, total, totalPages } = bookingsState;
-
   if (totalPages <= 1) return "";
 
   const startRow = ((page - 1) * limit) + 1;
@@ -134,15 +170,11 @@ function bookingsPaginationHtml() {
         booking${total === 1 ? "" : "s"}
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn btn--ghost btn--small" data-bookings-page="prev" ${prevDisabled}>
-          « Prev
-        </button>
+        <button class="btn btn--ghost btn--small" data-bookings-page="prev" ${prevDisabled}>« Prev</button>
         <span style="font-size:0.9rem;color:var(--ink-70);padding:0 4px;">
           Page <b>${page}</b> of <b>${totalPages}</b>
         </span>
-        <button class="btn btn--ghost btn--small" data-bookings-page="next" ${nextDisabled}>
-          Next »
-        </button>
+        <button class="btn btn--ghost btn--small" data-bookings-page="next" ${nextDisabled}>Next »</button>
       </div>
     </div>
   `;
@@ -150,53 +182,49 @@ function bookingsPaginationHtml() {
 
 function wireBookingsPagination() {
   const list = document.getElementById("booking-list");
+  if (!list) return;
 
   list.querySelectorAll("[data-bookings-page]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const dir = btn.dataset.bookingsPage;
-
-      if (dir === "prev" && bookingsState.page > 1) {
-        bookingsState.page--;
-      } else if (dir === "next" && bookingsState.page < bookingsState.totalPages) {
-        bookingsState.page++;
-      } else {
-        return;
-      }
+      if (dir === "prev" && bookingsState.page > 1) bookingsState.page--;
+      else if (dir === "next" && bookingsState.page < bookingsState.totalPages) bookingsState.page++;
+      else return;
 
       await renderBookings();
-      document.getElementById("booking-list")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      list.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 }
 
 function wireBookingRowActions(bookings) {
   const list = document.getElementById("booking-list");
+  if (!list) return;
 
   list.querySelectorAll("[data-review]").forEach((btn) =>
     btn.addEventListener("click", () => openReview(btn.dataset.review, bookings))
   );
-
   list.querySelectorAll("[data-cancel]").forEach((btn) =>
     btn.addEventListener("click", () => cancelBooking(btn.dataset.cancel))
   );
 }
 
 /* ------------------------------------------------------------
-   Cancel a booking
+   Cancel
    ------------------------------------------------------------ */
 async function cancelBooking(id) {
   const reason = prompt("Please provide a reason for cancelling this booking:");
-  if (reason !== null && reason.trim() !== "") {
-    try {
-      await Api.updateBooking(id, { status: "cancelled", cancellationReason: reason });
-      toast("Booking cancelled.");
-      await renderBookings();
-    } catch (err) {
-      toast("Couldn't cancel the booking.");
-    }
-  } else if (reason !== null) {
-    toast("A reason is required to cancel a booking.");
+  if (reason === null) return;
+  if (!reason.trim()) {
+    window.toast("A reason is required to cancel a booking.");
+    return;
+  }
+  try {
+    await Api.updateBooking(id, { status: "cancelled", cancellationReason: reason });
+    window.toast("Booking cancelled.");
+    await renderBookings();
+  } catch (err) {
+    window.toast("Couldn't cancel the booking.");
   }
 }
 
@@ -207,14 +235,12 @@ function openReview(bookingId, bookings) {
   reviewTargetBooking = bookings.find((b) =>
     String(b.id) === String(bookingId) || String(b._id) === String(bookingId)
   );
-
   if (!reviewTargetBooking) {
-    toast("Error: Could not find booking details.");
+    window.toast("Error: Could not find booking details.");
     return;
   }
-
   document.getElementById("review-target").textContent =
-    `${reviewTargetBooking.providerName} - ${reviewTargetBooking.service}`;
+    `${reviewTargetBooking.providerName} — ${reviewTargetBooking.service}`;
   document.getElementById("review-modal").classList.add("is-open");
 }
 
@@ -235,43 +261,32 @@ async function handleReviewSubmit(e) {
 
     document.getElementById("review-modal").classList.remove("is-open");
     document.getElementById("review-form").reset();
-    toast("Thanks - your review helps other residents.");
+    window.toast("Thanks — your review helps other residents.");
     await renderBookings();
   } catch (err) {
-    toast("Couldn't submit the review.");
+    window.toast("Couldn't submit the review.");
   }
 }
 
 /* ------------------------------------------------------------
    Init
    ------------------------------------------------------------ */
-/* ------------------------------------------------------------
-   Init
-   ------------------------------------------------------------ */
 document.addEventListener("DOMContentLoaded", () => {
   const user = JSON.parse(localStorage.getItem("asc_user") || "null");
 
-  // Normalize role once
   const role = String(user?.role || "")
     .toLowerCase()
     .replace(/[_\s]+/g, "-");
 
-  // ---------- Roles that can open this page ----------
-  //   resident           → full booking flow (edit / cancel / review)
-  //   admin / super-admin → read-only view (they see everything but
-  //                          can't cancel or review on a resident's behalf)
-  //   vendor / provider  → redirected to their own dashboard
-  const isVendor = role === "vendor" || role === "provider";
-  const isAdmin  = role === "admin"  || role === "super-admin";
+  const isVendor   = role === "vendor" || role === "provider";
+  const isAdmin    = role === "admin"  || role === "super-admin";
   const isResident = role === "resident";
 
-  // Vendors should never see the resident dashboard
   if (isVendor) {
     window.location.replace("provider-dashboard.html");
     return;
   }
 
-  // Anyone else (guest, security, unknown) → login, once
   if (!user || (!isResident && !isAdmin)) {
     if (!/\/login\.html$/.test(location.pathname)) {
       window.location.replace(
@@ -281,7 +296,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // ---------- Admin / super-admin: read-only view ----------
+  // Admin / super-admin: read-only view
   if (isAdmin) {
     const root =
       document.getElementById("booking-list") ||
@@ -289,14 +304,14 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body;
 
     root.innerHTML = `
-      <div class="empty-state" style="text-align:left; padding:28px;">
+      <div class="empty-state" style="text-align:left;padding:28px;">
         <h2 style="margin-top:0;">Read-only view</h2>
-        <p style="color:var(--ink-70); max-width:52ch;">
+        <p style="color:var(--ink-70);max-width:52ch;">
           You are signed in as <strong>${role}</strong>.
           This page is where residents track their own bookings.
           To manage all bookings across the estate, use the admin tools:
         </p>
-        <p style="margin:18px 0 0; display:flex; gap:10px; flex-wrap:wrap;">
+        <p style="margin:18px 0 0;display:flex;gap:10px;flex-wrap:wrap;">
           <a href="super-admin.html" class="btn btn--primary">Super Admin dashboard</a>
           <a href="admin.html" class="btn btn--ghost">Admin dashboard</a>
           <a href="index.html" class="btn btn--ghost">Go to Discover</a>
@@ -306,11 +321,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // ---------- Resident: normal flow ----------
+  // Resident
   renderBookings();
 
-  document.getElementById("review-form").addEventListener("submit", handleReviewSubmit);
-  document.getElementById("review-cancel").addEventListener("click", () => {
-    document.getElementById("review-modal").classList.remove("is-open");
-  });
+  const form = document.getElementById("review-form");
+  if (form) form.addEventListener("submit", handleReviewSubmit);
+
+  const cancelBtn = document.getElementById("review-cancel");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      document.getElementById("review-modal").classList.remove("is-open");
+    });
+  }
 });

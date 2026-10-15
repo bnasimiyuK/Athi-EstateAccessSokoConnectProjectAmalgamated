@@ -27,9 +27,8 @@ const houseNumbersRouter = require("./routes/house-numbers");
 const visitorsRouter     = require("./routes/visitors");
 const noticesRouter      = require("./routes/notices");
 const discoverRoutes     = require("./routes/discover");
-
+const poolingRouter      = require("./routes/pooling");
 const { startReconciler } = require("./jobs/reconcilePending");
-
 const app = express();
 const PORT = process.env.PORT || 4050;
 const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
@@ -92,6 +91,7 @@ app.use("/api/events",       require("./routes/events"));
 app.use("/api/mpesa",        require("./routes/mpesa"));
 app.use("/api/ahewa",        require("./routes/ahewa"));
 app.use("/api",              discoverRoutes);
+app.use("/api/pooling",      poolingRouter);
 
 /* ---------- Uploads ---------- */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

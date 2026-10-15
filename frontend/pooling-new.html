@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="js/access.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Post a trip — Athi Soko Connect</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body class="discover-body has-sidebar" data-requires="auth">
+
+<!-- Sidebar (same as pooling.html — kept identical for consistency) -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="about.html" data-nav="about.html"><i class="fas fa-circle-info"></i><span>About AHE</span></a>
+    <a href="index.html" data-nav="index.html"><i class="fas fa-compass"></i><span>Discover</span></a>
+    <a href="pooling.html" data-nav="pooling.html"><i class="fas fa-car-side"></i><span>Car Pooling &amp; Hailing</span></a>
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden><i class="fas fa-calendar-check"></i><span>My Bookings</span></a>
+    <a href="notices.html" data-nav="notices.html"><i class="fas fa-bullhorn"></i><span>Estate Notice Board</span></a>
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden><i class="fas fa-user-shield"></i><span>Admin</span></a>
+  </nav>
+  <div class="side-rail__footer">
+    <div class="side-rail__status"><span class="side-rail__dot"></span> Estate server connected</div>
+  </div>
+</aside>
+
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+<div class="side-rail__content">
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+
+  <main class="container dx-main">
+
+    <div class="dx-notice" role="note">
+      <span class="dx-notice_dot" aria-hidden="true"></span>
+      <b class="dx-notice_label">POST A TRIP</b>
+      <span class="dx-notice_text">Offering a seat, or requesting a ride — pick one.</span>
+      <span class="dx-notice_right">
+        <a href="pooling.html"><i class="fas fa-arrow-left"></i> Back to trips</a>
+      </span>
+    </div>
+
+    <section class="vp-section" style="padding-top: 24px;">
+      <header class="vp-section-head">
+        <h2 class="vp-title vp-title--left" style="margin-bottom: 0;">Post a trip</h2>
+        <span class="vp-location-tag">
+          <i class="fas fa-car-side"></i> Residents only
+        </span>
+      </header>
+
+      <div class="admin-tab-row">
+        <button class="tab-btn is-active" data-mode="offer" type="button">
+          <i class="fas fa-car"></i> I'm offering seats
+        </button>
+        <button class="tab-btn" data-mode="need" type="button">
+          <i class="fas fa-hand"></i> I need a ride
+        </button>
+      </div>
+
+      <form id="trip-form" class="form-card form-card--wide" novalidate style="max-width: 720px;">
+        <!-- Offer-specific fields (driver side) -->
+        <fieldset id="offer-fields">
+          <legend>Your vehicle &amp; seats</legend>
+
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="vehicle-make"><i class="fas fa-car"></i> Make &amp; model <span class="optional">(optional)</span></label>
+              <input id="vehicle-make" type="text" placeholder="e.g. Toyota Fielder" maxlength="60" />
+            </div>
+            <div class="input-group">
+              <label for="vehicle-plate"><i class="fas fa-id-card"></i> Plate number <span class="optional">(optional)</span></label>
+              <input id="vehicle-plate" type="text" placeholder="e.g. KDA 123X" maxlength="12" />
+            </div>
+            <div class="input-group">
+              <label for="seats-available"><i class="fas fa-chair"></i> Seats available</label>
+              <select id="seats-available" required>
+                <option value="">Select…</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6+</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label for="price-per-seat"><i class="fas fa-coins"></i> Price per seat (KES) <span class="optional">(optional)</span></label>
+              <input id="price-per-seat" type="number" min="0" step="10" inputmode="numeric" placeholder="e.g. 200" />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Shared fields -->
+        <fieldset>
+          <legend>Trip details</legend>
+
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="from-stage"><i class="fas fa-map-pin"></i> From</label>
+              <input id="from-stage" type="text" required placeholder="e.g. Gate 1, Athi River" maxlength="80" />
+            </div>
+            <div class="input-group">
+              <label for="to-stage"><i class="fas fa-map-marker-alt"></i> To</label>
+              <input id="to-stage" type="text" required placeholder="e.g. Westlands, Nairobi" maxlength="80" />
+            </div>
+            <div class="input-group">
+              <label for="depart-date"><i class="fas fa-calendar-day"></i> Departure date</label>
+              <input id="depart-date" type="date" required />
+            </div>
+            <div class="input-group">
+              <label for="depart-time"><i class="fas fa-clock"></i> Departure time</label>
+              <input id="depart-time" type="time" required />
+            </div>
+
+            <div class="input-group full-width" id="passengers-group">
+              <label for="passengers"><i class="fas fa-users"></i> Passengers</label>
+              <select id="passengers" required>
+                <option value="">Select…</option>
+                <option value="1">1 passenger</option>
+                <option value="2">2 passengers</option>
+                <option value="3">3 passengers</option>
+                <option value="4">4 passengers</option>
+              </select>
+            </div>
+
+            <div class="input-group full-width">
+              <label for="notes"><i class="fas fa-comment-dots"></i> Notes <span class="optional">(optional)</span></label>
+              <textarea id="notes" rows="3" maxlength="300" placeholder="Luggage, meeting point, detour preferences…"></textarea>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Recurring (v2) — disabled placeholder -->
+        <div class="checkbox-group">
+          <input type="checkbox" id="recurring" disabled />
+          <label for="recurring">
+            Make this a recurring trip (weekday mornings) — <em>coming soon</em>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn--accent" id="submit-btn">
+            <i class="fas fa-check"></i> Post trip
+          </button>
+          <a href="pooling.html" class="btn btn--ghost">Cancel</a>
+        </div>
+
+        <div id="form-msg" class="msg" hidden></div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container" style="width:100%; text-align:center;">
+      Posts are visible to verified residents only.
+    </div>
+  </footer>
+</div>
+
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=15"></script>
+<script src="js/main.js?v=11"></script>
+<script src="js/ahewa-nav.js"></script>
+<script src="js/notices.js"></script>
+<script src="js/pooling-new.js?v=1"></script>
+</body>
+</html>

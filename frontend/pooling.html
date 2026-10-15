@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="js/access.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Car Pooling &amp; Hailing — Athi Soko Connect</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:,">
+</head>
+<body class="discover-body has-sidebar" data-requires="auth">
+
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="side-rail" id="side-rail" aria-label="Main navigation">
+  <a href="index.html" class="side-rail__brand" aria-label="Athi Soko Connect - home">
+    <svg class="side-rail__mark" viewBox="0 0 44 44" aria-hidden="true">
+      <rect width="44" height="44" rx="12" fill="#16233f"/>
+      <path d="M12 30 22 13l10 17z" fill="none" stroke="#c8862a" stroke-width="2.6" stroke-linejoin="round"/>
+      <circle cx="22" cy="26" r="2.6" fill="#fff"/>
+    </svg>
+    <span class="side-rail__brand-text">
+      <b>Athi Soko Connect</b>
+      <small>Athi Highway Estate</small>
+    </span>
+  </a>
+
+  <nav class="side-rail__nav" aria-label="Main">
+    <a href="about.html" data-nav="about.html"><i class="fas fa-circle-info"></i><span>About AHE</span></a>
+    <a href="index.html" data-nav="index.html"><i class="fas fa-compass"></i><span>Discover</span></a>
+    <a href="pooling.html" data-nav="pooling.html"><i class="fas fa-car-side"></i><span>Car Pooling &amp; Hailing</span></a>
+    <a href="register.html" data-nav="register.html" data-roles="resident,admin,super-admin" hidden><i class="fas fa-user-plus"></i><span>Become a Provider</span></a>
+    <a href="dashboard.html" data-nav="dashboard.html" data-roles="resident,vendor,admin,super-admin" hidden><i class="fas fa-calendar-check"></i><span>My Bookings</span></a>
+    <a href="provider-profile.html" data-nav="provider-profile.html" data-roles="vendor,provider,admin,super-admin" hidden><i class="fas fa-store"></i><span>My Profile</span></a>
+    <a href="visitors.html" data-nav="visitors.html" data-roles="resident,admin,super-admin" hidden><i class="fas fa-user-friends"></i><span>My Visitors</span></a>
+    <a href="billing.html" data-nav="billing.html" data-roles="resident,admin,super-admin" hidden><i class="fas fa-file-invoice-dollar"></i><span>My Billing &amp; Payments</span></a>
+    <a href="notices.html" data-nav="notices.html"><i class="fas fa-bullhorn"></i><span>Estate Notice Board</span></a>
+    <a href="ahewa.html" data-nav="ahewa.html" data-ahewa-only hidden><i class="fas fa-chart-pie"></i><span>AHEWA</span></a>
+    <a href="ahewa-events.html" data-nav="ahewa-events.html" data-ahewa-only hidden><i class="fas fa-calendar-alt"></i><span>AHEWA Events</span></a>
+    <a href="ahewa-event.html" data-nav="ahewa-event.html" data-ahewa-only hidden><i class="fas fa-calendar-day"></i><span>AHEWA Event</span></a>
+    <a href="security-visitors.html" data-nav="security-visitors.html" data-roles="security,admin,super-admin" hidden><i class="fas fa-shield-halved"></i><span>Security — Visitors</span></a>
+    <a href="admin.html" data-nav="admin.html" data-roles="admin,super-admin" hidden><i class="fas fa-user-shield"></i><span>Admin</span></a>
+    <a href="super-admin.html" data-nav="super-admin.html" data-roles="super-admin" hidden><i class="fas fa-crown"></i><span>Super Admin</span></a>
+  </nav>
+
+  <div class="side-rail__footer">
+    <div class="side-rail__status">
+      <span class="side-rail__dot"></span>
+      Estate server connected
+    </div>
+  </div>
+</aside>
+
+<button class="side-rail__toggle" id="side-rail-toggle" aria-label="Toggle navigation" type="button">
+  <i class="fas fa-bars"></i>
+</button>
+<div class="side-rail__backdrop" id="side-rail-backdrop"></div>
+
+<!-- ============================================================
+     PAGE CONTENT
+     ============================================================ -->
+<div class="side-rail__content">
+
+  <div class="side-rail__topbar">
+    <div class="side-rail__topbar-inner">
+      <div class="side-rail__topbar-left" id="topbar-left"></div>
+      <div class="side-rail__topbar-user" id="topbar-user"></div>
+    </div>
+  </div>
+
+  <main class="container dx-main">
+
+    <!-- ---------- NOTICE BAR ---------- -->
+    <div class="dx-notice" role="note">
+      <span class="dx-notice_dot" aria-hidden="true"></span>
+      <b class="dx-notice_label">CAR POOLING</b>
+      <span class="dx-notice_text">
+        Residents only. Verify a trip code before boarding. Report any concerns.
+      </span>
+      <span class="dx-notice_right">
+        <button type="button" id="sync-indicator" class="dx-notice_live" title="Live sync status">
+          <i class="fas fa-sync-alt"></i> Live <b id="sync-time">--:--</b>
+        </button>
+        <a href="#" data-open="gate-rules">Safety rules &rarr;</a>
+        <a href="#trips">Browse trips <i class="fas fa-arrow-down"></i></a>
+      </span>
+    </div>
+
+    <!-- ---------- HERO (Discover pattern, no video) ---------- -->
+    <section class="dx-hero">
+      <div class="dx-hero_copy">
+        <span class="dx-pill">
+          <i class="fas fa-car-side"></i> Estate rideshare
+        </span>
+        <h1>Share the road with verified neighbours.</h1>
+        <p>
+          Offer a seat on your morning commute, request a ride to the airport, or
+          jump into a neighbour's trip — all between residents you already trust.
+          No strangers. No app store. No commissions.
+        </p>
+        <ul class="dx-trust">
+          <li><i class="fas fa-shield-alt"></i> Verified residents only</li>
+          <li><i class="fas fa-handshake"></i> Pay the driver directly</li>
+          <li><i class="fas fa-ticket"></i> Trip code at pickup</li>
+        </ul>
+
+        <div class="dx-hero_actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <a href="pooling-new.html?type=offer" class="btn btn--accent">
+            <i class="fas fa-plus"></i> Offer a seat
+          </a>
+          <a href="pooling-new.html?type=need" class="btn btn--primary">
+            <i class="fas fa-hand"></i> I need a ride
+          </a>
+        </div>
+      </div>
+
+      <div class="dx-stats">
+        <div class="dx-stat">
+          <div class="dx-stat_body">
+            <b id="stat-active-trips">&mdash;</b>
+            <strong>Active trips</strong>
+            <small>Offered in the last 24h</small>
+          </div>
+          <span class="dx-stat_icon dx-stat_icon--teal"><i class="fas fa-car"></i></span>
+        </div>
+
+        <div class="dx-stat">
+          <div class="dx-stat_body">
+            <b id="stat-open-requests">&mdash;</b>
+            <strong>Ride requests</strong>
+            <small>Waiting for a driver</small>
+          </div>
+          <span class="dx-stat_icon dx-stat_icon--amber"><i class="fas fa-hand"></i></span>
+        </div>
+
+        <div class="dx-stat">
+          <div class="dx-stat_body">
+            <b id="stat-seats-available">&mdash;</b>
+            <strong>Seats open</strong>
+            <small>Across all trips</small>
+          </div>
+          <span class="dx-stat_icon dx-stat_icon--ink"><i class="fas fa-chair"></i></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- SEARCH / FILTER BAR ---------- -->
+    <form id="pooling-search" class="dx-search" autocomplete="off">
+      <label class="dx-input dx-input--search">
+        <i class="fas fa-search"></i>
+        <input id="q" type="search" placeholder="Search by destination, driver name, keyword (e.g. JKIA)" aria-label="Search trips" />
+      </label>
+
+      <label class="dx-input dx-input--select">
+        <select id="from-stage" aria-label="From stage">
+          <option value="">From — any</option>
+          <option>Athi River</option>
+          <option>Gate 1</option>
+          <option>Gate 2</option>
+          <option>Phase 2</option>
+        </select>
+      </label>
+
+      <label class="dx-input dx-input--select">
+        <select id="to-stage" aria-label="To destination">
+          <option value="">To — any</option>
+          <option>Nairobi CBD</option>
+          <option>Westlands</option>
+          <option>JKIA</option>
+          <option>Kitengela</option>
+          <option>Mombasa Road</option>
+          <option>Machakos</option>
+        </select>
+      </label>
+
+      <label class="dx-input dx-input--select">
+        <select id="when" aria-label="When">
+          <option value="">Any time</option>
+          <option value="today">Today</option>
+          <option value="tomorrow">Tomorrow</option>
+          <option value="week">Next 7 days</option>
+        </select>
+      </label>
+
+      <button type="button" id="reset-search" class="dx-reset">Reset</button>
+      <button type="submit" class="dx-filter-btn"><i class="fas fa-sliders-h"></i> Filter</button>
+    </form>
+
+    <div class="dx-quick">
+      <div class="dx-quick_chips">
+        <span class="dx-quick_label">Show:</span>
+        <button type="button" class="dx-chip dx-chip--btn is-active" data-filter="all" id="qf-all">All</button>
+        <button type="button" class="dx-chip dx-chip--btn" data-filter="offer" id="qf-offer">
+          <i class="fas fa-car"></i> Offering seats <span id="count-offer">&mdash;</span>
+        </button>
+        <button type="button" class="dx-chip dx-chip--btn" data-filter="need" id="qf-need">
+          <i class="fas fa-hand"></i> Need a ride <span id="count-need">&mdash;</span>
+        </button>
+      </div>
+      <span class="dx-quick_note">
+        <i class="fas fa-lock"></i> Phone numbers revealed after the driver approves
+      </span>
+    </div>
+
+    <!-- ---------- CATEGORY TILES (quick destinations) ---------- -->
+    <section class="dx-cats" id="quick-destinations">
+      <div class="dx-section-head">
+        <div>
+          <span class="dx-eyebrow-sm">Popular destinations</span>
+          <h2>Where residents are going</h2>
+          <p>Filter trips by the most common destinations in the estate.</p>
+        </div>
+        <div class="dx-section-head_actions">
+          <a href="#trips" class="dx-link-btn">See all trips <i class="fas fa-arrow-down"></i></a>
+        </div>
+      </div>
+      <div id="destination-tiles" class="dx-tiles"></div>
+    </section>
+
+    <!-- ---------- TRIPS BOARD ---------- -->
+    <section class="dx-results" id="trips">
+      <div class="dx-results_head">
+        <div class="dx-results_title">
+          <h2 id="results-heading">Open trips</h2>
+          <span id="results-count" class="dx-chip">Loading&hellip;</span>
+          <button type="button" class="pill pill--interactive" data-open="gate-rules" title="Safety rules">
+            Safety: tap to view
+          </button>
+        </div>
+        <label class="dx-sort">
+          <span>Sort by:</span>
+          <select id="sort-by" aria-label="Sort trips">
+            <option value="depart_asc">Departure (soonest)</option>
+            <option value="depart_desc">Departure (latest)</option>
+            <option value="price_asc">Price (low to high)</option>
+            <option value="seats_desc">Seats available</option>
+            <option value="newest">Newest posted</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="trip-grid" class="provider-grid dx-grid">
+        <div class="empty-state">Loading trips&hellip;</div>
+      </div>
+
+      <button type="button" id="load-more" class="btn btn--ghost dx-loadmore" hidden>
+        Load more trips
+      </button>
+    </section>
+
+    <!-- ---------- SAFETY STRIP ---------- -->
+    <section class="vp-section" style="padding-top: 8px;">
+      <div class="alert-card" style="padding: 20px 22px; border-left: 4px solid var(--ochre);">
+        <div class="alert-card__head" style="margin-bottom: 10px;">
+          <i class="fas fa-shield-halved" style="color: var(--ochre); margin-right: 6px;"></i>
+          Safety first
+        </div>
+        <ul class="alert-list" style="list-style: disc; padding-left: 20px;">
+          <li>Only board a trip with a matching <b>4-digit trip code</b>.</li>
+          <li>Confirm the driver's estate house number matches the profile before entering the car.</li>
+          <li>Share the trip code with a family member or a friend outside the estate.</li>
+          <li>Report any discomfort immediately using the <b>Report</b> button on the trip.</li>
+          <li>Payment is arranged directly with the driver. The estate takes no commission.</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container" style="width:100%; text-align:center;">
+      Car pooling is a resident-to-resident service. The estate does not operate, insure, or profit from any trip.
+    </div>
+  </footer>
+</div>
+
+<!-- ========== SCRIPTS ========== -->
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=15"></script>
+<script src="js/main.js?v=11"></script>
+<script src="js/ahewa-nav.js"></script>
+<script src="js/notices.js"></script>
+<script src="js/pooling.js?v=1"></script>
+</body>
+</html>
