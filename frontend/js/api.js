@@ -7,13 +7,16 @@
      - Browser on a LAN IP           → http://<same-host>:4050/api
      - Mobile app (Capacitor WebView)→ probes LAN_IP_CANDIDATES
                                        and uses the first that responds.
+     - Cloudflare Tunnel             → uses FORCE_API_BASE or localStorage override
+
+   🔧 To override the API base without editing this file (useful for changing
+      Cloudflare tunnel URLs), open your browser console and run:
+      localStorage.setItem('FORCE_API_BASE', 'https://your-new-url.trycloudflare.com/api')
+      Then refresh the page.
 
    🔧 To add more candidate IPs for the mobile app, edit
       LAN_IP_CANDIDATES below. No rebuild needed for IPs
       already in the list.
-
-   🔧 To force a specific IP (skip auto-discovery), set FORCE_LAN_IP
-      to a string like "192.168.100.5". Set to null to use discovery.
    ============================================================ */
 
 /* ------------------------------------------------------------
@@ -22,8 +25,9 @@
 const BACKEND_PORT = 4050;
 
 /* Public tunnel URL — used when the page is not served from localhost/LAN.
-   Regenerate when cloudflared restarts (each restart gives a new URL). */
-const FORCE_API_BASE = "https://likely-foundations-pvc-calculators.trycloudflare.com/api";
+   Regenerate when cloudflared restarts (each restart gives a new URL). 
+   Can also be overridden via localStorage as noted above. */
+const FORCE_API_BASE = "https://informative-mercury-sonic-gifts.trycloudflare.com/api";
 
 /* Candidate LAN IPs to try from the mobile app.
    2s timeout per probe, all probes run in parallel. The first
@@ -92,12 +96,19 @@ async function probeOne(ip) {
    window.discoverApiBase() to avoid self-recursion.
    ------------------------------------------------------------ */
 async function _probeDiscoverApiBase() {
-  // If a public tunnel URL is configured, use it for ALL hosts — this lets
-  // the deployed Netlify site (and any phone, anywhere) reach the backend.
+  // 1. Check localStorage override first (great for changing Cloudflare tunnels)
+  const localOverride = localStorage.getItem('FORCE_API_BASE');
+  if (localOverride) {
+    console.log("[api] Using localStorage FORCE_API_BASE override:", localOverride);
+    return localOverride;
+  }
+
+  // 2. If a public tunnel URL is configured in code, use it for ALL hosts
   if (typeof FORCE_API_BASE === "string" && FORCE_API_BASE) {
     return FORCE_API_BASE;
   }
-  // ---- 1. Mobile app: probe candidates in parallel ----
+
+  // 3. Mobile app: probe candidates in parallel
   if (isMobileApp()) {
     if (FORCE_LAN_IP) {
       return `http://${FORCE_LAN_IP}:${BACKEND_PORT}/api`;
@@ -116,7 +127,7 @@ async function _probeDiscoverApiBase() {
     return `http://${LAN_IP_CANDIDATES[0]}:${BACKEND_PORT}/api`;
   }
 
-  // ---- 2. Desktop browser: use the hostname we're served from ----
+  // 4. Desktop browser: use the hostname we're served from
   const host = window.location.hostname;
   if (host === "localhost" || host === "127.0.0.1") {
     return `http://localhost:${BACKEND_PORT}/api`;
@@ -125,7 +136,7 @@ async function _probeDiscoverApiBase() {
     return `http://${host}:${BACKEND_PORT}/api`;
   }
 
-  // ---- 3. Fallback ----
+  // 5. Fallback
   return `http://${LAN_IP_CANDIDATES[0]}:${BACKEND_PORT}/api`;
 }
 
@@ -209,9 +220,14 @@ function apiTokenStatus() {
 }
 
 /* ------------------------------------------------------------
-   Core request helper - attaches Bearer token if present
+   Core request helper - attaches Bearer token if present.
+   Now accepts a PATH (e.g. '/notices') instead of a full URL.
    ------------------------------------------------------------ */
-async function request(url, options = {}) {
+async function request(path, options = {}) {
+  // Ensure the base URL is resolved before we build the final URL
+  const base = await window.discoverApiBase();
+  const url = `${base}${path}`;
+
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
@@ -220,9 +236,10 @@ async function request(url, options = {}) {
   const token = typeof getToken === "function" ? getToken() : null;
   if (token) {
     headers["Authorization"] = "Bearer " + token;
-  } else {
-    apiWarn("No token available for", options.method || "GET", url);
   }
+  // Removed the noisy "No token available" warning here. 
+  // Public endpoints are fine without tokens. If a protected endpoint is hit,
+  // the 401 handler below will catch it and log properly.
 
   let res;
   try {
@@ -345,58 +362,60 @@ function unwrapList(result) {
 }
 
 /* ============================================================
-   Api - every backend endpoint exposed as a method
+   Api - every backend endpoint exposed as a method.
+   Note: Paths are now passed directly (e.g., `/auth/login`).
    ============================================================ */
 const Api = {
   /* ---------- Auth ---------- */
   login: (credentials) =>
-    request(`${apiBase()}/auth/login`, {
+    request(`/auth/login`, {
       method: "POST",
       body: JSON.stringify(credentials),
     }),
 
   registerResident: (data) =>
-    request(`${apiBase()}/auth/register-resident`, {
+    request(`/auth/register-resident`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  me: () => request(`${apiBase()}/auth/me`),
+  me: () => request(`/auth/me`),
 
   changePassword: (payload) =>
-    request(`${apiBase()}/auth/change-password`, {
+    request(`/auth/change-password`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   /* ---------- Announcements ---------- */
   getAnnouncements: (params = {}) =>
-    request(`${apiBase()}/announcements${qsOf(params)}`),
+    request(`/announcements${qsOf(params)}`),
 
   createAnnouncement: (payload) =>
-    request(`${apiBase()}/announcements`, {
+    request(`/announcements`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   deleteAnnouncement: (id) =>
-    request(`${apiBase()}/announcements/${id}`, { method: "DELETE" }),
+    request(`/announcements/${id}`, { method: "DELETE" }),
 
   updateAnnouncement: (id, patch) =>
-    request(`${apiBase()}/announcements/${id}`, {
+    request(`/announcements/${id}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
 
   /* ---------- Admin ---------- */
-  getAdminStats: () => request(`${apiBase()}/admin/stats`),
-  getAdminDashboard: () => request(`${apiBase()}/admin/dashboard`),
+  getAdminStats: () => request(`/admin/stats`),
+  getAdminDashboard: () => request(`/admin/dashboard`),
 
   downloadAdminReport: async (kind) => {
+    const base = await window.discoverApiBase();
     const token = typeof getToken === "function" ? getToken() : null;
     if (!token) throw new Error("Not logged in.");
 
-    const res = await fetch(`${apiBase()}/admin/export.${kind}`, {
+    const res = await fetch(`${base}/admin/export.${kind}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -408,68 +427,69 @@ const Api = {
   },
 
   /* ---------- Categories ---------- */
-  getCategories: () => request(`${apiBase()}/categories`),
+  getCategories: () => request(`/categories`),
 
   /* ---------- Providers ---------- */
   getProviders: (params = {}) =>
-    request(`${apiBase()}/providers${qsOf(params)}`),
+    request(`/providers${qsOf(params)}`),
   getProvider: (id) =>
-    request(`${apiBase()}/providers/${id}`),
+    request(`/providers/${id}`),
   registerProvider: (data) =>
-    request(`${apiBase()}/providers`, { method: "POST", body: JSON.stringify(data) }),
+    request(`/providers`, { method: "POST", body: JSON.stringify(data) }),
   updateProvider: (id, patch) =>
-    request(`${apiBase()}/providers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`/providers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   removeProvider: (id) =>
-    request(`${apiBase()}/providers/${id}`, { method: "DELETE" }),
+    request(`/providers/${id}`, { method: "DELETE" }),
 
   /* ---------- Reviews ---------- */
   getReviews: (providerId) =>
-    request(`${apiBase()}/reviews/provider/${providerId}`),
+    request(`/reviews/provider/${providerId}`),
   getAllReviews: (params = {}) =>
-    request(`${apiBase()}/reviews${qsOf(params)}`),
+    request(`/reviews${qsOf(params)}`),
   addReview: (review) =>
-    request(`${apiBase()}/reviews`, { method: "POST", body: JSON.stringify(review) }),
+    request(`/reviews`, { method: "POST", body: JSON.stringify(review) }),
   deleteReview: (id) =>
-    request(`${apiBase()}/reviews/${id}`, { method: "DELETE" }),
+    request(`/reviews/${id}`, { method: "DELETE" }),
   updateReview: (id, patch) =>
-    request(`${apiBase()}/reviews/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`/reviews/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   /* ---------- Bookings ---------- */
   getBookings: (params = {}) =>
-    request(`${apiBase()}/bookings${qsOf(params)}`),
+    request(`/bookings${qsOf(params)}`),
   addBooking: (booking) =>
-    request(`${apiBase()}/bookings`, { method: "POST", body: JSON.stringify(booking) }),
+    request(`/bookings`, { method: "POST", body: JSON.stringify(booking) }),
   updateBooking: (id, patch) =>
-    request(`${apiBase()}/bookings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`/bookings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   /* ---------- Reports ---------- */
   getReports: (params = {}) =>
-    request(`${apiBase()}/reports${qsOf(params)}`),
+    request(`/reports${qsOf(params)}`),
   addReport: (report) =>
-    request(`${apiBase()}/reports`, { method: "POST", body: JSON.stringify(report) }),
+    request(`/reports`, { method: "POST", body: JSON.stringify(report) }),
   updateReport: (id, patch) =>
-    request(`${apiBase()}/reports/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`/reports/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   /* ---------- Courts ---------- */
   getCourts: (params = {}) =>
-    request(`${apiBase()}/courts${qsOf(params)}`),
+    request(`/courts${qsOf(params)}`),
   addCourt: (data) =>
-    request(`${apiBase()}/courts`, { method: "POST", body: JSON.stringify(data) }),
+    request(`/courts`, { method: "POST", body: JSON.stringify(data) }),
 
   /* ---------- Residents ---------- */
   getResidents: (params = {}) =>
-    request(`${apiBase()}/residents${qsOf(params)}`),
+    request(`/residents${qsOf(params)}`),
   getResident: (id) =>
-    request(`${apiBase()}/residents/${id}`),
+    request(`/residents/${id}`),
   addResident: (data) =>
-    request(`${apiBase()}/residents`, { method: "POST", body: JSON.stringify(data) }),
+    request(`/residents`, { method: "POST", body: JSON.stringify(data) }),
   updateResident: (id, patch) =>
-    request(`${apiBase()}/residents/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request(`/residents/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   removeResident: (id) =>
-    request(`${apiBase()}/residents/${id}`, { method: "DELETE" }),
+    request(`/residents/${id}`, { method: "DELETE" }),
 
   /* ---------- Admin exports ---------- */
   downloadResidentsReport: async (kind, params = {}) => {
+    const base = await window.discoverApiBase();
     const token = typeof getToken === "function" ? getToken() : null;
     if (!token) throw new Error("Not logged in.");
 
@@ -482,7 +502,7 @@ const Api = {
     ).toString();
 
     const res = await fetch(
-      `${apiBase()}/admin/residents/export.${kind}${qs ? "?" + qs : ""}`,
+      `${base}/admin/residents/export.${kind}${qs ? "?" + qs : ""}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -494,6 +514,7 @@ const Api = {
   },
 
   downloadProvidersReport: async (kind, params = {}) => {
+    const base = await window.discoverApiBase();
     const token = typeof getToken === "function" ? getToken() : null;
     if (!token) throw new Error("Not logged in.");
 
@@ -506,7 +527,7 @@ const Api = {
     ).toString();
 
     const res = await fetch(
-      `${apiBase()}/admin/providers/export.${kind}${qs ? "?" + qs : ""}`,
+      `${base}/admin/providers/export.${kind}${qs ? "?" + qs : ""}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -521,64 +542,64 @@ const Api = {
      BILLING
      ============================================================ */
   getBillingSettings: () =>
-    request(`${apiBase()}/invoices/settings`),
+    request(`/invoices/settings`),
 
   getMyInvoices: () =>
-    request(`${apiBase()}/invoices/mine`),
+    request(`/invoices/mine`),
 
   getMyOutstanding: () =>
-    request(`${apiBase()}/residents/outstanding`),
+    request(`/residents/outstanding`),
 
   getMyPayments: () =>
-    request(`${apiBase()}/payments/mine`),
+    request(`/payments/mine`),
 
   selfReportPayment: (payload) =>
-    request(`${apiBase()}/payments/self-report`, {
+    request(`/payments/self-report`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   getInvoices: (params = {}) =>
-    request(`${apiBase()}/invoices${qsOf(params)}`),
+    request(`/invoices${qsOf(params)}`),
 
   getInvoice: (id) =>
-    request(`${apiBase()}/invoices/${id}`),
+    request(`/invoices/${id}`),
 
   generateInvoices: (month) =>
-    request(`${apiBase()}/invoices/generate`, {
+    request(`/invoices/generate`, {
       method: "POST",
       body: JSON.stringify({ month }),
     }),
 
   markInvoicesOverdue: () =>
-    request(`${apiBase()}/invoices/mark-overdue`, { method: "POST" }),
+    request(`/invoices/mark-overdue`, { method: "POST" }),
 
   setInvoiceStatus: (id, status, reason) =>
-    request(`${apiBase()}/invoices/${id}/set-status`, {
+    request(`/invoices/${id}/set-status`, {
       method: "POST",
       body: JSON.stringify({ status, reason }),
     }),
 
   bulkSetInvoiceStatus: (ids, status, reason) =>
-    request(`${apiBase()}/invoices/bulk-set-status`, {
+    request(`/invoices/bulk-set-status`, {
       method: "POST",
       body: JSON.stringify({ ids, status, reason }),
     }),
 
   getPayments: (params = {}) =>
-    request(`${apiBase()}/payments${qsOf(params)}`),
+    request(`/payments${qsOf(params)}`),
 
   recordManualPayment: (payload) =>
-    request(`${apiBase()}/payments/manual`, {
+    request(`/payments/manual`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   verifyPayment: (id) =>
-    request(`${apiBase()}/payments/${id}/verify`, { method: "POST" }),
+    request(`/payments/${id}/verify`, { method: "POST" }),
 
   rejectPayment: (id, reason) =>
-    request(`${apiBase()}/payments/${id}/reject`, {
+    request(`/payments/${id}/reject`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
@@ -587,25 +608,25 @@ const Api = {
      M-PESA STK
      ============================================================ */
   stkPush: (payload) =>
-    request(`${apiBase()}/mpesa/stkpush`, {
+    request(`/mpesa/stkpush`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   stkQuery: (checkoutRequestId) =>
-    request(`${apiBase()}/mpesa/query`, {
+    request(`/mpesa/query`, {
       method: "POST",
       body: JSON.stringify({ checkoutRequestId }),
     }),
 
   payInvoice: (payload) =>
-    request(`${apiBase()}/mpesa/pay-invoice`, {
+    request(`/mpesa/pay-invoice`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   payFor: (payload) =>
-    request(`${apiBase()}/mpesa/pay-for`, {
+    request(`/mpesa/pay-for`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
@@ -614,46 +635,46 @@ const Api = {
      HOUSE NUMBERS
      ============================================================ */
   getHouseNumberSummary: () =>
-    request(`${apiBase()}/house-numbers/summary`),
+    request(`/house-numbers/summary`),
 
   getHouseNumberResidents: (params = {}) =>
-    request(`${apiBase()}/house-numbers/residents${qsOf(params)}`),
+    request(`/house-numbers/residents${qsOf(params)}`),
 
   getHouseNumberProposal: () =>
-    request(`${apiBase()}/house-numbers/proposal`),
+    request(`/house-numbers/proposal`),
 
   setResidentHouseNumber: (id, houseNumber) =>
-    request(`${apiBase()}/house-numbers/residents/${id}`, {
+    request(`/house-numbers/residents/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ houseNumber }),
     }),
 
   bulkAssignHouseNumbers: (rows) =>
-    request(`${apiBase()}/house-numbers/bulk`, {
+    request(`/house-numbers/bulk`, {
       method: "POST",
       body: JSON.stringify({ rows }),
     }),
 
   getAssignedHouseNumbers: () =>
-    request(`${apiBase()}/house-numbers/assigned`),
+    request(`/house-numbers/assigned`),
 
   /* ============================================================
      VISITORS — resident
      ============================================================ */
   getVisitorConfig: () =>
-    request(`${apiBase()}/visitors/config`),
+    request(`/visitors/config`),
 
   createVisitorGroup: (payload) =>
-    request(`${apiBase()}/visitors`, {
+    request(`/visitors`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   getMyVisitorGroups: () =>
-    request(`${apiBase()}/visitors/mine`),
+    request(`/visitors/mine`),
 
   cancelVisitorGroup: (id, reason) =>
-    request(`${apiBase()}/visitors/${id}/cancel`, {
+    request(`/visitors/${id}/cancel`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
@@ -662,91 +683,92 @@ const Api = {
      VISITORS — admin + security
      ============================================================ */
   getVisitorPendingAdmin: (params = {}) =>
-    request(`${apiBase()}/visitors/pending-admin${qsOf(params)}`),
+    request(`/visitors/pending-admin${qsOf(params)}`),
 
   getVisitorPendingSecurity: (params = {}) =>
-    request(`${apiBase()}/visitors/pending-security${qsOf(params)}`),
+    request(`/visitors/pending-security${qsOf(params)}`),
 
   getVisitorPendingCounts: () =>
-    request(`${apiBase()}/visitors/pending-counts`),
+    request(`/visitors/pending-counts`),
 
   getVisitorGroups: (params = {}) =>
-    request(`${apiBase()}/visitors${qsOf(params)}`),
+    request(`/visitors${qsOf(params)}`),
 
   getVisitorGroup: (id) =>
-    request(`${apiBase()}/visitors/${id}`),
+    request(`/visitors/${id}`),
 
   approveVisitorAdmin: (id) =>
-    request(`${apiBase()}/visitors/${id}/approve-admin`, { method: "POST" }),
+    request(`/visitors/${id}/approve-admin`, { method: "POST" }),
 
   approveVisitorSecurity: (id) =>
-    request(`${apiBase()}/visitors/${id}/approve-security`, { method: "POST" }),
+    request(`/visitors/${id}/approve-security`, { method: "POST" }),
 
   denyVisitor: (id, reason) =>
-    request(`${apiBase()}/visitors/${id}/deny`, {
+    request(`/visitors/${id}/deny`, {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
 
   /* ---------- Bulk approval ---------- */
   bulkApproveAdmin: (groupIds) =>
-    request(`${apiBase()}/visitors/bulk-approve-admin`, {
+    request(`/visitors/bulk-approve-admin`, {
       method: "POST",
       body: JSON.stringify({ groupIds }),
     }),
 
   bulkApproveAllAdmin: (confirm, max) =>
-    request(`${apiBase()}/visitors/bulk-approve-all-admin`, {
+    request(`/visitors/bulk-approve-all-admin`, {
       method: "POST",
       body: JSON.stringify({ confirm, max }),
     }),
 
   bulkApproveSecurity: (groupIds) =>
-    request(`${apiBase()}/visitors/bulk-approve-security`, {
+    request(`/visitors/bulk-approve-security`, {
       method: "POST",
       body: JSON.stringify({ groupIds }),
     }),
 
   bulkApproveAllSecurity: (confirm, max) =>
-    request(`${apiBase()}/visitors/bulk-approve-all-security`, {
+    request(`/visitors/bulk-approve-all-security`, {
       method: "POST",
       body: JSON.stringify({ confirm, max }),
     }),
 
   bulkDenyVisitors: (groupIds, reason) =>
-    request(`${apiBase()}/visitors/bulk-deny`, {
+    request(`/visitors/bulk-deny`, {
       method: "POST",
       body: JSON.stringify({ groupIds, reason }),
     }),
 
   /* ---------- Gate ---------- */
   getVisitorRegister: (date) =>
-    request(`${apiBase()}/visitors/register${qsOf({ date })}`),
+    request(`/visitors/register${qsOf({ date })}`),
 
   checkinVisitor: (payload) =>
-    request(`${apiBase()}/visitors/checkin`, {
+    request(`/visitors/checkin`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   checkoutVisitor: (payload) =>
-    request(`${apiBase()}/visitors/checkout`, {
+    request(`/visitors/checkout`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   getVisitorAnalytics: (params = {}) =>
-    request(`${apiBase()}/visitors/analytics${qsOf(params)}`),
+    request(`/visitors/analytics${qsOf(params)}`),
 
   getVisitorLiveStats: () =>
-    request(`${apiBase()}/visitors/live-stats`),
+    request(`/visitors/live-stats`),
 
   /* ---------- Avatar ---------- */
   async uploadAvatar(formData) {
+    const base = await window.discoverApiBase();
     const token = typeof getToken === "function" ? getToken() : null;
     const headers = {};
     if (token) headers.Authorization = "Bearer " + token;
-    const res = await fetch(apiBase() + "/auth/me/avatar", {
+    const res = await fetch(`${base}/auth/me/avatar`, {
       method: "POST",
       headers,
       body: formData,
@@ -761,34 +783,34 @@ const Api = {
   /* ============================================================
      DISCOVER-PAGE ENDPOINTS
      ============================================================ */
-  getCategoryCounts: () => request(`${apiBase()}/categories/counts`),
-  getPhaseRange:     () => request(`${apiBase()}/phase-range`),
-  getNotice:         () => request(`${apiBase()}/notice`),
-  getGateStatus:     () => request(`${apiBase()}/gate/status`),
-  getLastSync:       () => request(`${apiBase()}/last-sync`),
-  getGateRules:      () => request(`${apiBase()}/gate/rules`),
+  getCategoryCounts: () => request(`/categories/counts`),
+  getPhaseRange:     () => request(`/phase-range`),
+  getNotice:         () => request(`/notice`),
+  getGateStatus:     () => request(`/gate/status`),
+  getLastSync:       () => request(`/last-sync`),
+  getGateRules:      () => request(`/gate/rules`),
 
   /* ============================================================
      NOTICE BOARD (CRUD)
      ============================================================ */
   getNotices: (params = {}) =>
-    request(`${apiBase()}/notices${qsOf(params)}`),
+    request(`/notices${qsOf(params)}`),
 
   getNoticeById: (id) =>
-    request(`${apiBase()}/notices/${id}`),
+    request(`/notices/${id}`),
 
   createNotice: (payload) =>
-    request(`${apiBase()}/notices`, {
+    request(`/notices`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   updateNotice: (id, patch) =>
-    request(`${apiBase()}/notices/${id}`, {
+    request(`/notices/${id}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
 
   deleteNotice: (id) =>
-    request(`${apiBase()}/notices/${id}`, { method: "DELETE" }),
+    request(`/notices/${id}`, { method: "DELETE" }),
 };
