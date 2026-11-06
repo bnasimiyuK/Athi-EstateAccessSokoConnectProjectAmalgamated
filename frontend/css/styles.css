@@ -5795,7 +5795,7 @@ button.stat-tile:focus-visible {
 }
 .about-vm-card p { margin: 0; color: var(--ink-70); font-size: 0.93rem; line-height: 1.6; }
 
-/* ---------- TWO-COL TEXT (AHE, MARA) ---------- */
+/* ---------- TWO-COL TEXT (AHE, ➕AHE) ---------- */
 .about-two-col-text {
   display: grid;
   grid-template-columns: 1fr 1fr;

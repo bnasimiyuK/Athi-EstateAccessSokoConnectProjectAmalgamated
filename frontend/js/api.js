@@ -126,20 +126,31 @@ async function _probeDiscoverApiBase() {
     console.warn("[api] no candidate responded; falling back to", LAN_IP_CANDIDATES[0]);
     return `http://${LAN_IP_CANDIDATES[0]}:${BACKEND_PORT}/api`;
   }
-
+  
   // 4. Desktop browser: use the hostname we're served from
+   // 4. Desktop browser: use the hostname we're served from
   const host = window.location.hostname;
+  const protocol = window.location.protocol;
+
   if (host === "localhost" || host === "127.0.0.1") {
     return `http://localhost:${BACKEND_PORT}/api`;
   }
+  
+  // If we are on an IP address (LAN testing)
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
     return `http://${host}:${BACKEND_PORT}/api`;
+  }
+
+  // If we are on a public domain (Cloudflare tunnel, etc.)
+  // Use the current domain so the browser doesn't block it as Mixed Content.
+  // Your backend serves the frontend AND the API on the same port (4050).
+  if (protocol === "https:") {
+    return `/api`;
   }
 
   // 5. Fallback
   return `http://${LAN_IP_CANDIDATES[0]}:${BACKEND_PORT}/api`;
 }
-
 /* ------------------------------------------------------------
    Public API base state. `apiBase()` reads the resolved value;
    `window.discoverApiBase()` resolves it once and caches.

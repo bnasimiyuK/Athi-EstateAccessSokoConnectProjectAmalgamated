@@ -14,10 +14,6 @@ const { getPool } = require("../db");
 
 /* ------------------------------------------------------------
    GET /api/categories/counts
-   Returns each category with a live count of verified providers.
-   ------------------------------------------------------------ */
-/* ------------------------------------------------------------
-   GET /api/categories/counts
    Robust: detects the real column names in Categories / Providers.
    ------------------------------------------------------------ */
 router.get("/categories/counts", async (_req, res, next) => {
@@ -114,6 +110,7 @@ router.get("/categories/counts", async (_req, res, next) => {
     next(err);
   }
 });
+
 /* ------------------------------------------------------------
    GET /api/phase-range
    Smallest and largest phase present in the Courts table.
@@ -136,8 +133,7 @@ router.get("/phase-range", async (_req, res, next) => {
 
 /* ------------------------------------------------------------
    GET /api/notice
-   Most recent active notice. If there is no Notices table,
-   falls back to a hardcoded welcome message.
+   Most recent active notice.
    ------------------------------------------------------------ */
 router.get("/notice", async (_req, res, next) => {
   try {
@@ -154,7 +150,6 @@ router.get("/notice", async (_req, res, next) => {
     }
     return res.json(null);
   } catch (err) {
-    // Notices table may not exist yet — don't crash, return null.
     console.warn("[discover] /notice fallback:", err.message);
     res.json(null);
   }
@@ -163,8 +158,6 @@ router.get("/notice", async (_req, res, next) => {
 /* ------------------------------------------------------------
    GET /api/gate/status
    Live gate status derived from EAT time.
-     Gate 1 — open 24/7
-     Gate 2 — open 06:00 – 22:00 EAT daily
    ------------------------------------------------------------ */
 router.get("/gate/status", (_req, res) => {
   const nowEAT = new Date(
@@ -174,13 +167,10 @@ router.get("/gate/status", (_req, res) => {
   const m   = nowEAT.getMinutes();
   const live = h >= 6 && h < 22;
 
-  // Minutes until next change
   let nextChangeMinutes;
   if (live) {
-    // closes at 22:00
     nextChangeMinutes = (22 - h) * 60 - m;
   } else {
-    // reopens at 06:00 tomorrow (or today if before 6am)
     nextChangeMinutes = h < 6
       ? (6 - h) * 60 - m
       : (24 - h + 6) * 60 - m;
@@ -204,11 +194,11 @@ router.get("/last-sync", async (_req, res, next) => {
     const pool = await getPool();
     const r = await pool.request().query(`
       SELECT MAX(latest) AS latest FROM (
-        SELECT MAX(updated_at) AS latest FROM Providers
+        SELECT MAX(created_at) AS latest FROM Providers
         UNION ALL
-        SELECT MAX(updated_at) AS latest FROM Residents
+        SELECT MAX(created_at) AS latest FROM Residents
         UNION ALL
-        SELECT MAX(updated_at) AS latest FROM Payments
+        SELECT MAX(created_at) AS latest FROM Payments
       ) t
     `);
     const row = r.recordset[0];
@@ -216,7 +206,6 @@ router.get("/last-sync", async (_req, res, next) => {
                                   : new Date().toISOString();
     res.json(iso);
   } catch (err) {
-    // Tables may lack an updated_at column — fall back to "now"
     console.warn("[discover] /last-sync fallback:", err.message);
     res.json(new Date().toISOString());
   }
